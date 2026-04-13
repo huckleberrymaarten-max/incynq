@@ -8,7 +8,7 @@ import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 
 export default function ProfileScreen() {
-  const { currentUser, setCurrentUser, setLinkedProfiles, linkedProfiles, discoverable, setDiscoverable, gridStatus, toast } = useApp();
+  const { currentUser, setCurrentUser, setLinkedProfiles, linkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn } = useApp();
   const [showSettings, setShowSettings] = useState(false);
   const [showTC, setShowTC] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -196,7 +196,7 @@ export default function ProfileScreen() {
 
             {/* Danger */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
-            <button onClick={() => { setShowSettings(false); }} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
+            <button onClick={() => { setShowSettings(false); setLoggedIn(false); }} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
               🚪 Sign Out
         </button>
         <button onClick={() => setShowTC(true)} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
