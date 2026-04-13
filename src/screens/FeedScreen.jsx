@@ -3,6 +3,8 @@ import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
+import HelpScreen from './HelpScreen';
+import logo from '../assets/Q_Logo_.png';
 
 function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport }) {
   const [reported, setReported] = useState(false);
@@ -44,7 +46,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
         </div>
       )}
 
-      {/* Welcome post card */}
+      {/* Welcome post */}
       {post.isWelcome && (
         <div style={{ margin: '0 14px 8px', padding: '18px 16px', background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, border: `1px solid ${C.sky}33`, borderRadius: 14, textAlign: 'center' }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
@@ -68,7 +70,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           <span style={{ fontSize: 13, color: C.muted, fontWeight: 700 }}>{post.comments?.length || 0}</span>
         </button>
         <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto' }}>
-          <span style={{ fontSize: 20 }}>{saved ? '🔖' : '🔖'}</span>
+          <span style={{ fontSize: 20 }}>🔖</span>
         </button>
       </div>
 
@@ -85,7 +87,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
           <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: 20 }} className="fadeUp">
             <div style={{ fontWeight: 800, fontSize: 16, color: C.text, marginBottom: 6 }}>Report this post</div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>Completely anonymous.</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Completely anonymous.</div>
             {reasons.map(reason => (
               <button key={reason} onClick={() => { setShowReport(false); setReported(true); if (onReport) onReport({ postId: post.id, reason }); }}
                 style={{ width: '100%', padding: '11px 13px', borderRadius: 11, background: C.card2, border: `1px solid ${C.border}`, color: C.sub, fontSize: 12, fontWeight: 600, textAlign: 'left', marginBottom: 6, display: 'block' }}>
@@ -101,6 +103,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
 }
 
 export default function FeedScreen() {
+  const [showHelp, setShowHelp] = useState(false);
   const { posts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
@@ -123,13 +126,25 @@ export default function FeedScreen() {
 
   return (
     <div>
+      {/* Help overlay */}
+      {showHelp && <HelpScreen onClose={() => setShowHelp(false)} />}
+
       {/* Header */}
-      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span className="sg" style={{ fontWeight: 900, fontSize: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</span>
-        <div style={{ display: 'flex', gap: 14 }}>
+      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Logo + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src={logo} alt="InCynq" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+          <span className="sg" style={{ fontWeight: 900, fontSize: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</span>
+        </div>
+        {/* Right icons */}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <button style={{ fontSize: 20 }}>🔍</button>
           <button style={{ fontSize: 20 }}>🔔</button>
           <button style={{ fontSize: 20 }}>💬</button>
+          <button
+            onClick={() => setShowHelp(true)}
+            style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >?</button>
         </div>
       </div>
 
