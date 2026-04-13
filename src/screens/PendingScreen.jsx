@@ -2,12 +2,40 @@ import { useState } from 'react';
 import C from '../theme';
 import { visibleName } from '../data';
 
+// Fetch SL profile picture using avatar username
+const fetchSLAvatar = async (username) => {
+  try {
+    const res = await fetch(
+      `https://corsproxy.io/?https://my-secondlife.com/agents/${encodeURIComponent(username)}/about`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const html = await res.text();
+    const match = html.match(/profile_image[^>]+src="([^"]+)"/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
   const [simulating, setSimulating] = useState(false);
+  const [status, setStatus] = useState('');
 
-  const handleSimulate = () => {
+  const handleSimulate = async () => {
     setSimulating(true);
-    setTimeout(() => { setSimulating(false); onActivate(); }, 2000);
+    setStatus('Connecting to Second Life…');
+
+    // Try to fetch SL profile picture automatically
+    const slAvatar = await fetchSLAvatar(currentUser.username);
+
+    setStatus('Activating account…');
+    await new Promise(r => setTimeout(r, 800));
+
+    // Activate with SL picture if found, fallback to dicebear
+    onActivate(slAvatar ? { avatar: slAvatar } : {});
+    setSimulating(false);
+    setStatus('');
   };
 
   return (
@@ -43,7 +71,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
 
         {/* Account info */}
         <div style={{ background: C.card2, borderRadius: 14, padding: '12px 16px', marginBottom: 20, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src={currentUser.avatar} alt="" style={{ width: 42, height: 42, borderRadius: '18%', border: `2px solid ${C.sky}`, flexShrink: 0 }} />
+          <img src={currentUser.avatar} alt="" style={{ width: 42, height: 42, borderRadius: '18%', border: `2px solid ${C.sky}`, flexShrink: 0, objectFit: 'cover' }} />
           <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visibleName(currentUser)}</div>
             <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>@{currentUser.username}</div>
@@ -53,12 +81,12 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
 
         {/* Demo note */}
         <div style={{ padding: '10px 14px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 12, marginBottom: 14, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-          🛠️ <strong style={{ color: C.sky }}>Prototype:</strong> Tap below to simulate inworld terminal activation.
+          🛠️ <strong style={{ color: C.sky }}>Prototype:</strong> Tap below to simulate inworld terminal activation. Your SL profile picture will load automatically.
         </div>
 
         <button onClick={handleSimulate} disabled={simulating}
           style={{ width: '100%', padding: '14px', borderRadius: 16, background: simulating ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: simulating ? C.muted : '#060d14', fontWeight: 900, fontSize: 15, marginBottom: 10, transition: 'all .2s', boxShadow: simulating ? 'none' : `0 0 24px ${C.sky}44` }}>
-          {simulating ? '⏳ Connecting to Second Life…' : "✓ I've tapped the terminal →"}
+          {simulating ? `⏳ ${status}` : "✓ I've tapped the terminal →"}
         </button>
 
         <button onClick={onSignOut} style={{ width: '100%', padding: '11px', borderRadius: 14, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 600, fontSize: 13 }}>

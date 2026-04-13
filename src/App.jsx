@@ -32,7 +32,7 @@ function AppRoutes() {
     return (
       <PendingScreen
         currentUser={currentUser}
-        onActivate={() => setCurrentUser(u => ({ ...u, activated: true }))}
+        onActivate={(updates = {}) => setCurrentUser(u => ({ ...u, activated: true, ...updates }))}
         onSignOut={() => setLoggedIn(false)}
       />
     );
