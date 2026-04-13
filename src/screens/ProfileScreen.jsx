@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { INTEREST_GROUPS, visibleName, gridStatusLabel } from '../data';
@@ -6,6 +6,23 @@ import Av from '../components/Av';
 import Toggle from '../components/Toggle';
 import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
+import { supabase } from '../lib/supabase';
+
+// Fetch SL profile picture from Second Life's public API
+const fetchSLAvatar = async (username) => {
+  try {
+    // SL name lookup API
+    const res = await fetch(`https://corsproxy.io/?https://avatarname.com/api/v1/name/${encodeURIComponent(username)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const uuid = data?.id;
+    if (!uuid) return null;
+    // Return SL avatar thumbnail URL
+    return `https://my-secondlife.com/assets/avatar/${uuid}/thumb`;
+  } catch {
+    return null;
+  }
+};
 
 export default function ProfileScreen() {
   const { currentUser, setCurrentUser, setLinkedProfiles, linkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn } = useApp();
@@ -15,6 +32,8 @@ export default function ProfileScreen() {
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
   const [showCharPicker, setShowCharPicker] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const updateUser = updates => {
     setCurrentUser(u => ({ ...u, ...updates }));
@@ -25,6 +44,56 @@ export default function ProfileScreen() {
     updateUser({ displayName: editDisplayName, bio: editBio });
     setShowEdit(false);
     toast('Profile updated ✓');
+  };
+
+  // Upload new avatar to Supabase Storage
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => updateUser({ avatar: ev.target.result });
+    reader.readAsDataURL(file);
+
+    // Upload to Supabase Storage
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${currentUser.id}/avatar.${ext}`;
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true });
+
+      if (!error) {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+        updateUser({ avatar: data.publicUrl });
+        toast('Profile photo updated ✓');
+      }
+    } catch (err) {
+      toast('Upload failed — using preview only', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Pull SL avatar picture
+  const handleFetchSLAvatar = async () => {
+    setUploading(true);
+    toast('Fetching from Second Life…');
+    try {
+      const url = await fetchSLAvatar(currentUser.username);
+      if (url) {
+        updateUser({ avatar: url });
+        toast('SL profile picture loaded ✓');
+      } else {
+        toast('Could not find SL avatar — upload manually', 'error');
+      }
+    } catch {
+      toast('Could not reach Second Life', 'error');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -38,8 +107,19 @@ export default function ProfileScreen() {
       <div style={{ padding: '20px 16px 80px' }}>
         {/* Avatar + name */}
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ position: 'relative' }}>
+          {/* Avatar with edit overlay */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
             <Av src={currentUser.avatar} size={72} ring={C.sky} status={currentUser.gridStatus} />
+            <button
+              onClick={() => setShowEdit(true)}
+              style={{
+                position: 'absolute', bottom: -4, right: -4,
+                width: 24, height: 24, borderRadius: '50%',
+                background: C.sky, border: `2px solid ${C.bg}`,
+                color: '#040f14', fontSize: 12, fontWeight: 900,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >✏️</button>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{visibleName(currentUser)}</div>
@@ -72,8 +152,8 @@ export default function ProfileScreen() {
             Edit Profile
           </button>
           <button
-            style={{ flex: 1, padding: '10px', borderRadius: 12, background: discoverable ? `${C.sky}18` : C.card2, border: `1.5px solid ${discoverable ? C.sky : C.border}`, color: discoverable ? C.sky : C.sub, fontWeight: 700, fontSize: 13 }}
-            onClick={() => { setDiscoverable(!discoverable); toast(discoverable ? 'Hidden from Discovery' : 'Visible in Discovery 🎉'); }}>
+            onClick={() => { setDiscoverable(!discoverable); toast(discoverable ? 'Hidden from Discovery' : 'Visible in Discovery 🎉'); }}
+            style={{ flex: 1, padding: '10px', borderRadius: 12, background: discoverable ? `${C.sky}18` : C.card2, border: `1.5px solid ${discoverable ? C.sky : C.border}`, color: discoverable ? C.sky : C.sub, fontWeight: 700, fontSize: 13 }}>
             {discoverable ? '👁️ Discoverable' : '👁️ Hidden'}
           </button>
         </div>
@@ -87,7 +167,9 @@ export default function ProfileScreen() {
               return (
                 <button key={g.id}
                   onClick={() => {
-                    const groups = on ? (currentUser.groups || []).filter(x => x !== g.id) : [...(currentUser.groups || []), g.id];
+                    const groups = on
+                      ? (currentUser.groups || []).filter(x => x !== g.id)
+                      : [...(currentUser.groups || []), g.id];
                     updateUser({ groups });
                   }}
                   style={{ padding: '6px 14px', borderRadius: 20, fontWeight: 700, fontSize: 12, border: `1.5px solid ${on ? g.color : C.border}`, background: on ? `${g.color}22` : 'transparent', color: on ? g.color : C.sub, transition: 'all .15s' }}>
@@ -99,15 +181,54 @@ export default function ProfileScreen() {
         </div>
       </div>
 
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleAvatarUpload}
+      />
+
       {/* Edit profile modal */}
       {showEdit && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: 20, maxHeight: '80vh', overflowY: 'auto' }} className="fadeUp">
+          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: 20, maxHeight: '88vh', overflowY: 'auto' }} className="fadeUp">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
               <span className="sg" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>Edit Profile</span>
               <button onClick={() => setShowEdit(false)} style={{ color: C.muted }}>✕</button>
             </div>
 
+            {/* Avatar section */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={currentUser.avatar} alt="" style={{ width: 80, height: 80, borderRadius: '18%', border: `3px solid ${C.sky}`, objectFit: 'cover' }} />
+                {uploading && (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: '18%', background: '#00000088', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 20 }}>⏳</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{ padding: '8px 16px', borderRadius: 20, background: `${C.sky}22`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
+                  📷 Upload photo
+                </button>
+                <button
+                  onClick={handleFetchSLAvatar}
+                  disabled={uploading}
+                  style={{ padding: '8px 16px', borderRadius: 20, background: `${C.gold}18`, border: `1px solid ${C.gold}44`, color: C.gold, fontWeight: 700, fontSize: 12 }}>
+                  🌐 Use SL picture
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                Your SL profile picture · or upload your own
+              </div>
+            </div>
+
+            {/* Display name */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>DISPLAY NAME</label>
               <div style={{ position: 'relative' }}>
@@ -123,6 +244,7 @@ export default function ProfileScreen() {
               )}
             </div>
 
+            {/* Bio */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>BIO</label>
               <div style={{ position: 'relative' }}>
@@ -157,7 +279,6 @@ export default function ProfileScreen() {
 
             {/* Privacy */}
             <div style={{ padding: '12px 20px 4px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PRIVACY</div>
-            {/* Show display name */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🏷️</div>
               <div style={{ flex: 1 }}>
@@ -170,8 +291,6 @@ export default function ProfileScreen() {
               </div>
               <Toggle on={currentUser.showDisplayName !== false} onChange={() => updateUser({ showDisplayName: currentUser.showDisplayName === false })} />
             </div>
-
-            {/* Discoverable */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🔍</div>
               <div style={{ flex: 1 }}>
@@ -194,15 +313,18 @@ export default function ProfileScreen() {
               </div>
             </div>
 
-            {/* Danger */}
+            {/* Account actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={() => { setShowSettings(false); setLoggedIn(false); }} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
               🚪 Sign Out
-        </button>
-        <button onClick={() => setShowTC(true)} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>→</span>
-        </button>
-        {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+            </button>
+
+            {/* Legal */}
+            <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>LEGAL</div>
+            <button onClick={() => setShowTC(true)} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📄 Terms & Conditions</span>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
 
             <div style={{ padding: '20px 20px 10px', fontSize: 11, color: C.muted, textAlign: 'center', lineHeight: 1.6 }}>
               InCynq · incynq.app<br />
@@ -211,6 +333,8 @@ export default function ProfileScreen() {
           </div>
         </div>
       )}
+
+      {showTC && <TCScreen onClose={() => setShowTC(false)} />}
     </div>
   );
 }
