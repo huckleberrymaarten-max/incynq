@@ -133,10 +133,7 @@ export default function ProfileScreen() {
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <Av src={currentUser.avatar} size={72} ring={C.sky} status={currentUser.gridStatus} />
-            <button onClick={() => setShowEdit(true)}
-              style={{ position: 'absolute', bottom: -4, right: -4, width: 24, height: 24, borderRadius: '50%', background: C.sky, border: `2px solid ${C.bg}`, color: '#040f14', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              ✏️
-            </button>
+
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{visibleName(currentUser)}</div>
@@ -175,10 +172,11 @@ export default function ProfileScreen() {
         </div>
 
         {/* ── Discover section ── */}
-        {discoverPreview.length > 0 && (
+        {discoverable && discoverPreview.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div className="sg" style={{ color: C.muted, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>DISCOVER</div>
+              <button onClick={() => setShowFullDiscover(true)} style={{ fontSize: 12, color: C.sky, fontWeight: 700 }}>See all →</button>
             </div>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', marginLeft: -16, paddingLeft: 16, marginRight: -16, paddingRight: 16, paddingBottom: 6 }}>
               {discoverPreview.map(u => {
