@@ -1,15 +1,16 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
+import { ContentProvider } from './context/ContentContext';
 
 // Screens
-import OnboardingScreen  from './screens/OnboardingScreen';
-import AuthScreen        from './screens/AuthScreen';
-import PendingScreen     from './screens/PendingScreen';
-import MainApp           from './screens/MainApp';
-import Toast             from './components/Toast';
+import OnboardingScreen from './screens/OnboardingScreen';
+import AuthScreen       from './screens/AuthScreen';
+import PendingScreen    from './screens/PendingScreen';
+import MainApp          from './screens/MainApp';
+import Toast            from './components/Toast';
 
 function AppRoutes() {
-  const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, linkedProfiles, notif } = useApp();
+  const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif } = useApp();
 
   if (!loggedIn && showOnboarding) {
     return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
@@ -49,7 +50,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <AppRoutes />
+        <ContentProvider>
+          <AppRoutes />
+        </ContentProvider>
       </AppProvider>
     </BrowserRouter>
   );
