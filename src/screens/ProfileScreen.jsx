@@ -5,10 +5,12 @@ import { INTEREST_GROUPS, visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import Toggle from '../components/Toggle';
 import SLCharPicker from '../components/SLCharPicker';
+import TCScreen from './TCScreen';
 
 export default function ProfileScreen() {
   const { currentUser, setCurrentUser, setLinkedProfiles, linkedProfiles, discoverable, setDiscoverable, gridStatus, toast } = useApp();
   const [showSettings, setShowSettings] = useState(false);
+  const [showTC, setShowTC] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
@@ -196,7 +198,11 @@ export default function ProfileScreen() {
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={() => { setShowSettings(false); }} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
               🚪 Sign Out
-            </button>
+        </button>
+        <button onClick={() => setShowTC(true)} style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>→</span>
+        </button>
+        {showTC && <TCScreen onClose={() => setShowTC(false)} />}
 
             <div style={{ padding: '20px 20px 10px', fontSize: 11, color: C.muted, textAlign: 'center', lineHeight: 1.6 }}>
               InCynq · incynq.app<br />
