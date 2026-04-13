@@ -2,6 +2,7 @@ import { useState } from 'react';
 import C from '../theme';
 import { ME } from '../data';
 import TCScreen from './TCScreen';
+import logo from '../assets/Q_Logo_.png';
 
 export default function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
@@ -55,132 +56,148 @@ export default function AuthScreen({ onLogin }) {
 
   return (
     <>
-      {/* T&C overlay */}
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
 
-      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        {/* Logo */}
-        <div style={{ marginBottom: 28, textAlign: 'center' }}>
-          <div style={{ width: 62, height: 62, borderRadius: 18, background: `linear-gradient(135deg,${C.sky},${C.peach})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 30px ${C.sky}55`, margin: '0 auto 12px', fontSize: 28 }}>⚡</div>
-          <div className="sg" style={{ fontWeight: 900, fontSize: 24, background: `linear-gradient(135deg,${C.sky},${C.lavender})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</div>
-          <div style={{ color: C.muted, fontSize: 11, marginTop: 2, letterSpacing: 1 }}>Connect with what matters.</div>
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
+
+        {/* Logo — same position as onboarding */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 96, paddingBottom: 16 }}>
+          <img
+            src={logo}
+            alt="InCynq"
+            className="float"
+            style={{ width: 100, height: 100, objectFit: 'contain', filter: `drop-shadow(0 0 24px ${C.sky}88)` }}
+          />
+          <span className="sg" style={{
+            fontWeight: 900, fontSize: 22,
+            background: `linear-gradient(135deg,${C.sky},${C.peach})`,
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          }}>
+            InCynq
+          </span>
         </div>
 
-        <div style={{ background: C.card, borderRadius: 24, padding: 22, width: '100%', maxWidth: 400, border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.sky}11` }} className="fadeUp">
-          {/* Tabs */}
-          <div style={{ display: 'flex', background: C.card2, borderRadius: 12, padding: 4, marginBottom: 20 }}>
-            {['login', 'register'].map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(''); setAgreedTC(false); }}
-                style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: mode === m ? C.card : 'transparent', color: mode === m ? C.text : C.muted, boxShadow: mode === m ? '0 2px 8px #00000033' : 'none', transition: 'all .2s' }}>
-                {m === 'login' ? 'Sign In' : 'Join InCynq'}
-              </button>
-            ))}
-          </div>
+        {/* Spacer — pushes form to bottom */}
+        <div style={{ flex: 1 }} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* SL Avatar name */}
-            <div>
-              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
-              <input value={slName} onChange={e => setSlName(e.target.value)}
-                placeholder="e.g. maarten.huckleberry" className="inp"
-                onFocus={e => e.target.style.borderColor = C.sky}
-                onBlur={e => e.target.style.borderColor = C.border} />
+        {/* Form — pinned to bottom */}
+        <div style={{ padding: '0 16px 40px' }}>
+          <div style={{ background: C.card, borderRadius: 24, padding: 22, border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.sky}11` }}>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', background: C.card2, borderRadius: 12, padding: 4, marginBottom: 20 }}>
+              {['login', 'register'].map(m => (
+                <button key={m} onClick={() => { setMode(m); setError(''); setAgreedTC(false); }}
+                  style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13,
+                    background: mode === m ? C.card : 'transparent',
+                    color: mode === m ? C.text : C.muted,
+                    boxShadow: mode === m ? '0 2px 8px #00000033' : 'none',
+                    transition: 'all .2s' }}>
+                  {m === 'login' ? 'Sign In' : 'Join InCynq'}
+                </button>
+              ))}
             </div>
 
-            {/* Email — register only */}
-            {mode === 'register' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* SL name */}
               <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>EMAIL</label>
-                <input value={email} onChange={e => setEmail(e.target.value)} type="email"
-                  placeholder="your@email.com" className="inp"
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
+                <input value={slName} onChange={e => setSlName(e.target.value)}
+                  placeholder="e.g. maarten.huckleberry" className="inp"
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
               </div>
-            )}
 
-            {/* Password */}
-            <div>
-              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>INCYNQ PASSWORD</label>
-              <input value={password} onChange={e => setPassword(e.target.value)} type="password"
-                placeholder="Not your SL password" className="inp"
-                onFocus={e => e.target.style.borderColor = C.sky}
-                onBlur={e => e.target.style.borderColor = C.border} />
-              <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>InCynq never asks for your SL password.</div>
-            </div>
+              {/* Email — register only */}
+              {mode === 'register' && (
+                <div>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>EMAIL</label>
+                  <input value={email} onChange={e => setEmail(e.target.value)} type="email"
+                    placeholder="your@email.com" className="inp"
+                    onFocus={e => e.target.style.borderColor = C.sky}
+                    onBlur={e => e.target.style.borderColor = C.border} />
+                </div>
+              )}
 
-            {/* Confirm password — register only */}
-            {mode === 'register' && (
+              {/* Password */}
               <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>CONFIRM PASSWORD</label>
-                <input value={confirm} onChange={e => setConfirm(e.target.value)} type="password"
-                  placeholder="Repeat password" className="inp"
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>INCYNQ PASSWORD</label>
+                <input value={password} onChange={e => setPassword(e.target.value)} type="password"
+                  placeholder="Not your SL password" className="inp"
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>InCynq never asks for your SL password.</div>
               </div>
-            )}
 
-            {/* T&C checkbox — register only */}
-            {mode === 'register' && (
-              <div
-                onClick={() => setAgreedTC(!agreedTC)}
-                style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px', background: agreedTC ? `${C.sky}0a` : C.card2, border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`, borderRadius: 12, transition: 'all .2s' }}
-              >
-                {/* Checkbox */}
-                <div style={{
-                  width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                  border: `2px solid ${agreedTC ? C.sky : C.border}`,
-                  background: agreedTC ? C.sky : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all .2s',
-                }}>
-                  {agreedTC && <span style={{ color: '#040f14', fontSize: 13, fontWeight: 900 }}>✓</span>}
+              {/* Confirm password — register only */}
+              {mode === 'register' && (
+                <div>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>CONFIRM PASSWORD</label>
+                  <input value={confirm} onChange={e => setConfirm(e.target.value)} type="password"
+                    placeholder="Repeat password" className="inp"
+                    onFocus={e => e.target.style.borderColor = C.sky}
+                    onBlur={e => e.target.style.borderColor = C.border} />
                 </div>
-                <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
-                  I have read and agree to the{' '}
-                  <button
-                    onClick={e => { e.stopPropagation(); setShowTC(true); }}
-                    style={{ color: C.sky, fontWeight: 700, textDecoration: 'underline', fontSize: 13 }}
-                  >
-                    Terms & Conditions
-                  </button>
+              )}
+
+              {/* T&C checkbox — register only */}
+              {mode === 'register' && (
+                <div onClick={() => setAgreedTC(!agreedTC)}
+                  style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px',
+                    background: agreedTC ? `${C.sky}0a` : C.card2,
+                    border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`,
+                    borderRadius: 12, transition: 'all .2s' }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                    border: `2px solid ${agreedTC ? C.sky : C.border}`,
+                    background: agreedTC ? C.sky : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
+                    {agreedTC && <span style={{ color: '#040f14', fontSize: 13, fontWeight: 900 }}>✓</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
+                    I have read and agree to the{' '}
+                    <button onClick={e => { e.stopPropagation(); setShowTC(true); }}
+                      style={{ color: C.sky, fontWeight: 700, textDecoration: 'underline', fontSize: 13 }}>
+                      Terms & Conditions
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Error */}
-            {error && (
-              <div style={{ padding: '9px 12px', background: '#ff440011', border: '1px solid #ff440044', borderRadius: 10, color: '#ff6644', fontSize: 12, fontWeight: 600 }}>
-                {error}
-              </div>
-            )}
+              {/* Error */}
+              {error && (
+                <div style={{ padding: '9px 12px', background: '#ff440011', border: '1px solid #ff440044', borderRadius: 10, color: '#ff6644', fontSize: 12, fontWeight: 600 }}>
+                  {error}
+                </div>
+              )}
 
-            {/* Submit */}
-            <button
-              onClick={mode === 'login' ? handleLogin : handleRegister}
-              disabled={loading}
-              style={{ width: '100%', padding: '13px', borderRadius: 14, background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, marginTop: 4, transition: 'all .2s' }}
-            >
-              {loading
-                ? mode === 'register' ? '⏳ Fetching your SL profile…' : '⏳ Signing in…'
-                : mode === 'login' ? 'Sign In →' : 'Create Account →'}
-            </button>
-          </div>
-
-          {/* Demo hint */}
-          {mode === 'login' && (
-            <div style={{ marginTop: 14, padding: '10px 12px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 10, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
-              Demo: use <strong style={{ color: C.sky }}>maarten.huckleberry</strong> with any password.
-            </div>
-          )}
-
-          {/* T&C link for login view */}
-          {mode === 'login' && (
-            <div style={{ marginTop: 12, textAlign: 'center' }}>
-              <button onClick={() => setShowTC(true)} style={{ fontSize: 11, color: C.muted, textDecoration: 'underline' }}>
-                Terms & Conditions
+              {/* Submit */}
+              <button onClick={mode === 'login' ? handleLogin : handleRegister} disabled={loading}
+                style={{ width: '100%', padding: '13px', borderRadius: 14,
+                  background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                  color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 14,
+                  marginTop: 4, transition: 'all .2s' }}>
+                {loading
+                  ? mode === 'register' ? '⏳ Fetching your SL profile…' : '⏳ Signing in…'
+                  : mode === 'login' ? 'Sign In →' : 'Create Account →'}
               </button>
             </div>
-          )}
+
+            {/* Demo hint */}
+            {mode === 'login' && (
+              <div style={{ marginTop: 14, padding: '10px 12px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 10, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                Demo: use <strong style={{ color: C.sky }}>maarten.huckleberry</strong> with any password.
+              </div>
+            )}
+
+            {/* T&C link on login */}
+            {mode === 'login' && (
+              <div style={{ marginTop: 12, textAlign: 'center' }}>
+                <button onClick={() => setShowTC(true)} style={{ fontSize: 11, color: C.muted, textDecoration: 'underline' }}>
+                  Terms & Conditions
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
