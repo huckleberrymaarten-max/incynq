@@ -177,9 +177,8 @@ export default function ProfileScreen() {
         {/* ── Discover section ── */}
         {discoverPreview.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ marginBottom: 12 }}>
               <div className="sg" style={{ color: C.muted, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>DISCOVER</div>
-              <button onClick={() => setShowFullDiscover(true)} style={{ fontSize: 12, color: C.sky, fontWeight: 700 }}>See all →</button>
             </div>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', marginLeft: -16, paddingLeft: 16, marginRight: -16, paddingRight: 16, paddingBottom: 6 }}>
               {discoverPreview.map(u => {
@@ -196,7 +195,7 @@ export default function ProfileScreen() {
                     </div>
                     {mutuals > 0 && <div style={{ fontSize: 10, color: C.muted, marginBottom: 2, fontWeight: 600 }}>👥 {mutuals} mutual{mutuals !== 1 ? 's' : ''}</div>}
                     <div style={{ fontSize: 10, color: C.muted, marginBottom: 7 }}>
-                      {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} fol`}
+                      {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} followers`}
                     </div>
                     <button onClick={() => toggleFollow(u.id)}
                       style={{ width: '100%', fontSize: 10, fontWeight: 800, padding: '5px 0', borderRadius: 20,
@@ -288,7 +287,7 @@ export default function ProfileScreen() {
                           </div>
                           {mutuals > 0 && <div style={{ fontSize: 10, color: C.muted, marginBottom: 2, fontWeight: 600 }}>👥 {mutuals} mutual{mutuals !== 1 ? 's' : ''}</div>}
                           <div style={{ fontSize: 10, color: C.muted, marginBottom: 7 }}>
-                            {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} fol`}
+                            {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} followers`}
                           </div>
                           <button onClick={() => toggleFollow(u.id)}
                             style={{ width: '100%', fontSize: 10, fontWeight: 800, padding: '5px 0', borderRadius: 20,
