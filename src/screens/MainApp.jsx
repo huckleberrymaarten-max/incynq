@@ -2,16 +2,15 @@ import { useState } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 
-// Tab screens
 import FeedScreen      from './FeedScreen';
-import DiscoverScreen  from './DiscoverScreen';
+import SearchScreen    from './SearchScreen';
 import EventsScreen    from './EventsScreen';
 import AdvertiseScreen from './AdvertiseScreen';
 import ProfileScreen   from './ProfileScreen';
 
 const NAV = [
   { id: 'feed',      icon: '🏠', label: 'Home'      },
-  { id: 'discover',  icon: '🔍', label: 'Discover'  },
+  { id: 'search',    icon: '🔍', label: 'Search'    },
   { id: 'events',    icon: '🎉', label: 'Events'    },
   { id: 'advertise', icon: '📢', label: 'Advertise' },
   { id: 'profile',   icon: '👤', label: 'Profile'   },
@@ -25,14 +24,13 @@ export default function MainApp() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 72 }}>
 
-      {/* Screen content */}
       {tab === 'feed'      && <FeedScreen />}
-      {tab === 'discover'  && <DiscoverScreen />}
+      {tab === 'search'    && <SearchScreen />}
       {tab === 'events'    && <EventsScreen />}
       {tab === 'advertise' && <AdvertiseScreen />}
       {tab === 'profile'   && <ProfileScreen />}
 
-      {/* Bottom navigation */}
+      {/* Bottom nav */}
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
         width: '100%', maxWidth: 480, background: C.card,
@@ -44,12 +42,8 @@ export default function MainApp() {
           return (
             <button key={n.id} onClick={() => setTab(n.id)}
               style={{ flex: 1, padding: '12px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-              <span style={{ fontSize: 20, filter: active ? 'none' : 'grayscale(1) opacity(.5)', transition: 'filter .2s' }}>
-                {n.icon}
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: active ? C.sky : C.muted, transition: 'color .2s' }}>
-                {n.label}
-              </span>
+              <span style={{ fontSize: 20, filter: active ? 'none' : 'grayscale(1) opacity(.5)', transition: 'filter .2s' }}>{n.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: active ? C.sky : C.muted, transition: 'color .2s' }}>{n.label}</span>
               {n.id === 'feed' && unread > 0 && (
                 <div style={{ position: 'absolute', top: 8, right: '28%', width: 8, height: 8, borderRadius: '50%', background: '#ff3366' }} />
               )}
