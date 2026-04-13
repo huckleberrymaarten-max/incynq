@@ -2,23 +2,6 @@ import { useState } from 'react';
 import C from '../theme';
 import logo from '../assets/Q_Logo_.png';
 
-// Logo shown in top-left on every slide — same position always
-function SlideLogo() {
-  return (
-    <div style={{
-      position: 'absolute', top: 20, left: 24,
-      display: 'flex', alignItems: 'center', gap: 8,
-    }}>
-      <img src={logo} alt="InCynq" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-      <span className="sg" style={{
-        fontWeight: 900, fontSize: 18,
-        background: `linear-gradient(135deg,${C.sky},${C.peach})`,
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-      }}>InCynq</span>
-    </div>
-  );
-}
-
 const SLIDES = [
   {
     id: 'problem',
@@ -103,8 +86,6 @@ const SLIDES = [
     id: 'cta',
     content: () => (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0 32px', textAlign: 'center' }}>
-        <img src={logo} alt="InCynq" style={{ width: 100, height: 100, objectFit: 'contain', marginBottom: 20, filter: `drop-shadow(0 0 30px ${C.sky}88)` }} className="float" />
-        <h1 className="sg" style={{ fontSize: 36, fontWeight: 900, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 10 }}>InCynq</h1>
         <p style={{ fontSize: 18, color: C.sub, marginBottom: 8, fontWeight: 600 }}>Connect with what matters.</p>
         <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Free for all Second Life residents.</p>
       </div>
@@ -120,47 +101,102 @@ export default function OnboardingScreen({ onDone }) {
     else onDone();
   };
 
+  const back = () => {
+    if (slide > 0) setSlide(s => s - 1);
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
 
-      {/* Logo — fixed top left on every slide */}
-      <SlideLogo />
-
-      {/* Skip */}
+      {/* Skip button — floats top right */}
       {slide < SLIDES.length - 1 && (
-        <div style={{ padding: '16px 24px 0', display: 'flex', justifyContent: 'flex-end', paddingTop: 24 }}>
-          <button onClick={onDone} style={{ fontSize: 13, color: C.muted, fontWeight: 600, marginTop: 8 }}>Skip</button>
+        <div style={{ position: 'absolute', right: 24, top: 24, zIndex: 10 }}>
+          <button onClick={onDone} style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>
+            Skip
+          </button>
         </div>
       )}
 
-      {/* Spacer for logo */}
-      {slide === SLIDES.length - 1 && <div style={{ height: 70 }} />}
+      {/* Logo area — equal space above and below */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 8,
+        paddingTop: 96,
+        paddingBottom: 16,
+      }}>
+        <img
+          src={logo}
+          alt="InCynq"
+          className="float"
+          style={{
+            width: 100,
+            height: 100,
+            objectFit: 'contain',
+            filter: `drop-shadow(0 0 24px ${C.sky}88)`,
+          }}
+        />
+        <span className="sg" style={{
+          fontWeight: 900,
+          fontSize: 22,
+          background: `linear-gradient(135deg,${C.sky},${C.peach})`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          InCynq
+        </span>
+      </div>
 
       {/* Slide content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: slide < SLIDES.length - 1 ? 0 : 0 }} className="fadeUp" key={slide}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="fadeUp" key={slide}>
         {SLIDES[slide].content()}
       </div>
 
       {/* Footer */}
       <div style={{ padding: '0 24px 40px' }}>
-        {/* Dots */}
+        {/* Progress dots */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
           {SLIDES.map((_, i) => (
             <div key={i} style={{
-              width: i === slide ? 20 : 6, height: 6, borderRadius: 3,
+              width: i === slide ? 20 : 6,
+              height: 6,
+              borderRadius: 3,
               background: i === slide ? C.sky : C.border,
               transition: 'all .3s',
             }} />
           ))}
         </div>
-        <button onClick={next} style={{
-          width: '100%', padding: '15px', borderRadius: 16,
-          background: `linear-gradient(135deg,${C.sky},${C.peach})`,
-          color: '#060d14', fontWeight: 900, fontSize: 16,
-          boxShadow: `0 0 30px ${C.sky}44`,
-        }}>
-          {slide < SLIDES.length - 1 ? "Let's go →" : 'Get started →'}
-        </button>
+
+        {/* Back + Next */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          {slide > 0 && (
+            <button onClick={back} style={{
+              flex: '0 0 52px',
+              padding: '15px',
+              borderRadius: 16,
+              background: C.card2,
+              border: `1px solid ${C.border}`,
+              color: C.sub,
+              fontWeight: 700,
+              fontSize: 18,
+            }}>
+              ←
+            </button>
+          )}
+          <button onClick={next} style={{
+            flex: 1,
+            padding: '15px',
+            borderRadius: 16,
+            background: `linear-gradient(135deg,${C.sky},${C.peach})`,
+            color: '#060d14',
+            fontWeight: 900,
+            fontSize: 16,
+            boxShadow: `0 0 30px ${C.sky}44`,
+          }}>
+            {slide < SLIDES.length - 1 ? "Let's go →" : 'Get started →'}
+          </button>
+        </div>
       </div>
     </div>
   );
