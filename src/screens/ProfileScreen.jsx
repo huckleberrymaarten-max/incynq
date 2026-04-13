@@ -8,6 +8,8 @@ import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 import InterestPicker from '../components/InterestPicker';
 import { supabase } from '../lib/supabase';
+import logo from '../assets/Q_Logo_.png';
+import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
   try {
@@ -27,6 +29,7 @@ export default function ProfileScreen() {
   const [showTC, setShowTC] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showFullDiscover, setShowFullDiscover] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
   const [showCharPicker, setShowCharPicker] = useState(null);
@@ -132,7 +135,10 @@ export default function ProfileScreen() {
         {/* Avatar + name */}
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <Av src={currentUser.avatar} size={72} ring={C.sky} status={currentUser.gridStatus} />
+            {currentUser.isOfficial
+              ? <img src={logo} alt="InCynq" style={{ width: 72, height: 72, objectFit: 'contain', filter: `drop-shadow(0 0 14px ${C.sky}88)` }} />
+              : <Av src={currentUser.avatar} size={72} ring={C.sky} status={currentUser.gridStatus} />
+            }
 
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -152,8 +158,10 @@ export default function ProfileScreen() {
         {/* Stats */}
         <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {[['Posts', 0], ['Followers', 0], ['Following', following.size]].map(([label, val], i) => (
-            <div key={label} style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < 2 ? `1px solid ${C.border}` : 'none' }}>
-              <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{val}</div>
+            <div key={label}
+              onClick={label === 'Following' ? () => setShowFollowing(true) : undefined}
+              style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < 2 ? `1px solid ${C.border}` : 'none', cursor: label === 'Following' ? 'pointer' : 'default' }}>
+              <div style={{ fontWeight: 900, fontSize: 18, color: label === 'Following' ? C.sky : C.text }}>{val}</div>
               <div style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{label}</div>
             </div>
           ))}
@@ -205,12 +213,7 @@ export default function ProfileScreen() {
                   </div>
                 );
               })}
-              {/* See all card */}
-              <div onClick={() => setShowFullDiscover(true)}
-                style={{ flexShrink: 0, width: 70, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, cursor: 'pointer' }}>
-                <div style={{ width: 42, height: 42, borderRadius: '18%', background: `${C.sky}22`, border: `2px dashed ${C.sky}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>→</div>
-                <div style={{ fontSize: 11, color: C.sky, fontWeight: 800, textAlign: 'center' }}>See all</div>
-              </div>
+
             </div>
           </div>
         )}
@@ -437,6 +440,43 @@ export default function ProfileScreen() {
       )}
 
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+
+      {/* Following sheet */}
+      {showFollowing && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowFollowing(false)}>
+          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }}
+            className="fadeUp" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>Following</span>
+              <button onClick={() => setShowFollowing(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
+            </div>
+            {/* List */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 20px' }}>
+              {USERS.filter(u => following.has(u.id)).map(u => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
+                  {u.isOfficial
+                    ? <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
+                    : <img src={u.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{visibleName(u)}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                  </div>
+                  {u.isOfficial
+                    ? <span style={{ fontSize: 11, color: C.gold, fontWeight: 700, padding: '5px 12px', background: `${C.gold}18`, borderRadius: 20, border: `1px solid ${C.gold}44` }}>⚡ Official</span>
+                    : <button onClick={() => toggleFollow(u.id)}
+                        style={{ padding: '7px 14px', borderRadius: 20, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
+                        Unfollow
+                      </button>
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
