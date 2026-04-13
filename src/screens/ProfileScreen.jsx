@@ -9,7 +9,6 @@ import TCScreen from './TCScreen';
 import InterestPicker from '../components/InterestPicker';
 import { supabase } from '../lib/supabase';
 import logo from '../assets/Q_Logo_.png';
-import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
   try {
@@ -454,7 +453,7 @@ export default function ProfileScreen() {
             </div>
             {/* List */}
             <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 20px' }}>
-              {USERS.filter(u => following.has(u.id)).map(u => (
+              {USERS.filter(u => following.has(u.id)).sort((a, b) => (b.isOfficial ? 1 : 0) - (a.isOfficial ? 1 : 0)).map(u => (
                 <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
                   {u.isOfficial
                     ? <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
