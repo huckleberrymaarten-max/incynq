@@ -20,9 +20,25 @@ export default function AuthScreen({ onLogin }) {
     if (!slName.trim() || !password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
     try {
-      // Real Supabase login — email required
-      const emailToTry = slName.includes('@') ? slName : `${slName.trim().toLowerCase()}@incynq.app`;
-      const data = await loginUser({ email: emailToTry, password });
+      // Look up email from SL avatar name
+      const { supabase } = await import('../lib/supabase');
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', slName.trim().toLowerCase())
+        .single();
+
+      if (!userData) { setError('Avatar not found. Check your SL name.'); setLoading(false); return; }
+
+      const { data: authData } = await supabase.auth.admin?.getUserById?.(userData.id) || {};
+      
+      // Get email from auth.users via our lookup
+      const { data: emailData } = await supabase
+        .rpc('get_email_by_username', { p_username: slName.trim().toLowerCase() });
+      
+      if (!emailData) { setError('Account not found. Try registering first.'); setLoading(false); return; }
+
+      const data = await loginUser({ email: emailData, password });
       const profile = await getProfile(data.user.id);
       onLogin({
         id: data.user.id,
@@ -113,7 +129,7 @@ export default function AuthScreen({ onLogin }) {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* SL name */}
+              {/* SL Avatar Name — always shown */}
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
                 <input value={slName} onChange={e => setSlName(e.target.value)}
