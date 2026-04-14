@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import C from '../theme';
-import { ME } from '../data';
 import TCScreen from './TCScreen';
 import logo from '../assets/Q_Logo_.png';
 import { registerUser, loginUser, getProfile } from '../lib/db';
@@ -21,13 +20,7 @@ export default function AuthScreen({ onLogin }) {
     if (!slName.trim() || !password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
     try {
-      // Demo account shortcut
-      if (slName.trim().toLowerCase() === 'maarten.huckleberry') {
-        onLogin({ ...ME, activated: true });
-        return;
-      }
-      // Real Supabase login — email required for real accounts
-      // For demo, try email derived from username
+      // Real Supabase login — email required
       const emailToTry = slName.includes('@') ? slName : `${slName.trim().toLowerCase()}@incynq.app`;
       const data = await loginUser({ email: emailToTry, password });
       const profile = await getProfile(data.user.id);
@@ -194,12 +187,7 @@ export default function AuthScreen({ onLogin }) {
               </button>
             </div>
 
-            {/* Demo hint */}
-            {mode === 'login' && (
-              <div style={{ marginTop: 14, padding: '10px 12px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 10, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
-                Demo: use <strong style={{ color: C.sky }}>maarten.huckleberry</strong> with any password.
-              </div>
-            )}
+
 
             {/* T&C link */}
             {mode === 'login' && (
