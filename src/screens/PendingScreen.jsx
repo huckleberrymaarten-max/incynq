@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import C from '../theme';
 import { visibleName } from '../data';
+import { supabase } from '../lib/supabase';
 
 // Fetch SL profile picture using avatar username
 const fetchSLAvatar = async (username) => {
@@ -31,6 +32,18 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
 
     setStatus('Activating account…');
     await new Promise(r => setTimeout(r, 800));
+
+    // Save activation to Supabase if real account
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const updates = { activated: true };
+        if (slAvatar) updates.avatar_url = slAvatar;
+        await supabase.from('profiles').update(updates).eq('id', session.user.id);
+      }
+    } catch (e) {
+      console.log('Could not save activation:', e.message);
+    }
 
     // Activate with SL picture if found, fallback to dicebear
     onActivate(slAvatar ? { avatar: slAvatar } : {});

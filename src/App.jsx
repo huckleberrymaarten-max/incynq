@@ -4,7 +4,6 @@ import { ContentProvider } from './context/ContentContext';
 import { useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { getProfile } from './lib/db';
-import { ME } from './data';
 
 // Screens
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -16,13 +15,17 @@ import Toast            from './components/Toast';
 function AppRoutes() {
   const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif } = useApp();
 
-  // Check for existing session on load
   useEffect(() => {
     const checkSession = async () => {
+      console.log('Session check running');
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session);
+
       if (session?.user) {
         try {
+          console.log('Fetching profile for:', session.user.id);
           const profile = await getProfile(session.user.id);
+          console.log('Profile:', profile);
           setCurrentUser({
             id: session.user.id,
             username: profile.username,
@@ -42,15 +45,18 @@ function AppRoutes() {
           setShowOnboarding(false);
           setLoggedIn(true);
         } catch (e) {
-          // Profile not found — sign out
+          console.log('Profile fetch error:', e.message);
           await supabase.auth.signOut();
         }
+      } else {
+        console.log('No session found');
       }
     };
+
     checkSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event);
       if (event === 'SIGNED_OUT') {
         setLoggedIn(false);
         setShowOnboarding(true);
