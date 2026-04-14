@@ -3,6 +3,7 @@ import C from '../theme';
 import { ME } from '../data';
 import TCScreen from './TCScreen';
 import logo from '../assets/Q_Logo_.png';
+import { registerUser, loginUser, getProfile } from '../lib/db';
 
 export default function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
@@ -15,21 +16,45 @@ export default function AuthScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (!slName.trim() || !password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // Demo account shortcut
       if (slName.trim().toLowerCase() === 'maarten.huckleberry') {
         onLogin({ ...ME, activated: true });
         return;
       }
-      setError('Avatar not found. Try maarten.huckleberry for the demo.');
-    }, 900);
+      // Real Supabase login — email required for real accounts
+      // For demo, try email derived from username
+      const emailToTry = slName.includes('@') ? slName : `${slName.trim().toLowerCase()}@incynq.app`;
+      const data = await loginUser({ email: emailToTry, password });
+      const profile = await getProfile(data.user.id);
+      onLogin({
+        id: data.user.id,
+        username: profile.username,
+        displayName: profile.display_name,
+        name: profile.display_name,
+        showDisplayName: profile.show_display_name,
+        avatar: profile.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}&backgroundColor=b6e3f4`,
+        bio: profile.bio || '',
+        groups: profile.groups || [],
+        subs: profile.subs || [],
+        gridStatus: profile.grid_status || 'online',
+        accountType: profile.account_type || 'resident',
+        wallet: profile.wallet || 0,
+        maturity: profile.maturity || 'general',
+        activated: profile.activated,
+      });
+    } catch (e) {
+      setError('Incorrect avatar name or password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setError('');
     if (!slName.trim()) { setError('Enter your SL avatar name.'); return; }
     if (!email.trim()) { setError('Enter your email.'); return; }
@@ -37,21 +62,29 @@ export default function AuthScreen({ onLogin }) {
     if (password !== confirm) { setError("Passwords don't match."); return; }
     if (!agreedTC) { setError('Please read and agree to the Terms & Conditions.'); return; }
     setLoading(true);
-    const fetchedDisplayName = slName.trim().split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const username = slName.trim().toLowerCase().replace(/ /g, '.');
+      const { displayName } = await registerUser({ username, email, password });
       onLogin({
         id: Date.now(),
-        username: slName.trim().toLowerCase().replace(/ /g, '.'),
-        displayName: fetchedDisplayName,
-        name: fetchedDisplayName,
+        username,
+        displayName,
+        name: displayName,
         showDisplayName: true,
-        avatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(slName)}&backgroundColor=b6e3f4`,
+        avatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(username)}&backgroundColor=b6e3f4`,
         bio: '', loc: '', groups: [], subs: [],
         gridStatus: 'online', accountType: 'resident',
         wallet: 0, maturity: 'general', activated: false,
       });
-    }, 1400);
+    } catch (e) {
+      if (e.message?.includes('already registered')) {
+        setError('This email is already registered. Try signing in.');
+      } else {
+        setError(e.message || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,22 +95,14 @@ export default function AuthScreen({ onLogin }) {
 
         {/* Logo — same position as onboarding */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 96, paddingBottom: 16 }}>
-          <img
-            src={logo}
-            alt="InCynq"
-            className="float"
-            style={{ width: 100, height: 100, objectFit: 'contain', filter: `drop-shadow(0 0 24px ${C.sky}88)` }}
-          />
-          <span className="sg" style={{
-            fontWeight: 900, fontSize: 22,
-            background: `linear-gradient(135deg,${C.sky},${C.peach})`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          }}>
+          <img src={logo} alt="InCynq" className="float"
+            style={{ width: 100, height: 100, objectFit: 'contain', filter: `drop-shadow(0 0 24px ${C.sky}88)` }} />
+          <span className="sg" style={{ fontWeight: 900, fontSize: 22, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             InCynq
           </span>
         </div>
 
-        {/* Spacer — pushes form to bottom */}
+        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
         {/* Form — pinned to bottom */}
@@ -88,11 +113,7 @@ export default function AuthScreen({ onLogin }) {
             <div style={{ display: 'flex', background: C.card2, borderRadius: 12, padding: 4, marginBottom: 20 }}>
               {['login', 'register'].map(m => (
                 <button key={m} onClick={() => { setMode(m); setError(''); setAgreedTC(false); }}
-                  style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13,
-                    background: mode === m ? C.card : 'transparent',
-                    color: mode === m ? C.text : C.muted,
-                    boxShadow: mode === m ? '0 2px 8px #00000033' : 'none',
-                    transition: 'all .2s' }}>
+                  style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: mode === m ? C.card : 'transparent', color: mode === m ? C.text : C.muted, boxShadow: mode === m ? '0 2px 8px #00000033' : 'none', transition: 'all .2s' }}>
                   {m === 'login' ? 'Sign In' : 'Join InCynq'}
                 </button>
               ))}
@@ -129,7 +150,7 @@ export default function AuthScreen({ onLogin }) {
                 <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>InCynq never asks for your SL password.</div>
               </div>
 
-              {/* Confirm password — register only */}
+              {/* Confirm — register only */}
               {mode === 'register' && (
                 <div>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>CONFIRM PASSWORD</label>
@@ -143,14 +164,8 @@ export default function AuthScreen({ onLogin }) {
               {/* T&C checkbox — register only */}
               {mode === 'register' && (
                 <div onClick={() => setAgreedTC(!agreedTC)}
-                  style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px',
-                    background: agreedTC ? `${C.sky}0a` : C.card2,
-                    border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`,
-                    borderRadius: 12, transition: 'all .2s' }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                    border: `2px solid ${agreedTC ? C.sky : C.border}`,
-                    background: agreedTC ? C.sky : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
+                  style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px', background: agreedTC ? `${C.sky}0a` : C.card2, border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`, borderRadius: 12, transition: 'all .2s' }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1, border: `2px solid ${agreedTC ? C.sky : C.border}`, background: agreedTC ? C.sky : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
                     {agreedTC && <span style={{ color: '#040f14', fontSize: 13, fontWeight: 900 }}>✓</span>}
                   </div>
                   <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
@@ -172,12 +187,9 @@ export default function AuthScreen({ onLogin }) {
 
               {/* Submit */}
               <button onClick={mode === 'login' ? handleLogin : handleRegister} disabled={loading}
-                style={{ width: '100%', padding: '13px', borderRadius: 14,
-                  background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
-                  color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 14,
-                  marginTop: 4, transition: 'all .2s' }}>
+                style={{ width: '100%', padding: '13px', borderRadius: 14, background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, marginTop: 4, transition: 'all .2s' }}>
                 {loading
-                  ? mode === 'register' ? '⏳ Fetching your SL profile…' : '⏳ Signing in…'
+                  ? mode === 'register' ? '⏳ Creating your account…' : '⏳ Signing in…'
                   : mode === 'login' ? 'Sign In →' : 'Create Account →'}
               </button>
             </div>
@@ -189,7 +201,7 @@ export default function AuthScreen({ onLogin }) {
               </div>
             )}
 
-            {/* T&C link on login */}
+            {/* T&C link */}
             {mode === 'login' && (
               <div style={{ marginTop: 12, textAlign: 'center' }}>
                 <button onClick={() => setShowTC(true)} style={{ fontSize: 11, color: C.muted, textDecoration: 'underline' }}>

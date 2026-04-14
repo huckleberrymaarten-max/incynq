@@ -17,7 +17,6 @@ export const getAppContent = async () => {
     .from('app_content')
     .select('*');
   if (error) throw error;
-  // Convert array to object: { key: value }
   return data.reduce((acc, row) => {
     acc[row.key] = row.value;
     return acc;
@@ -25,16 +24,21 @@ export const getAppContent = async () => {
 };
 
 // ── Auth ──
-export const registerUser = async ({ username, email, password, displayName }) => {
+export const registerUser = async ({ username, email, password }) => {
+  const displayName = username.split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { username, display_name: displayName }
+      data: {
+        username: username.toLowerCase().trim(),
+        display_name: displayName,
+      }
     }
   });
   if (error) throw error;
-  return data;
+  return { ...data, displayName };
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -48,9 +52,30 @@ export const logoutUser = async () => {
   if (error) throw error;
 };
 
-export const getCurrentUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+export const getCurrentSession = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+};
+
+export const getProfile = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updateProfile = async (userId, updates) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 };
 
 // ── Posts ──
