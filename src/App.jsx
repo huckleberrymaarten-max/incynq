@@ -1,7 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { ContentProvider } from './context/ContentContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { getProfile } from './lib/db';
 
@@ -14,6 +14,7 @@ import Toast            from './components/Toast';
 
 function AppRoutes() {
   const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif } = useApp();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -51,6 +52,7 @@ function AppRoutes() {
       } else {
         console.log('No session found');
       }
+      setChecking(false);
     };
 
     checkSession();
@@ -65,6 +67,14 @@ function AppRoutes() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  if (checking) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#040f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src="/src/assets/Q_Logo_.png" alt="InCynq" style={{ width: 80, height: 80, objectFit: 'contain', opacity: .8, animation: 'float 3s ease-in-out infinite' }} />
+      </div>
+    );
+  }
 
   if (!loggedIn && showOnboarding) {
     return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
