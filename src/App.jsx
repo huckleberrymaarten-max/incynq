@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { ContentProvider } from './context/ContentContext';
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
+import logo from './assets/Q_Logo_.png';
 import { getProfile } from './lib/db';
 
 // Screens
@@ -71,7 +72,7 @@ function AppRoutes() {
   if (checking) {
     return (
       <div style={{ minHeight: '100vh', background: '#040f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <img src="/src/assets/Q_Logo_.png" alt="InCynq" style={{ width: 80, height: 80, objectFit: 'contain', opacity: .8, animation: 'float 3s ease-in-out infinite' }} />
+        <img src={logo} alt="InCynq" style={{ width: 80, height: 80, objectFit: 'contain', opacity: .8, animation: 'float 3s ease-in-out infinite' }} />
       </div>
     );
   }
