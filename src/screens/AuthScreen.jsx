@@ -3,6 +3,7 @@ import C from '../theme';
 import TCScreen from './TCScreen';
 import logo from '../assets/Q_Logo_.png';
 import { registerUser, loginUser, getProfile } from '../lib/db';
+import { supabase } from '../lib/supabase';
 
 export default function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
@@ -21,22 +22,14 @@ export default function AuthScreen({ onLogin }) {
     setLoading(true);
     try {
       // Look up email from SL avatar name
-      const { supabase } = await import('../lib/supabase');
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', slName.trim().toLowerCase())
-        .single();
-
-      if (!userData) { setError('Avatar not found. Check your SL name.'); setLoading(false); return; }
-
-      const { data: authData } = await supabase.auth.admin?.getUserById?.(userData.id) || {};
-      
-      // Get email from auth.users via our lookup
-      const { data: emailData } = await supabase
+      const { data: emailData, error: rpcError } = await supabase
         .rpc('get_email_by_username', { p_username: slName.trim().toLowerCase() });
-      
-      if (!emailData) { setError('Account not found. Try registering first.'); setLoading(false); return; }
+
+      if (rpcError || !emailData) {
+        setError('Avatar not found. Check your SL name.');
+        setLoading(false);
+        return;
+      }
 
       const data = await loginUser({ email: emailData, password });
       const profile = await getProfile(data.user.id);
@@ -102,7 +95,7 @@ export default function AuthScreen({ onLogin }) {
 
       <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
 
-        {/* Logo — same position as onboarding */}
+        {/* Logo */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 96, paddingBottom: 16 }}>
           <img src={logo} alt="InCynq" className="float"
             style={{ width: 100, height: 100, objectFit: 'contain', filter: `drop-shadow(0 0 24px ${C.sky}88)` }} />
@@ -114,7 +107,7 @@ export default function AuthScreen({ onLogin }) {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Form — pinned to bottom */}
+        {/* Form */}
         <div style={{ padding: '0 16px 40px' }}>
           <div style={{ background: C.card, borderRadius: 24, padding: 22, border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.sky}11` }}>
 
@@ -122,13 +115,18 @@ export default function AuthScreen({ onLogin }) {
             <div style={{ display: 'flex', background: C.card2, borderRadius: 12, padding: 4, marginBottom: 20 }}>
               {['login', 'register'].map(m => (
                 <button key={m} onClick={() => { setMode(m); setError(''); setAgreedTC(false); }}
-                  style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: mode === m ? C.card : 'transparent', color: mode === m ? C.text : C.muted, boxShadow: mode === m ? '0 2px 8px #00000033' : 'none', transition: 'all .2s' }}>
+                  style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13,
+                    background: mode === m ? C.card : 'transparent',
+                    color: mode === m ? C.text : C.muted,
+                    boxShadow: mode === m ? '0 2px 8px #00000033' : 'none',
+                    transition: 'all .2s' }}>
                   {m === 'login' ? 'Sign In' : 'Join InCynq'}
                 </button>
               ))}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
               {/* SL Avatar Name — always shown */}
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
@@ -170,11 +168,17 @@ export default function AuthScreen({ onLogin }) {
                 </div>
               )}
 
-              {/* T&C checkbox — register only */}
+              {/* T&C — register only */}
               {mode === 'register' && (
                 <div onClick={() => setAgreedTC(!agreedTC)}
-                  style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px', background: agreedTC ? `${C.sky}0a` : C.card2, border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`, borderRadius: 12, transition: 'all .2s' }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1, border: `2px solid ${agreedTC ? C.sky : C.border}`, background: agreedTC ? C.sky : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
+                  style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px',
+                    background: agreedTC ? `${C.sky}0a` : C.card2,
+                    border: `1px solid ${agreedTC ? C.sky + '44' : C.border}`,
+                    borderRadius: 12, transition: 'all .2s' }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                    border: `2px solid ${agreedTC ? C.sky : C.border}`,
+                    background: agreedTC ? C.sky : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .2s' }}>
                     {agreedTC && <span style={{ color: '#040f14', fontSize: 13, fontWeight: 900 }}>✓</span>}
                   </div>
                   <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
@@ -196,16 +200,17 @@ export default function AuthScreen({ onLogin }) {
 
               {/* Submit */}
               <button onClick={mode === 'login' ? handleLogin : handleRegister} disabled={loading}
-                style={{ width: '100%', padding: '13px', borderRadius: 14, background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, marginTop: 4, transition: 'all .2s' }}>
+                style={{ width: '100%', padding: '13px', borderRadius: 14,
+                  background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                  color: loading ? C.muted : '#060d14',
+                  fontWeight: 900, fontSize: 14, marginTop: 4, transition: 'all .2s' }}>
                 {loading
                   ? mode === 'register' ? '⏳ Creating your account…' : '⏳ Signing in…'
                   : mode === 'login' ? 'Sign In →' : 'Create Account →'}
               </button>
             </div>
 
-
-
-            {/* T&C link */}
+            {/* T&C link on login */}
             {mode === 'login' && (
               <div style={{ marginTop: 12, textAlign: 'center' }}>
                 <button onClick={() => setShowTC(true)} style={{ fontSize: 11, color: C.muted, textDecoration: 'underline' }}>
