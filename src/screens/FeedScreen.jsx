@@ -170,10 +170,10 @@ export default function FeedScreen({ onGoToProfile }) {
         </div>
         {/* Right icons */}
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          <button onClick={() => setShowCompose(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, paddingBottom: 1 }}>+</button>
           <button style={{ fontSize: 20 }}>🔍</button>
           <button style={{ fontSize: 20 }}>🔔</button>
           <button style={{ fontSize: 20 }}>💬</button>
-          <button onClick={() => setShowCompose(true)} style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
           <button
             onClick={() => setShowHelp(true)}
             style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
