@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
+import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
 function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport }) {
@@ -90,7 +91,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           <span style={{ fontSize: 13, color: C.muted, fontWeight: 700 }}>{post.comments?.length || 0}</span>
         </button>
         <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto' }}>
-          <span style={{ fontSize: 20 }}>🔖</span>
+          <span style={{ fontSize: 20, filter: saved ? 'none' : 'grayscale(1) opacity(.5)' }}>🔖</span>
         </button>
       </div>
 
@@ -124,6 +125,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
 
 export default function FeedScreen({ onGoToProfile }) {
   const [showHelp, setShowHelp] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
   const { posts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
@@ -155,8 +157,9 @@ export default function FeedScreen({ onGoToProfile }) {
 
   return (
     <div>
-      {/* Help overlay */}
+      {/* Overlays */}
       {showHelp && <HelpScreen onClose={() => setShowHelp(false)} />}
+      {showCompose && <ComposeScreen onClose={() => setShowCompose(false)} />}
 
       {/* Header */}
       <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -170,6 +173,7 @@ export default function FeedScreen({ onGoToProfile }) {
           <button style={{ fontSize: 20 }}>🔍</button>
           <button style={{ fontSize: 20 }}>🔔</button>
           <button style={{ fontSize: 20 }}>💬</button>
+          <button onClick={() => setShowCompose(true)} style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
           <button
             onClick={() => setShowHelp(true)}
             style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
