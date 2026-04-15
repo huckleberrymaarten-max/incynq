@@ -90,8 +90,10 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           <span style={{ fontSize: 20 }}>💬</span>
           <span style={{ fontSize: 13, color: C.muted, fontWeight: 700 }}>{post.comments?.length || 0}</span>
         </button>
-        <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto' }}>
-          <span style={{ fontSize: 20, filter: saved ? 'none' : 'grayscale(1) opacity(.5)' }}>🔖</span>
+        <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}>
+          <svg width="18" height="22" viewBox="0 0 18 22" fill={saved ? '#00e5a0' : '#ff4466'}>
+            <path d="M1 1h16v20l-8-5-8 5V1z" stroke={saved ? '#00e5a0' : '#ff4466'} strokeWidth="1.5" strokeLinejoin="round"/>
+          </svg>
         </button>
       </div>
 
@@ -142,7 +144,7 @@ export default function FeedScreen({ onGoToProfile }) {
 
     const sponsAds = activeAds.filter(a => a.tier === 'premium' || a.tier === 'featured');
     let qi = 0;
-    const feedPosts = posts.filter(p => p.userId !== currentUser.id && !p.isWelcome);
+    const feedPosts = posts.filter(p => !p.isWelcome);
     feedPosts.forEach((p, i) => {
       result.push({ type: 'post', data: p });
       if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < sponsAds.length) {

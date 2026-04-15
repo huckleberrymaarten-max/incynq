@@ -114,11 +114,11 @@ export default function ComposeScreen({ onClose }) {
         )}
 
         {/* Tags section */}
-        <div style={{ padding: '16px 16px 0' }}>
+        <div style={{ padding: '16px 16px 8px' }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 10 }}>ADD TAGS</div>
 
           {/* Group selector — label only, no icons */}
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8, paddingBottom: 2 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 8 }}>
             {interestGroups.map(g => (
               <button key={g.id} onClick={() => setSelGroup(selGroup === g.id ? null : g.id)}
                 style={{ flexShrink: 0, fontSize: 11, padding: '5px 11px', borderRadius: 20, fontWeight: 700,
@@ -133,7 +133,7 @@ export default function ComposeScreen({ onClose }) {
 
           {/* Tags for selected group */}
           {selectedGroupData && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 12px', background: C.card2, borderRadius: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 12px', background: C.card2, borderRadius: 12, marginBottom: 8, paddingBottom: 12 }}>
               {(selectedGroupData.tags || []).map(tag => (
                 <button key={tag} onClick={() => toggleTag(tag)}
                   style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 700,

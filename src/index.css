@@ -122,3 +122,7 @@ textarea.inp { resize: none; }
 /* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* Hide horizontal scrollbars on chip rows */
+.scroll-x { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.scroll-x::-webkit-scrollbar { display: none; }
