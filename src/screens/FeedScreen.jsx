@@ -10,7 +10,9 @@ import logo from '../assets/Q_Logo_.png';
 function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport }) {
   const [reported, setReported] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  const user = userOf(post.userId, USERS);
+  const user = post.userId === currentUser?.id
+    ? currentUser
+    : userOf(post.userId, USERS);
   const reasons = [
     '🌍 Out of This World — real life content',
     '🔞 Adult content shown to non-adults',
@@ -91,7 +93,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           <span style={{ fontSize: 13, color: C.muted, fontWeight: 700 }}>{post.comments?.length || 0}</span>
         </button>
         <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}>
-          <svg width="18" height="22" viewBox="0 0 18 22" fill={saved ? '#00e5a0' : '#ff4466'}>
+          <svg width="14" height="18" viewBox="0 0 18 22" fill={saved ? '#00e5a0' : '#ff4466'}>
             <path d="M1 1h16v20l-8-5-8 5V1z" stroke={saved ? '#00e5a0' : '#ff4466'} strokeWidth="1.5" strokeLinejoin="round"/>
           </svg>
         </button>
