@@ -12,7 +12,7 @@ export default function InterestPicker({ selectedGroups, selectedSubs, onGroupTo
               border: `1.5px solid ${selectedGroups.includes(g.id) ? g.color : C.border}`,
               background: selectedGroups.includes(g.id) ? `${g.color}22` : 'transparent',
               color: selectedGroups.includes(g.id) ? g.color : C.sub, transition: 'all .15s' }}>
-            {g.label}
+            {g.icon ? `${g.icon} ${g.label}` : g.label}
           </button>
         ))}
       </div>
@@ -20,7 +20,7 @@ export default function InterestPicker({ selectedGroups, selectedSubs, onGroupTo
       {/* Subcategories — shown for selected groups */}
       {INTEREST_GROUPS.filter(g => selectedGroups.includes(g.id)).map(g => (
         <div key={g.id} style={{ marginBottom: 10, padding: 11, background: C.card2, borderRadius: 12, border: `1px solid ${g.color}33` }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: g.color, marginBottom: 7 }}>{g.label} subgroups</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: g.color, marginBottom: 7 }}>{g.icon} {g.label} subgroups</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {(g.subs || []).map(s => (
               <button key={s} onClick={() => onSubToggle(s)}

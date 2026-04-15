@@ -20,6 +20,7 @@ export function ContentProvider({ children }) {
         if (groups?.length) {
           setInterestGroups(groups.map(g => ({
             id: g.id,
+            icon: g.icon || '',
             label: g.label,
             color: g.color,
             subs: g.interest_subs?.map(s => s.label) || [],

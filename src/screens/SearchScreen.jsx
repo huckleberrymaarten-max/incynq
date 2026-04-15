@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import C from '../theme';
-import { USERS, LOCS, INTEREST_GROUPS, visibleName } from '../data';
+import { USERS, LOCS, visibleName } from '../data';
+import { useContent } from '../context/ContentContext';
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const { interestGroups: INTEREST_GROUPS } = useContent();
   const q = query.toLowerCase().trim();
 
   const people  = q ? USERS.filter(u => u.id !== 0 && (u.username.toLowerCase().includes(q) || visibleName(u).toLowerCase().includes(q))) : [];
@@ -96,13 +98,13 @@ export default function SearchScreen() {
             <div>
               <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>INTEREST GROUPS</div>
               {groups.map(g => (
-                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
-                  <div style={{ width: 46, height: 46, borderRadius: '18%', background: `${g.color}22`, border: `2px solid ${g.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                    {g.label.split(' ')[0]}
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: `1px solid ${C.border}22` }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: `${g.color}22`, border: `1.5px solid ${g.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 24, lineHeight: 1 }}>{g.icon}</span>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: g.color }}>{g.label}</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>{g.subs?.slice(0, 3).join(', ')}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: g.color }}>{g.label.replace(/^\S+\s/, '')}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(g.subs || []).slice(0, 3).join(', ')}</div>
                   </div>
                 </div>
               ))}
