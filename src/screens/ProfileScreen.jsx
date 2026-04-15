@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { USERS, LOCS, INTEREST_GROUPS, visibleName, gridStatusLabel } from '../data';
+import { USERS, LOCS, visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import Toggle from '../components/Toggle';
 import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
+import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import logo from '../assets/Q_Logo_.png';
 
@@ -25,10 +26,12 @@ const stableHash = s => { let h = 0; for (let i = 0; i < String(s).length; i++) 
 
 export default function ProfileScreen() {
   const { currentUser, setCurrentUser, setLinkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn, following, setFollowing } = useApp();
+  const { interestGroups: INTEREST_GROUPS } = useContent();
   const [showSettings, setShowSettings] = useState(false);
   const [showTC, setShowTC] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showFullDiscover, setShowFullDiscover] = useState(false);
+  const [showGridStatus, setShowGridStatus] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
@@ -147,7 +150,9 @@ export default function ProfileScreen() {
             {currentUser.showDisplayName !== false && currentUser.displayName && currentUser.displayName !== currentUser.username && (
               <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{currentUser.username}</div>
             )}
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{gridStatusLabel(gridStatus)}</div>
+            <button onClick={() => setShowGridStatus(true)} style={{ fontSize: 12, color: C.muted, marginTop: 2, textAlign: 'left' }}>
+              {gridStatusLabel(currentUser.gridStatus || 'online')} <span style={{ color: C.sky, fontSize: 10 }}>✏️</span>
+            </button>
           </div>
         </div>
 
@@ -453,6 +458,35 @@ export default function ProfileScreen() {
       )}
 
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+
+      {/* Grid Status sheet */}
+      {showGridStatus && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowGridStatus(false)}>
+          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: 20 }}
+            className="fadeUp" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>Grid Status</span>
+              <button onClick={() => setShowGridStatus(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
+            </div>
+            {[
+              { id: 'online',  icon: '🟢', label: 'In-world',     desc: 'Visible to everyone' },
+              { id: 'friends', icon: '🟡', label: 'Friends only', desc: 'Visible to mutual follows only' },
+              { id: 'hidden',  icon: '⚫', label: 'Hidden',       desc: 'Always shows as offline' },
+            ].map(s => (
+              <button key={s.id} onClick={() => { updateUser({ gridStatus: s.id }); setShowGridStatus(false); }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '13px 14px', borderRadius: 14, marginBottom: 8, background: (currentUser.gridStatus || 'online') === s.id ? `${C.sky}18` : C.card2, border: `1.5px solid ${(currentUser.gridStatus || 'online') === s.id ? C.sky : C.border}`, transition: 'all .15s', textAlign: 'left' }}>
+                <span style={{ fontSize: 24 }}>{s.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{s.desc}</div>
+                </div>
+                {(currentUser.gridStatus || 'online') === s.id && <span style={{ color: C.sky, fontSize: 16 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {showMaturity && <MaturityScreen currentUser={currentUser} onClose={() => setShowMaturity(false)} onUpdate={updates => { updateUser(updates); setShowMaturity(false); }} />}
 
       {/* Following sheet */}

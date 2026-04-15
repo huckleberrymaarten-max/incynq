@@ -1,7 +1,8 @@
 import C from '../theme';
-import { INTEREST_GROUPS } from '../data';
+import { useContent } from '../context/ContentContext';
 
 export default function InterestPicker({ selectedGroups, selectedSubs, onGroupToggle, onSubToggle }) {
+  const { interestGroups: INTEREST_GROUPS } = useContent();
   return (
     <div>
       {/* Groups */}
