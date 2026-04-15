@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 export const getInterestGroups = async () => {
   const { data, error } = await supabase
     .from('interest_groups')
-    .select('*, interest_subs(*)')
+    .select('*, interest_subs(*), icon, tags')
     .eq('active', true)
     .order('sort_order');
   if (error) throw error;

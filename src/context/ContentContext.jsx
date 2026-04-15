@@ -24,6 +24,7 @@ export function ContentProvider({ children }) {
             label: g.label.replace(/^\S+\s/, '').trim(),
             color: g.color,
             subs: g.interest_subs?.map(s => s.label) || [],
+            tags: g.tags || [],
           })));
         }
 

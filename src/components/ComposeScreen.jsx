@@ -62,7 +62,7 @@ export default function ComposeScreen({ onClose }) {
   const selectedGroupData = interestGroups.find(g => g.id === selGroup);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }} className="fadeUp">
+    <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', overflow: 'hidden' }} className="fadeUp">
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, flexShrink: 0 }}>
@@ -97,11 +97,7 @@ export default function ComposeScreen({ onClose }) {
                 ★
               </button>
             </div>
-            {showCharPicker && (
-              <div style={{ marginTop: 6 }}>
-                <SLCharPicker onInsert={c => setCaption(p => p + c)} onClose={() => setShowCharPicker(false)} />
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -121,16 +117,16 @@ export default function ComposeScreen({ onClose }) {
         <div style={{ padding: '16px 16px 0' }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 10 }}>ADD TAGS</div>
 
-          {/* Group selector */}
+          {/* Group selector — label only, no icons */}
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 8, paddingBottom: 2 }}>
             {interestGroups.map(g => (
               <button key={g.id} onClick={() => setSelGroup(selGroup === g.id ? null : g.id)}
-                style={{ flexShrink: 0, fontSize: 11, padding: '5px 12px', borderRadius: 20, fontWeight: 700,
+                style={{ flexShrink: 0, fontSize: 11, padding: '5px 11px', borderRadius: 20, fontWeight: 700,
                   border: `1.5px solid ${selGroup === g.id ? g.color : C.border}`,
                   background: selGroup === g.id ? `${g.color}22` : 'transparent',
                   color: selGroup === g.id ? g.color : C.muted,
-                  whiteSpace: 'nowrap' }}>
-                {g.icon} {g.label}
+                  whiteSpace: 'nowrap', transition: 'all .15s' }}>
+                {g.label}
               </button>
             ))}
           </div>
@@ -180,6 +176,16 @@ export default function ComposeScreen({ onClose }) {
       </div>
 
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImage} />
+
+      {/* SL Char Picker — centred overlay */}
+      {showCharPicker && (
+        <div style={{ position: 'absolute', inset: 0, background: '#000000aa', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setShowCharPicker(false)}>
+          <div style={{ width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <SLCharPicker onInsert={c => setCaption(p => p + c)} onClose={() => setShowCharPicker(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
