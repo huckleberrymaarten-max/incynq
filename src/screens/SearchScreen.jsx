@@ -9,7 +9,8 @@ export default function SearchScreen() {
   const people  = q ? USERS.filter(u => u.id !== 0 && (u.username.toLowerCase().includes(q) || visibleName(u).toLowerCase().includes(q))) : [];
   const brands  = q ? LOCS.filter(l => l.name.toLowerCase().includes(q) || l.owner.toLowerCase().includes(q)) : [];
   const groups  = q ? INTEREST_GROUPS.filter(g => g.label.toLowerCase().includes(q)) : [];
-  const hasResults = people.length || brands.length || groups.length;
+  const tags    = q ? INTEREST_GROUPS.flatMap(g => (g.tags || []).filter(t => t.includes(q))).slice(0, 10) : [];
+  const hasResults = people.length || brands.length || groups.length || tags.length;
 
   return (
     <div style={{ paddingBottom: 80 }}>

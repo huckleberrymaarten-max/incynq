@@ -6,6 +6,7 @@ import Av from '../components/Av';
 import Toggle from '../components/Toggle';
 import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
+import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { supabase } from '../lib/supabase';
 import logo from '../assets/Q_Logo_.png';
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [showCharPicker, setShowCharPicker] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [showMaturity, setShowMaturity] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -156,10 +158,13 @@ export default function ProfileScreen() {
 
         {/* Stats */}
         <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', border: `1px solid ${C.border}`, marginBottom: 16 }}>
-          {[['Posts', 0], ['Followers', 0], ['Following', following.size]].map(([label, val], i) => (
+          {(currentUser.isOfficial
+            ? [['Posts', 0]]
+            : [['Posts', 0], ['Followers', 0], ['Following', following.size]]
+          ).map(([label, val], i, arr) => (
             <div key={label}
               onClick={label === 'Following' ? () => setShowFollowing(true) : undefined}
-              style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < 2 ? `1px solid ${C.border}` : 'none', cursor: label === 'Following' ? 'pointer' : 'default' }}>
+              style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', cursor: label === 'Following' ? 'pointer' : 'default' }}>
               <div style={{ fontWeight: 900, fontSize: 18, color: label === 'Following' ? C.sky : C.text }}>{val}</div>
               <div style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{label}</div>
             </div>
@@ -392,10 +397,14 @@ export default function ProfileScreen() {
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>@{currentUser.username}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Your SL avatar name · cannot be changed</div>
             </div>
-            <div style={{ padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Maturity Level</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{currentUser.maturity === 'adult' ? '🔴 Adult' : currentUser.maturity === 'moderate' ? '🟡 Moderate' : '🟢 General'}</div>
-            </div>
+            <button onClick={() => setShowMaturity(true)}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Maturity Level</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{currentUser.maturity === 'adult' ? '🔴 Adult' : currentUser.maturity === 'moderate' ? '🟡 Moderate' : '🟢 General'}</div>
+              </div>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
             {/* Change email */}
             <button onClick={() => setShowChangeEmail(!showChangeEmail)}
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -444,6 +453,7 @@ export default function ProfileScreen() {
       )}
 
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+      {showMaturity && <MaturityScreen currentUser={currentUser} onClose={() => setShowMaturity(false)} onUpdate={updates => { updateUser(updates); setShowMaturity(false); }} />}
 
       {/* Following sheet */}
       {showFollowing && (
