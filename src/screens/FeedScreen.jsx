@@ -59,7 +59,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           </div>
           {/* Message */}
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 10, lineHeight: 1.4 }}>
-            Hey {post.displayName || 'there'} 👋 &nbsp;You're in. ⚡
+            Hey {visibleName(currentUser) || 'there'} 👋 &nbsp;You're in. ⚡
           </div>
           <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.8 }}>
             The grid just got a lot less noisy.<br /><br />
@@ -68,9 +68,9 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
             <span style={{ color: C.sky, fontWeight: 700 }}>— InCynq</span>
           </div>
           {/* CTA */}
-          <div style={{ marginTop: 16, padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33` }}>
+          <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
             👤 Go to Profile → add your interests
-          </div>
+          </button>
         </div>
       )}
 
@@ -122,16 +122,25 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
   );
 }
 
-export default function FeedScreen() {
+export default function FeedScreen({ onGoToProfile }) {
   const [showHelp, setShowHelp] = useState(false);
   const { posts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const feed = (() => {
     const result = [];
+
+    // Show welcome post at TOP if account is less than 24 hours old
+    const accountAge = currentUser.createdAt ? Date.now() - new Date(currentUser.createdAt).getTime() : 0;
+    const isNewUser = !currentUser.createdAt || accountAge < 86400000;
+    const welcomePost = posts.find(p => p.isWelcome);
+    if (isNewUser && welcomePost) {
+      result.push({ type: 'post', data: welcomePost });
+    }
+
     const sponsAds = activeAds.filter(a => a.tier === 'premium' || a.tier === 'featured');
     let qi = 0;
-    const feedPosts = posts.filter(p => p.userId !== currentUser.id);
+    const feedPosts = posts.filter(p => p.userId !== currentUser.id && !p.isWelcome);
     feedPosts.forEach((p, i) => {
       result.push({ type: 'post', data: p });
       if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < sponsAds.length) {

@@ -48,6 +48,7 @@ export default function AuthScreen({ onLogin }) {
         wallet: profile.wallet || 0,
         maturity: profile.maturity || 'general',
         activated: profile.activated,
+        createdAt: profile.created_at,
       });
     } catch (e) {
       setError('Incorrect avatar name or password.');

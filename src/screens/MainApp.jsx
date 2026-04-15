@@ -24,7 +24,7 @@ export default function MainApp() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 72 }}>
 
-      {tab === 'feed'      && <FeedScreen />}
+      {tab === 'feed'      && <FeedScreen onGoToProfile={() => setTab('profile')} />}
       {tab === 'search'    && <SearchScreen />}
       {tab === 'events'    && <EventsScreen />}
       {tab === 'advertise' && <AdvertiseScreen />}

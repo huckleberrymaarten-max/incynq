@@ -43,6 +43,7 @@ function AppRoutes() {
             wallet: profile.wallet || 0,
             maturity: profile.maturity || 'general',
             activated: profile.activated,
+            createdAt: profile.created_at,
           });
           setShowOnboarding(false);
           setLoggedIn(true);
