@@ -48,9 +48,29 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
 
       {/* Welcome post */}
       {post.isWelcome && (
-        <div style={{ margin: '0 14px 8px', padding: '18px 16px', background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, border: `1px solid ${C.sky}33`, borderRadius: 14, textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
-          <div style={{ fontSize: 14, color: C.text, lineHeight: 1.7 }}>{post.caption}</div>
+        <div style={{ margin: '0 14px 8px', padding: '22px 20px', background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, border: `1px solid ${C.sky}44`, borderRadius: 16 }}>
+          {/* Logo + badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg,${C.sky},${C.peach})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⚡</div>
+            <div>
+              <div className="sg" style={{ fontWeight: 800, fontSize: 14, color: C.sky }}>InCynq</div>
+              <div style={{ fontSize: 11, color: C.muted }}>Just for you</div>
+            </div>
+          </div>
+          {/* Message */}
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 10, lineHeight: 1.4 }}>
+            Hey {post.displayName || 'there'} 👋 &nbsp;You're in. ⚡
+          </div>
+          <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.8 }}>
+            The grid just got a lot less noisy.<br /><br />
+            Pick your interests in your profile and your feed will start making sense immediately.<br /><br />
+            Good to have you here.<br />
+            <span style={{ color: C.sky, fontWeight: 700 }}>— InCynq</span>
+          </div>
+          {/* CTA */}
+          <div style={{ marginTop: 16, padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33` }}>
+            👤 Go to Profile → add your interests
+          </div>
         </div>
       )}
 
