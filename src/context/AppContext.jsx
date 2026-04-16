@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react';
-import { ME, INIT_POSTS, INIT_ADS, USERS, DAY } from '../data';
+import { ME, INIT_POSTS, INIT_ADS, USERS, DAY, DEFAULT_FOLLOWING } from '../data';
 
 const AppContext = createContext(null);
 
@@ -15,7 +15,7 @@ export function AppProvider({ children }) {
   const [ads, setAds] = useState(INIT_ADS);
   const [liked, setLiked] = useState(new Set());
   const [saved, setSaved] = useState(new Set());
-  const [following, setFollowing] = useState(new Set([0, 2, 3, 4, 5]));
+  const [following, setFollowing] = useState(DEFAULT_FOLLOWING);
   const [myGroups, setMyGroups] = useState(ME.groups);
   const [mySubs, setMySubs] = useState(ME.subs);
 
@@ -89,7 +89,7 @@ export function AppProvider({ children }) {
       linkedProfiles, setLinkedProfiles,
       posts, setPosts,
       ads, setAds,
-      liked, toggleLike,
+      liked, setLiked, toggleLike,
       saved, toggleSave,
       following, setFollowing,
       myGroups, setMyGroups,

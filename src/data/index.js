@@ -17,18 +17,18 @@ export const IMGS = [
 ];
 
 export const INTEREST_GROUPS = [
-  { id: 'social',        label: 'Social',        color: '#4ecdc4', subs: ['Friends', 'Hangouts', 'Events', 'Meetups'] },
-  { id: 'fashion',       label: 'Fashion',        color: '#fb923c', subs: ['Outfits', 'Mesh Bodies', 'Skins', 'Accessories'] },
-  { id: 'home',          label: 'Home & Living',  color: '#a78bfa', subs: ['Furniture', 'Decor', 'Landscaping', 'Architecture'] },
-  { id: 'shopping',      label: 'Shopping',       color: '#f472b6', subs: ['Deals', 'New Releases', 'Gacha', 'Freebies'] },
-  { id: 'roleplay',      label: 'Roleplay',       color: '#5b8dee', subs: ['Fantasy', 'Urban', 'Medieval', 'Sci-Fi'] },
-  { id: 'entertainment', label: 'Entertainment',  color: '#f43f5e', subs: ['DJs & Music', 'Clubs', 'Live Events', 'Games'] },
-  { id: 'creativity',    label: 'Creativity',     color: '#34d399', subs: ['Photography', 'Art', 'Videography', 'Blogging'] },
-  { id: 'creators',      label: 'Creators',       color: '#00b4c8', subs: ['Building', 'Scripting', 'Mesh Creation', 'Textures'] },
-  { id: 'business',      label: 'Business',       color: '#fbbf24', subs: ['Selling', 'Vendors', 'Rentals', 'Marketing'] },
-  { id: 'breedables',    label: 'Breedables',     color: '#86efac', subs: ['Horses', 'Cats & Dogs', 'Bunnies', 'Birds'] },
-  { id: 'vehicles',      label: 'Vehicles',       color: '#94a3b8', subs: ['Cars', 'Bikes', 'Aircraft', 'Boats'] },
-  { id: 'lifestyle',     label: 'Lifestyle',      color: '#ff6b9d', subs: ['Dating', 'Partnerships', 'Family', 'Wellness'] },
+  { id: 'social',        icon: '👥', label: 'Social',        color: '#4ecdc4', subs: ['Friends', 'Hangouts', 'Events', 'Groups', 'Networking', 'Community'],             tags: ['#friends', '#hangouts', '#events', '#groups', '#networking', '#community'] },
+  { id: 'fashion',       icon: '👗', label: 'Fashion',        color: '#fb923c', subs: ['Outfits', 'Mesh Bodies', 'Skins & Shapes', 'Hair', 'Accessories', 'Style Blogs'], tags: ['#outfits', '#meshbody', '#skins', '#hair', '#accessories', '#fashion', '#avatarstyle'] },
+  { id: 'home',          icon: '🏡', label: 'Home & Living',  color: '#a78bfa', subs: ['Furniture', 'Decor', 'Landscaping', 'Builds & Prefabs', 'Rentals'],               tags: ['#furniture', '#decor', '#landscaping', '#builds', '#prefabs', '#rentals', '#home'] },
+  { id: 'shopping',      icon: '🛍', label: 'Shopping',       color: '#f472b6', subs: ['Deals & Discounts', 'New Releases', 'Gacha & Collectibles', 'Store Promos', 'Marketplace'], tags: ['#deals', '#newreleases', '#gacha', '#collectibles', '#marketplace', '#shopping'] },
+  { id: 'roleplay',      icon: '🎭', label: 'Roleplay',        color: '#5b8dee', subs: ['Fantasy', 'Urban & City', 'Medieval', 'Sci-Fi', 'Cyberpunk', 'Adult RP'],        tags: ['#fantasy', '#urban', '#medieval', '#scifi', '#cyberpunk', '#rp', '#roleplay'] },
+  { id: 'entertainment', icon: '🎶', label: 'Entertainment',  color: '#f43f5e', subs: ['DJs & Music', 'Clubs & Nightlife', 'Live Shows', 'Festivals', 'Streaming'],       tags: ['#music', '#dj', '#clubs', '#nightlife', '#liveevents', '#shows', '#festivals'] },
+  { id: 'creativity',    icon: '🎨', label: 'Creativity',      color: '#34d399', subs: ['Photography', 'Art', 'Videography', 'Editing', 'Blogging'],                      tags: ['#photography', '#art', '#videography', '#editing', '#blogging', '#creativity'] },
+  { id: 'creators',      icon: '⚙️', label: 'Creators',        color: '#00b4c8', subs: ['Building', 'Scripting (LSL)', 'Texturing', 'Mesh Creation', 'HUDs & Systems'],   tags: ['#building', '#scripting', '#lsl', '#texturing', '#meshcreation', '#creator'] },
+  { id: 'business',      icon: '💼', label: 'Business',        color: '#fbbf24', subs: ['Selling', 'Vendors', 'Rentals', 'Marketing', 'Commissions'],                     tags: ['#selling', '#vendors', '#rentals', '#marketing', '#business', '#commission'] },
+  { id: 'breedables',    icon: '🐾', label: 'Breedables',      color: '#86efac', subs: ['Horses', 'Cats & Dogs', 'Bunnies', 'Dragons', 'Fantasy Animals', 'Auctions & Trading'], tags: ['#breedables', '#breeding', '#trading', '#auctions', '#amaretto', '#horses', '#bunnies'] },
+  { id: 'vehicles',      icon: '🚗', label: 'Vehicles',         color: '#94a3b8', subs: ['Cars', 'Bikes', 'Aircraft', 'Boats', 'Racing'],                                 tags: ['#cars', '#bikes', '#aircraft', '#boats', '#racing', '#transport'] },
+  { id: 'lifestyle',     icon: '💞', label: 'Lifestyle',        color: '#ff6b9d', subs: ['Dating', 'Partnerships', 'Family', 'Social Circles'],                           tags: ['#dating', '#partners', '#family', '#sociallife', '#friendship'] },
 ];
 
 export const DAY = 86400000;
@@ -40,8 +40,11 @@ export const USERS = [
   { id: 3, username: 'luna.rose',   displayName: 'Luna ♥ Rose',      avatar: av('LunaRose'),   bio: 'Poet · Artist · Dreamer',        loc: 'Serenity Gardens', groups: ['creativity', 'home'],                  gridStatus: 'hidden',  online: false },
   { id: 4, username: 'cyber.mod',   displayName: '⚡ CyberMod™ ⚡',  avatar: av('CyberMod'),   bio: 'Owner of Neo Tokyo · RP fan',    loc: 'Neo Tokyo',        groups: ['roleplay', 'creators'],                gridStatus: 'online',  online: true  },
   { id: 5, username: 'star.gazer',  displayName: '★彡 StarGazer 彡★', avatar: av('StarGazer'),  bio: 'Space sim builder · Starfall',   loc: 'Starfall',         groups: ['creators', 'roleplay'],                gridStatus: 'hidden',  online: false },
-  { id: 0, username: 'incynq',      displayName: 'InCynq',           avatar: `https://api.dicebear.com/9.x/shapes/svg?seed=incynq&backgroundColor=007a87`, bio: 'The home of the grid.', loc: 'incynq.app', groups: [], isOfficial: true, cynqified: true, accountType: 'brand', gridStatus: 'online', online: true },
+  { id: 0, username: 'incynq',      displayName: 'InCynq',           avatar: `https://api.dicebear.com/9.x/shapes/svg?seed=incynq&backgroundColor=007a87`, bio: 'The home of the grid.', loc: 'incynq.app', groups: [], isOfficial: true, cynqified: true, accountType: 'official', gridStatus: 'online', online: true },
 ];
+
+// InCynq official user ID — everyone follows this by default
+export const INCYNQ_OFFICIAL_ID = 0;
 
 export const ME = {
   id: 1,
@@ -61,12 +64,12 @@ export const ME = {
 };
 
 export const LOCS = [
-  { id: 1, name: 'The Neon Lounge',     owner: 'neon.wolf',  image: IMGS[0], desc: 'The grid\'s biggest nightclub. DJ nights every evening.',  slurl: 'secondlife://Neon District/128/128/22',   rating: 4.8, visits: 12400, tags: ['#clubs', '#dj', '#nightlife'] },
-  { id: 2, name: 'Luminos Beach',       owner: 'sky.dancer', image: IMGS[1], desc: 'Stunning mesh beach with fashion events every weekend.',   slurl: 'secondlife://Luminos/200/100/22',          rating: 4.6, visits: 8900,  tags: ['#fashion', '#beach', '#social'] },
-  { id: 3, name: 'Serenity Gardens',    owner: 'luna.rose',  image: IMGS[3], desc: 'Peaceful art garden. Photography welcome.',                slurl: 'secondlife://Serenity/100/100/22',         rating: 4.9, visits: 5200,  tags: ['#art', '#photography', '#peaceful'] },
-  { id: 4, name: 'Neo Tokyo',           owner: 'cyber.mod',  image: IMGS[2], desc: 'Cyberpunk roleplay sim. Events every evening.',           slurl: 'secondlife://NeoTokyo/64/64/50',           rating: 4.7, visits: 11200, tags: ['#cyberpunk', '#roleplay', '#urban'] },
-  { id: 5, name: 'Starfall',            owner: 'star.gazer', image: IMGS[4], desc: 'Sci-fi space sim with meteor shower events.',              slurl: 'secondlife://Starfall/200/200/120',        rating: 4.5, visits: 6800,  tags: ['#scifi', '#space', '#building'] },
-  { id: 6, name: 'Crystal Cove Market', owner: 'merchant.pro', image: IMGS[5], desc: '200+ vendors, gacha machines, live music.',             slurl: 'secondlife://Crystal/64/64/22',            rating: 4.3, visits: 15600, tags: ['#shopping', '#gacha', '#market'] },
+  { id: 1, name: 'The Neon Lounge',     owner: 'neon.wolf',    image: IMGS[0], desc: "The grid's biggest nightclub. DJ nights every evening.", slurl: 'secondlife://Neon District/128/128/22',   rating: 4.8, visits: 12400, tags: ['#clubs', '#dj', '#nightlife'],          groups: ['entertainment', 'social'] },
+  { id: 2, name: 'Luminos Beach',       owner: 'sky.dancer',   image: IMGS[1], desc: 'Stunning mesh beach with fashion events every weekend.',  slurl: 'secondlife://Luminos/200/100/22',          rating: 4.6, visits: 8900,  tags: ['#fashion', '#beach', '#social'],         groups: ['fashion', 'social'] },
+  { id: 3, name: 'Serenity Gardens',    owner: 'luna.rose',    image: IMGS[3], desc: 'Peaceful art garden. Photography welcome.',               slurl: 'secondlife://Serenity/100/100/22',         rating: 4.9, visits: 5200,  tags: ['#art', '#photography', '#peaceful'],     groups: ['creativity'] },
+  { id: 4, name: 'Neo Tokyo',           owner: 'cyber.mod',    image: IMGS[2], desc: 'Cyberpunk roleplay sim. Events every evening.',          slurl: 'secondlife://NeoTokyo/64/64/50',           rating: 4.7, visits: 11200, tags: ['#cyberpunk', '#roleplay', '#urban'],      groups: ['roleplay'] },
+  { id: 5, name: 'Starfall',            owner: 'star.gazer',   image: IMGS[4], desc: 'Sci-fi space sim with meteor shower events.',             slurl: 'secondlife://Starfall/200/200/120',        rating: 4.5, visits: 6800,  tags: ['#scifi', '#space', '#building'],          groups: ['roleplay', 'creators'] },
+  { id: 6, name: 'Crystal Cove Market', owner: 'merchant.pro', image: IMGS[5], desc: '200+ vendors, gacha machines, live music.',              slurl: 'secondlife://Crystal/64/64/22',            rating: 4.3, visits: 15600, tags: ['#shopping', '#gacha', '#market'],         groups: ['shopping'] },
 ];
 
 export const INIT_POSTS = [
@@ -76,22 +79,22 @@ export const INIT_POSTS = [
   { id: 4, userId: 3, image: IMGS[3], caption: 'Digital Dreams art panels now live at Serenity 💜 Free for all!', tags: ['#art', '#photography'], likes: 534, comments: [], time: '8h', locationId: 3 },
   { id: 5, userId: 5, image: IMGS[4], caption: 'Meteor shower event Saturday 7pm SLT ✨ Free mesh gifts!', tags: ['#scifi', '#events'], likes: 689, comments: [], time: '11h', locationId: 5 },
   { id: 6, userId: 2, image: IMGS[6], caption: 'Rooftop vibes from The Neon Lounge 🌃 This grid never sleeps!', tags: ['#clubs', '#nightlife'], likes: 421, comments: [], time: '14h', locationId: 1 },
-  { id: 7, userId: 0, image: null,    caption: 'Hey, welcome to InCynq! We show up here when something actually matters. Which will not be often. Promise.', tags: ['#incynq', '#welcome'], likes: 0, comments: [], time: 'just now', locationId: null, isWelcome: true },
+  { id: 7, userId: 0, image: null, caption: '', tags: ['#incynq', '#welcome'], likes: 0, comments: [], time: 'just now', locationId: null, isWelcome: true, displayName: 'there' },
 ];
 
 export const INIT_ADS = [
-  { id: 1, locationId: 4, tier: 'premium',  groups: ['roleplay'],                 isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 3 * DAY, price: 1500 },
-  { id: 2, locationId: 2, tier: 'featured', groups: ['social', 'entertainment'],  isRandom: false, adMaturity: 'general', purchasedAt: NOW - 2 * DAY, expiresAt: NOW + DAY,     price: 1350 },
-  { id: 3, locationId: 5, tier: 'featured', groups: ['fashion'],                  isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 5 * DAY, price: 750  },
-  { id: 4, locationId: 6, tier: 'basic',    groups: ['shopping'],                 isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 2 * DAY, price: 250  },
-  { id: 5, locationId: 1, tier: 'basic',    groups: ['social', 'entertainment'],  isRandom: true,  adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 4 * DAY, price: 188  },
+  { id: 1, locationId: 4, tier: 'premium',  groups: ['roleplay'],                isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 3 * DAY, price: 1500 },
+  { id: 2, locationId: 2, tier: 'featured', groups: ['social', 'entertainment'], isRandom: false, adMaturity: 'general', purchasedAt: NOW - 2 * DAY, expiresAt: NOW + DAY,     price: 1350 },
+  { id: 3, locationId: 5, tier: 'featured', groups: ['fashion'],                 isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 5 * DAY, price: 750  },
+  { id: 4, locationId: 6, tier: 'basic',    groups: ['shopping'],                isRandom: false, adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 2 * DAY, price: 250  },
+  { id: 5, locationId: 1, tier: 'basic',    groups: ['social', 'entertainment'], isRandom: true,  adMaturity: 'general', purchasedAt: NOW - DAY,     expiresAt: NOW + 4 * DAY, price: 188  },
 ];
 
 export const INIT_EVENTS = [
-  { id: 1, title: 'DJ Pulse Live @ Neon Lounge', host: 'neon.wolf',  image: IMGS[0], locationId: 1, slurl: 'secondlife://Neon District/128/128/22', date: '2026-04-15', time: '20:00 SLT', desc: 'The biggest DJ night of the month. Come dressed cyberpunk!', tags: ['#dj', '#nightlife'], rsvps: 247, interested: 89,  groups: ['entertainment'], boosted: true  },
-  { id: 2, title: 'Luminos Beach Fashion Show',  host: 'sky.dancer', image: IMGS[1], locationId: 2, slurl: 'secondlife://Luminos/200/100/22',         date: '2026-04-17', time: '15:00 SLT', desc: 'Annual beach fashion show. All welcome!',                   tags: ['#fashion'],         rsvps: 134, interested: 210, groups: ['fashion'],        boosted: false },
-  { id: 3, title: 'Starfall Meteor Shower',      host: 'star.gazer', image: IMGS[4], locationId: 5, slurl: 'secondlife://Starfall/200/200/120',        date: '2026-04-18', time: '19:00 SLT', desc: 'Meteor shower with free mesh gifts for all.',              tags: ['#scifi', '#events'], rsvps: 312, interested: 445, groups: ['roleplay'],       boosted: false },
-  { id: 4, title: 'Crystal Cove Shopping Weekend', host: 'merchant.pro', image: IMGS[5], locationId: 6, slurl: 'secondlife://Crystal/64/64/22',       date: '2026-04-20', time: '10:00 SLT', desc: '200+ vendors, special discounts, live music all weekend.',  tags: ['#shopping'],         rsvps: 521, interested: 872, groups: ['shopping'],       boosted: true  },
+  { id: 1, title: 'DJ Pulse Live @ Neon Lounge',   host: 'neon.wolf',    image: IMGS[0], locationId: 1, slurl: 'secondlife://Neon District/128/128/22', date: '2026-04-15', time: '20:00 SLT', desc: 'The biggest DJ night of the month.', tags: ['#dj', '#nightlife'], rsvps: 247, interested: 89,  groups: ['entertainment'], boosted: true  },
+  { id: 2, title: 'Luminos Beach Fashion Show',    host: 'sky.dancer',   image: IMGS[1], locationId: 2, slurl: 'secondlife://Luminos/200/100/22',        date: '2026-04-17', time: '15:00 SLT', desc: 'Annual beach fashion show.',         tags: ['#fashion'],         rsvps: 134, interested: 210, groups: ['fashion'],        boosted: false },
+  { id: 3, title: 'Starfall Meteor Shower',        host: 'star.gazer',   image: IMGS[4], locationId: 5, slurl: 'secondlife://Starfall/200/200/120',       date: '2026-04-18', time: '19:00 SLT', desc: 'Meteor shower with free mesh gifts.', tags: ['#scifi', '#events'], rsvps: 312, interested: 445, groups: ['roleplay'],       boosted: false },
+  { id: 4, title: 'Crystal Cove Shopping Weekend', host: 'merchant.pro', image: IMGS[5], locationId: 6, slurl: 'secondlife://Crystal/64/64/22',           date: '2026-04-20', time: '10:00 SLT', desc: '200+ vendors, special discounts.',   tags: ['#shopping'],        rsvps: 521, interested: 872, groups: ['shopping'],       boosted: true  },
 ];
 
 export const REPORT_REASONS = [
@@ -161,3 +164,6 @@ export const adMatchesUser = (ad, user) => {
   if (!matOk) return false;
   return ad.groups.some(g => user.groups?.includes(g));
 };
+
+// Default following set — everyone follows InCynq official (id:0)
+export const DEFAULT_FOLLOWING = new Set([0, 2, 3, 4, 5]);

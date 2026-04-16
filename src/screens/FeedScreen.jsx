@@ -154,7 +154,7 @@ export default function FeedScreen({ onGoToProfile }) {
         if (currentUser?.id) {
           try {
             const likedSet = await getLikes(currentUser.id);
-            likedSet.forEach(id => toggleLike(id, true));
+            setLiked(likedSet);
           } catch(e) {
             console.warn('Could not load likes:', e.message);
           }
@@ -188,7 +188,7 @@ export default function FeedScreen({ onGoToProfile }) {
     };
     loadPosts();
   }, []);
-  const { posts, setPosts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
+  const { posts, setPosts, ads, liked, setLiked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const feed = (() => {
@@ -277,6 +277,8 @@ export default function FeedScreen({ onGoToProfile }) {
                 } catch(e) { console.warn('Delete failed:', e.message); }
               }}
               onLikeDb={async (id, isLiked) => {
+                // Only save to Supabase for real posts (UUID, not sample numeric IDs)
+                if (typeof id === 'number') return;
                 try {
                   if (isLiked) {
                     await unlikePost(id, currentUser.id);
