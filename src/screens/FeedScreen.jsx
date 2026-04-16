@@ -293,9 +293,9 @@ export default function FeedScreen({ onGoToProfile }) {
             _profile: p.profiles,
           }));
           setPosts(prev => {
-            // Keep sample posts, add real ones at top
-            const samplePosts = prev.filter(p => typeof p.id === 'number' && p.id < 100);
-            return [...mapped, ...samplePosts];
+            // Keep welcome post, replace everything else with real posts
+            const welcomePost = prev.find(p => p.isWelcome);
+            return welcomePost ? [welcomePost, ...mapped] : mapped;
           });
         }
       } catch (e) {
