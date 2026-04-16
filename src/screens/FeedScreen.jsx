@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+
+// Module-level like debounce to prevent double-fire
+const likeDebounce = new Map();
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
@@ -145,9 +148,10 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
       <div style={{ padding: '10px 14px 4px', display: 'flex', gap: 16, alignItems: 'center' }}>
         <button onClick={e => {
           e.preventDefault(); e.stopPropagation();
-          if (likingRef.current) return;
-          likingRef.current = true;
-          setTimeout(() => { likingRef.current = false; }, 500);
+          const key = `${post.id}_${currentUser?.id}`;
+          if (likeDebounce.get(key)) return;
+          likeDebounce.set(key, true);
+          setTimeout(() => likeDebounce.delete(key), 1000);
           const wasLiked = liked;
           onLike(post.id);
           onLikeDb?.(post.id, wasLiked);
