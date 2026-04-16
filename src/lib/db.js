@@ -79,14 +79,7 @@ export const updateProfile = async (userId, updates) => {
 };
 
 // ── Posts ──
-export const getPosts = async () => {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-};
+
 
 export const createPost = async ({ userId, caption, imageUrl, tags }) => {
   const { data, error } = await supabase

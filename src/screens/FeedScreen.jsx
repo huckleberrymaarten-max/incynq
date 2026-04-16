@@ -11,7 +11,8 @@ import logo from '../assets/Q_Logo_.png';
 function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport }) {
   const [reported, setReported] = useState(false);
   const [showReport, setShowReport] = useState(false);
-  const user = post.userId === currentUser?.id
+  const isOwn = post.userId === currentUser?.id;
+  const user = isOwn
     ? currentUser
     : post._profile
       ? {
@@ -46,7 +47,13 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
           )}
           <div style={{ fontSize: 11, color: C.muted }}>{post.time}</div>
         </div>
-        <button onClick={() => setShowReport(true)} style={{ color: C.muted, fontSize: 14, opacity: .6 }}>🚩</button>
+        {isOwn
+          ? <button onClick={() => onDelete(post.id)}
+              style={{ color: '#ff4466', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#ff446611', border: '1px solid #ff446633' }}>
+              Delete
+            </button>
+          : <button onClick={() => setShowReport(true)} style={{ color: C.muted, fontSize: 14, opacity: .6 }}>🚩</button>
+        }
       </div>
 
       {/* Under review */}
@@ -109,8 +116,8 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
 
       {/* Caption */}
       {!post.isWelcome && post.caption && (
-        <div style={{ padding: '2px 14px 8px', fontSize: 13, color: C.sub, lineHeight: 1.5 }}>
-          <span style={{ fontWeight: 800, color: C.text, marginRight: 6 }}>{visibleName(user)}</span>
+        <div style={{ padding: '2px 14px 8px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
+          <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
           {post.caption}
         </div>
       )}
@@ -252,6 +259,13 @@ export default function FeedScreen({ onGoToProfile }) {
               liked={liked.has(p.id)} saved={saved.has(p.id)}
               currentUser={currentUser}
               onReport={r => setReportQueue(prev => [...prev, { ...r, id: Date.now() }])}
+              onDelete={async id => {
+                setPosts(prev => prev.filter(p => p.id !== id));
+                try {
+                  const { supabase } = await import('../lib/supabase');
+                  await supabase.from('posts').delete().eq('id', id);
+                } catch(e) { console.warn('Delete failed:', e.message); }
+              }}
             />
           );
         })}
