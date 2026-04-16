@@ -50,12 +50,9 @@ function AppRoutes() {
           try {
             const { getFollows } = await import('./lib/db');
             const followSet = await getFollows(session.user.id);
-            // Always include InCynq official (id:0 in sample, but also check real UUID)
-            setFollowing(prev => {
-              const merged = new Set([...followSet]);
-              merged.add(0); // Always follow InCynq official
-              return merged;
-            });
+            const merged = new Set([...followSet]);
+            merged.add(0); // Always follow InCynq official
+            setFollowing(merged);
           } catch(e) {
             console.warn('Could not load follows:', e.message);
           }

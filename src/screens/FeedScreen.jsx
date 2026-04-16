@@ -8,7 +8,7 @@ import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, dele
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
-function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit }) {
+function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit, onGoToProfile }) {
   const [reported, setReported] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editCaption, setEditCaption] = useState(post.caption);
@@ -16,6 +16,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
 
   const loadComments = async () => {
     if (typeof post.id === 'number') return;
@@ -23,6 +24,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     try {
       const data = await getComments(post.id);
       setComments(data);
+      setCommentCount(data.length);
     } catch(e) { console.warn('Comments failed:', e.message); }
     finally { setLoadingComments(false); }
   };
@@ -32,6 +34,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     try {
       const newComment = await addComment(post.id, currentUser.id, commentText.trim());
       setComments(prev => [...prev, newComment]);
+      setCommentCount(prev => prev + 1);
       setCommentText('');
     } catch(e) { console.warn('Comment failed:', e.message); }
   };
@@ -106,7 +109,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         <div style={{ margin: '0 14px 8px', padding: '22px 20px', background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, border: `1px solid ${C.sky}44`, borderRadius: 16 }}>
           {/* Logo + badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg,${C.sky},${C.peach})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⚡</div>
+            <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', flexShrink: 0, filter: `drop-shadow(0 0 8px ${C.sky}88)` }} />
             <div>
               <div className="sg" style={{ fontWeight: 800, fontSize: 14, color: C.sky }}>InCynq</div>
               <div style={{ fontSize: 11, color: C.muted }}>Just for you</div>
@@ -120,7 +123,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             The grid just got a lot less noisy.<br /><br />
             Pick your interests in your profile and your feed will start making sense immediately.<br /><br />
             Good to have you here.<br />
-            <span style={{ color: C.sky, fontWeight: 700 }}>— InCynq</span>
+            <span style={{ color: C.sky, fontWeight: 700 }}>— The InCynq Team</span>
           </div>
           {/* CTA */}
           <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
@@ -142,7 +145,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         </button>
         <button onClick={handleShowComments} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 20 }}>💬</span>
-          <span style={{ fontSize: 13, color: showComments ? C.sky : C.muted, fontWeight: 700 }}>{comments.length || post.comments?.length || 0}</span>
+          <span style={{ fontSize: 13, color: showComments ? C.sky : C.muted, fontWeight: 700 }}>{commentCount}</span>
         </button>
         <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}>
           <svg width="14" height="18" viewBox="0 0 18 22" fill={saved ? '#00e5a0' : '#ff4466'}>
@@ -203,6 +206,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
                 {c.user_id === currentUser?.id && (
                   <button onClick={async () => {
                     setComments(prev => prev.filter(x => x.id !== c.id));
+                  setCommentCount(prev => Math.max(0, prev - 1));
                     try { await deleteComment(c.id); } catch(e) {}
                   }} style={{ color: C.muted, fontSize: 10 }}>✕</button>
                 )}
@@ -381,6 +385,7 @@ export default function FeedScreen({ onGoToProfile }) {
               onEdit={(id, newCaption) => {
                 setPosts(prev => prev.map(p => p.id === id ? { ...p, caption: newCaption } : p));
               }}
+              onGoToProfile={onGoToProfile}
               onLikeDb={async (id, isLiked) => {
                 if (typeof id === 'number') return;
                 try {

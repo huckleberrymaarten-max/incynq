@@ -109,8 +109,9 @@ export default function ProfileScreen() {
     const n = new Set(following);
     isFollowing ? n.delete(id) : n.add(id);
     setFollowing(n);
-    // Save to Supabase for real UUIDs
-    if (typeof id !== 'number') {
+    // Save to Supabase only for real UUID follows (not sample numeric IDs)
+    const isUUID = typeof id === 'string' && id.includes('-');
+    if (isUUID) {
       try {
         if (isFollowing) {
           await unfollowUser(currentUser.id, id);
