@@ -36,6 +36,12 @@ export default function ComposeScreen({ onClose }) {
       toast('Add a caption or photo first', 'error');
       return;
     }
+    // Block links and SLurls
+    const hasLink = /https?:\/\/|secondlife:\/\/|slurl\.com/i.test(caption);
+    if (hasLink) {
+      toast('Links and SLurls are not allowed in posts. Use a paid ad to include a teleport link.', 'error');
+      return;
+    }
     setPosting(true);
     try {
       const newPost = {

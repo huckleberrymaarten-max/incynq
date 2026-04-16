@@ -176,6 +176,20 @@ export default function ProfileScreen() {
           ))}
         </div>
 
+        {/* Wallet */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: C.card2, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>💰</span>
+            <div>
+              <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5 }}>INCYNQ WALLET</div>
+              <div className="sg" style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>L$ {(currentUser.wallet || 0).toLocaleString()}</div>
+            </div>
+          </div>
+          <button style={{ padding: '7px 16px', borderRadius: 20, background: `${C.gold}18`, border: `1px solid ${C.gold}44`, color: C.gold, fontWeight: 700, fontSize: 12 }}>
+            Top Up
+          </button>
+        </div>
+
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           <button onClick={() => setShowEdit(true)}
@@ -406,7 +420,11 @@ export default function ProfileScreen() {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Maturity Level</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{currentUser.maturity === 'adult' ? '🔴 Adult' : currentUser.maturity === 'moderate' ? '🟡 Moderate' : '🟢 General'}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                {(Array.isArray(currentUser.maturity) ? currentUser.maturity : [currentUser.maturity || 'general'])
+                  .map(m => m === 'adult' ? '🔴 Adult' : m === 'moderate' ? '🟡 Moderate' : '🟢 General')
+                  .join(' · ')}
+              </div>
               </div>
               <span style={{ color: C.muted }}>→</span>
             </button>
