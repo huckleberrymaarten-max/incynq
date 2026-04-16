@@ -110,6 +110,41 @@ export const uploadPostImage = async (userId, file) => {
   return data.publicUrl;
 };
 
+// ── Likes ──
+export const getLikes = async (userId) => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return new Set(data.map(l => l.post_id));
+};
+
+export const likePost = async (postId, userId) => {
+  const { error } = await supabase
+    .from('post_likes')
+    .insert({ post_id: postId, user_id: userId });
+  if (error) throw error;
+};
+
+export const unlikePost = async (postId, userId) => {
+  const { error } = await supabase
+    .from('post_likes')
+    .delete()
+    .eq('post_id', postId)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
+export const getPostLikeCount = async (postId) => {
+  const { count, error } = await supabase
+    .from('post_likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+  if (error) throw error;
+  return count || 0;
+};
+
 // ── Reports ──
 export const createReport = async ({ postId, reporterId, reason }) => {
   const { data, error } = await supabase

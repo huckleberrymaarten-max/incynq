@@ -4,11 +4,11 @@ import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
-import { getPosts } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
-function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete }) {
+function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb }) {
   const [reported, setReported] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const isOwn = post.userId === currentUser?.id;
@@ -99,7 +99,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 
       {/* Actions */}
       <div style={{ padding: '10px 14px 4px', display: 'flex', gap: 16, alignItems: 'center' }}>
-        <button onClick={() => onLike(post.id)} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <button onClick={() => { onLike(post.id); onLikeDb?.(post.id, liked); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 20, filter: liked ? 'none' : 'grayscale(1)' }}>{liked ? '❤️' : '🤍'}</span>
           <span style={{ fontSize: 13, color: liked ? '#ff4466' : C.muted, fontWeight: 700 }}>{post.likes + (liked ? 1 : 0)}</span>
         </button>
@@ -150,6 +150,16 @@ export default function FeedScreen({ onGoToProfile }) {
   useEffect(() => {
     const loadPosts = async () => {
       try {
+        // Load likes from Supabase
+        if (currentUser?.id) {
+          try {
+            const likedSet = await getLikes(currentUser.id);
+            likedSet.forEach(id => toggleLike(id, true));
+          } catch(e) {
+            console.warn('Could not load likes:', e.message);
+          }
+        }
+
         const dbPosts = await getPosts();
         if (dbPosts?.length) {
           const mapped = dbPosts.map(p => ({
@@ -265,6 +275,15 @@ export default function FeedScreen({ onGoToProfile }) {
                   const { supabase } = await import('../lib/supabase');
                   await supabase.from('posts').delete().eq('id', id);
                 } catch(e) { console.warn('Delete failed:', e.message); }
+              }}
+              onLikeDb={async (id, isLiked) => {
+                try {
+                  if (isLiked) {
+                    await unlikePost(id, currentUser.id);
+                  } else {
+                    await likePost(id, currentUser.id);
+                  }
+                } catch(e) { console.warn('Like failed:', e.message); }
               }}
             />
           );
