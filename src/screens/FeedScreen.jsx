@@ -404,15 +404,12 @@ export default function FeedScreen({ onGoToProfile }) {
               onGoToProfile={onGoToProfile}
               onLikeDb={async (id, isLiked) => {
                 if (typeof id === 'number') return;
-                console.log('Like attempt:', id, 'isLiked:', isLiked, 'user:', currentUser.id);
                 try {
                   if (isLiked) {
                     await unlikePost(id, currentUser.id);
-                    console.log('Unliked');
-                  } else {
+                    } else {
                     await likePost(id, currentUser.id);
-                    console.log('Liked');
-                  }
+                    }
                   const newCount = await updatePostLikeCount(id);
                   setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: newCount } : p));
                 } catch(e) { console.warn('Like failed:', e.message); }
