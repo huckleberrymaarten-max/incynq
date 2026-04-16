@@ -70,7 +70,10 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     <div style={{ borderBottom: `1px solid ${C.border}22`, paddingBottom: 8, marginBottom: 4 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 8px' }}>
-        <Av src={user.avatar} size={38} ring={C.sky} status={user.gridStatus} />
+        {(user.isOfficial || user.username === 'incynq')
+          ? <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', filter: `drop-shadow(0 0 8px ${C.sky}88)`, flexShrink: 0 }} />
+          : <Av src={user.avatar} size={38} ring={C.sky} status={user.gridStatus} />
+        }
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{visibleName(user)}</span>
