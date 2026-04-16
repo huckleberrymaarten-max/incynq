@@ -4,12 +4,43 @@ import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
-import { getPosts, getLikes, likePost, unlikePost } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
-function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb }) {
+function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit }) {
   const [reported, setReported] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editCaption, setEditCaption] = useState(post.caption);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  const loadComments = async () => {
+    if (typeof post.id === 'number') return;
+    setLoadingComments(true);
+    try {
+      const data = await getComments(post.id);
+      setComments(data);
+    } catch(e) { console.warn('Comments failed:', e.message); }
+    finally { setLoadingComments(false); }
+  };
+
+  const handleComment = async () => {
+    if (!commentText.trim()) return;
+    try {
+      const newComment = await addComment(post.id, currentUser.id, commentText.trim());
+      setComments(prev => [...prev, newComment]);
+      setCommentText('');
+    } catch(e) { console.warn('Comment failed:', e.message); }
+  };
+
+  const handleShowComments = () => {
+    setShowComments(!showComments);
+    if (!showComments && comments.length === 0) loadComments();
+  };
+
   const [showReport, setShowReport] = useState(false);
   const isOwn = post.userId === currentUser?.id;
   const user = isOwn
@@ -48,10 +79,16 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
           <div style={{ fontSize: 11, color: C.muted }}>{post.time}</div>
         </div>
         {isOwn
-          ? <button onClick={() => onDelete(post.id)}
-              style={{ color: '#ff4466', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#ff446611', border: '1px solid #ff446633' }}>
-              Delete
-            </button>
+          ? <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setShowEdit(!showEdit)}
+                style={{ color: C.sky, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: `${C.sky}11`, border: `1px solid ${C.sky}33` }}>
+                Edit
+              </button>
+              <button onClick={() => onDelete(post.id)}
+                style={{ color: '#ff4466', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#ff446611', border: '1px solid #ff446633' }}>
+                Delete
+              </button>
+            </div>
           : <button onClick={() => setShowReport(true)} style={{ color: C.muted, fontSize: 14, opacity: .6 }}>🚩</button>
         }
       </div>
@@ -103,9 +140,9 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
           <span style={{ fontSize: 20, filter: liked ? 'none' : 'grayscale(1)' }}>{liked ? '❤️' : '🤍'}</span>
           <span style={{ fontSize: 13, color: liked ? '#ff4466' : C.muted, fontWeight: 700 }}>{post.likes + (liked ? 1 : 0)}</span>
         </button>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <button onClick={handleShowComments} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 20 }}>💬</span>
-          <span style={{ fontSize: 13, color: C.muted, fontWeight: 700 }}>{post.comments?.length || 0}</span>
+          <span style={{ fontSize: 13, color: showComments ? C.sky : C.muted, fontWeight: 700 }}>{comments.length || post.comments?.length || 0}</span>
         </button>
         <button onClick={() => onSave(post.id)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32 }}>
           <svg width="14" height="18" viewBox="0 0 18 22" fill={saved ? '#00e5a0' : '#ff4466'}>
@@ -119,6 +156,71 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         <div style={{ padding: '2px 14px 8px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
           <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
           {post.caption}
+        </div>
+      )}
+
+      {/* Edit caption */}
+      {isOwn && showEdit && (
+        <div style={{ padding: '8px 14px 4px' }}>
+          <textarea value={editCaption} onChange={e => setEditCaption(e.target.value)}
+            style={{ width: '100%', background: C.card2, border: `1px solid ${C.sky}`, color: C.text, fontSize: 13, padding: '8px 12px', borderRadius: 10, resize: 'none', minHeight: 60, fontFamily: 'inherit', outline: 'none' }} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <button onClick={() => setShowEdit(false)}
+              style={{ flex: 1, padding: '8px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 12 }}>
+              Cancel
+            </button>
+            <button onClick={async () => {
+                if (!editCaption.trim()) return;
+                onEdit?.(post.id, editCaption.trim());
+                setShowEdit(false);
+                try {
+                  const { supabase } = await import('../lib/supabase');
+                  await supabase.from('posts').update({ caption: editCaption.trim() }).eq('id', post.id);
+                } catch(e) { console.warn('Edit failed:', e.message); }
+              }}
+              style={{ flex: 1, padding: '8px', borderRadius: 10, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 12 }}>
+              Save →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Comments section */}
+      {showComments && (
+        <div style={{ padding: '4px 14px 12px', borderTop: `1px solid ${C.border}22` }}>
+          {loadingComments && <div style={{ fontSize: 12, color: C.muted, padding: '8px 0' }}>Loading…</div>}
+          {comments.map(c => {
+            const cUser = c.profiles;
+            const cName = cUser?.show_display_name !== false && cUser?.display_name ? cUser.display_name : cUser?.username;
+            return (
+              <div key={c.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: `1px solid ${C.border}11` }}>
+                <img src={cUser?.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${cUser?.username}`} alt=""
+                  style={{ width: 28, height: 28, borderRadius: '18%', objectFit: 'cover', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: C.text, marginRight: 6 }}>{cName}</span>
+                  <span style={{ fontSize: 12, color: C.sub }}>{c.text}</span>
+                </div>
+                {c.user_id === currentUser?.id && (
+                  <button onClick={async () => {
+                    setComments(prev => prev.filter(x => x.id !== c.id));
+                    try { await deleteComment(c.id); } catch(e) {}
+                  }} style={{ color: C.muted, fontSize: 10 }}>✕</button>
+                )}
+              </div>
+            );
+          })}
+          {typeof post.id !== 'number' && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <input value={commentText} onChange={e => setCommentText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleComment()}
+                placeholder="Add a comment…"
+                style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontSize: 12, padding: '7px 12px', borderRadius: 20, outline: 'none', fontFamily: 'inherit' }} />
+              <button onClick={handleComment}
+                style={{ padding: '7px 14px', borderRadius: 20, background: commentText.trim() ? `linear-gradient(135deg,${C.sky},${C.peach})` : C.card2, color: commentText.trim() ? '#060d14' : C.muted, fontWeight: 700, fontSize: 12 }}>
+                Post
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -276,8 +378,10 @@ export default function FeedScreen({ onGoToProfile }) {
                   await supabase.from('posts').delete().eq('id', id);
                 } catch(e) { console.warn('Delete failed:', e.message); }
               }}
+              onEdit={(id, newCaption) => {
+                setPosts(prev => prev.map(p => p.id === id ? { ...p, caption: newCaption } : p));
+              }}
               onLikeDb={async (id, isLiked) => {
-                // Only save to Supabase for real posts (UUID, not sample numeric IDs)
                 if (typeof id === 'number') return;
                 try {
                   if (isLiked) {
@@ -285,6 +389,9 @@ export default function FeedScreen({ onGoToProfile }) {
                   } else {
                     await likePost(id, currentUser.id);
                   }
+                  // Update like count in post
+                  const newCount = await updatePostLikeCount(id);
+                  setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: newCount } : p));
                 } catch(e) { console.warn('Like failed:', e.message); }
               }}
             />

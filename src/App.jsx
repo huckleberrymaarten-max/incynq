@@ -14,7 +14,7 @@ import MainApp          from './screens/MainApp';
 import Toast            from './components/Toast';
 
 function AppRoutes() {
-  const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif } = useApp();
+  const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif, setFollowing } = useApp();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -45,6 +45,21 @@ function AppRoutes() {
             activated: profile.activated,
             createdAt: profile.created_at,
           });
+
+          // Load follows from Supabase
+          try {
+            const { getFollows } = await import('./lib/db');
+            const followSet = await getFollows(session.user.id);
+            // Always include InCynq official (id:0 in sample, but also check real UUID)
+            setFollowing(prev => {
+              const merged = new Set([...followSet]);
+              merged.add(0); // Always follow InCynq official
+              return merged;
+            });
+          } catch(e) {
+            console.warn('Could not load follows:', e.message);
+          }
+
           setShowOnboarding(false);
           setLoggedIn(true);
         } catch (e) {

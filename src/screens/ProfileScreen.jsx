@@ -10,6 +10,7 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
+import { followUser, unfollowUser } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -102,11 +103,22 @@ export default function ProfileScreen() {
     setShowChangePassword(false); setNewPassword(''); setConfirmPassword('');
   };
 
-  const toggleFollow = id => {
+  const toggleFollow = async id => {
     if (id === 0) return;
+    const isFollowing = following.has(id);
     const n = new Set(following);
-    n.has(id) ? n.delete(id) : n.add(id);
+    isFollowing ? n.delete(id) : n.add(id);
     setFollowing(n);
+    // Save to Supabase for real UUIDs
+    if (typeof id !== 'number') {
+      try {
+        if (isFollowing) {
+          await unfollowUser(currentUser.id, id);
+        } else {
+          await followUser(currentUser.id, id);
+        }
+      } catch(e) { console.warn('Follow failed:', e.message); }
+    }
   };
 
   // Build inline discover suggestions

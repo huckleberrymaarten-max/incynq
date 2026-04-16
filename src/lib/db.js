@@ -145,6 +145,74 @@ export const getPostLikeCount = async (postId) => {
   return count || 0;
 };
 
+// ── Follows ──
+export const getFollows = async (userId) => {
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId);
+  if (error) throw error;
+  return new Set(data.map(f => f.following_id));
+};
+
+export const followUser = async (followerId, followingId) => {
+  const { error } = await supabase
+    .from('follows')
+    .insert({ follower_id: followerId, following_id: followingId });
+  if (error) throw error;
+};
+
+export const unfollowUser = async (followerId, followingId) => {
+  const { error } = await supabase
+    .from('follows')
+    .delete()
+    .eq('follower_id', followerId)
+    .eq('following_id', followingId);
+  if (error) throw error;
+};
+
+// ── Comments ──
+export const getComments = async (postId) => {
+  const { data, error } = await supabase
+    .from('post_comments')
+    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+};
+
+export const addComment = async (postId, userId, text) => {
+  const { data, error } = await supabase
+    .from('post_comments')
+    .insert({ post_id: postId, user_id: userId, text })
+    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const deleteComment = async (commentId) => {
+  const { error } = await supabase
+    .from('post_comments')
+    .delete()
+    .eq('id', commentId);
+  if (error) throw error;
+};
+
+// ── Post like count ──
+export const updatePostLikeCount = async (postId) => {
+  const { count } = await supabase
+    .from('post_likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+  await supabase
+    .from('posts')
+    .update({ likes: count || 0 })
+    .eq('id', postId);
+  return count || 0;
+};
+
 // ── Reports ──
 export const createReport = async ({ postId, reporterId, reason }) => {
   const { data, error } = await supabase
