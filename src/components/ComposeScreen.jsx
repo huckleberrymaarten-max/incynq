@@ -3,6 +3,8 @@ import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
 import { visibleName } from '../data';
+import { createPost, uploadPostImage } from '../lib/db';
+import { supabase } from '../lib/supabase';
 import Av from './Av';
 import SLCharPicker from './SLCharPicker';
 
@@ -37,29 +39,65 @@ export default function ComposeScreen({ onClose }) {
       return;
     }
     // Block links and SLurls
-    const hasLink = /https?:\/\/|secondlife:\/\/|slurl\.com/i.test(caption);
+    const hasLink = /https?:|secondlife:|slurl\.com/.test(caption);
     if (hasLink) {
       toast('Links and SLurls are not allowed in posts. Use a paid ad to include a teleport link.', 'error');
       return;
     }
     setPosting(true);
     try {
+      let imageUrl = null;
+
+      // Upload image to Supabase Storage if provided
+      if (image) {
+        try {
+          imageUrl = await uploadPostImage(currentUser.id, image);
+        } catch {
+          // Fall back to base64 preview if upload fails
+          imageUrl = imagePreview;
+        }
+      }
+
+      // Save post to Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      let savedPost = null;
+
+      if (session?.user) {
+        try {
+          savedPost = await createPost({
+            userId: currentUser.id,
+            caption: caption.trim(),
+            imageUrl,
+            tags: selTags,
+          });
+        } catch (e) {
+          console.warn('Supabase post failed, using local:', e.message);
+        }
+      }
+
+      // Add to local feed immediately
       const newPost = {
-        id: Date.now(),
+        id: savedPost?.id || Date.now(),
         userId: currentUser.id,
-        image: imagePreview || null,
+        image: imageUrl || imagePreview || null,
         caption: caption.trim(),
         tags: selTags,
         likes: 0,
         comments: [],
         time: 'just now',
         locationId: null,
+        _profile: {
+          username: currentUser.username,
+          display_name: currentUser.displayName,
+          avatar_url: currentUser.avatar,
+          show_display_name: currentUser.showDisplayName,
+        },
       };
       setPosts(prev => [newPost, ...prev]);
       toast('Posted! ✓');
       onClose();
     } catch (e) {
-      toast('Failed to post', 'error');
+      toast('Failed to post — please try again', 'error');
     } finally {
       setPosting(false);
     }

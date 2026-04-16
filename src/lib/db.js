@@ -88,14 +88,33 @@ export const getPosts = async () => {
   return data;
 };
 
-export const createPost = async ({ userId, caption, imageUrl, tags, locationId }) => {
+export const createPost = async ({ userId, caption, imageUrl, tags }) => {
   const { data, error } = await supabase
     .from('posts')
-    .insert({ user_id: userId, caption, image_url: imageUrl, tags, location_id: locationId })
+    .insert({ user_id: userId, caption, image_url: imageUrl, tags })
     .select()
     .single();
   if (error) throw error;
   return data;
+};
+
+export const getPosts = async () => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .eq('is_welcome', false)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
+};
+
+export const uploadPostImage = async (userId, file) => {
+  const ext = file.name.split('.').pop();
+  const path = `${userId}/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('posts').upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from('posts').getPublicUrl(path);
+  return data.publicUrl;
 };
 
 // ── Reports ──

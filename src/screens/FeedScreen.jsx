@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
+import { getPosts } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
@@ -12,7 +13,14 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
   const [showReport, setShowReport] = useState(false);
   const user = post.userId === currentUser?.id
     ? currentUser
-    : userOf(post.userId, USERS);
+    : post._profile
+      ? {
+          username: post._profile.username,
+          displayName: post._profile.display_name,
+          showDisplayName: post._profile.show_display_name,
+          avatar: post._profile.avatar_url,
+        }
+      : userOf(post.userId, USERS);
   const reasons = [
     '🌍 Out of This World — real life content',
     '🔞 Adult content shown to non-adults',
@@ -130,6 +138,39 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport })
 export default function FeedScreen({ onGoToProfile }) {
   const [showHelp, setShowHelp] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const dbPosts = await getPosts();
+        if (dbPosts?.length) {
+          const mapped = dbPosts.map(p => ({
+            id: p.id,
+            userId: p.user_id,
+            image: p.image_url,
+            caption: p.caption,
+            tags: p.tags || [],
+            likes: p.likes || 0,
+            comments: [],
+            time: new Date(p.created_at).toLocaleDateString(),
+            locationId: p.location_id,
+            _profile: p.profiles,
+          }));
+          setPosts(prev => {
+            // Keep sample posts, add real ones at top
+            const samplePosts = prev.filter(p => typeof p.id === 'number' && p.id < 100);
+            return [...mapped, ...samplePosts];
+          });
+        }
+      } catch (e) {
+        console.warn('Could not load posts from Supabase:', e.message);
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+    loadPosts();
+  }, []);
   const { posts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
