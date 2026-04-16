@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
@@ -17,6 +17,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   const [commentText, setCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
+  const likingRef = useRef(false);
 
   const loadComments = async () => {
     if (typeof post.id === 'number') return;
@@ -126,7 +127,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             The grid just got a lot less noisy.<br /><br />
             Pick your interests in your profile and your feed will start making sense immediately.<br /><br />
             Good to have you here.<br />
-            <span style={{ color: C.sky, fontWeight: 700 }}>— The InCynq Team</span>
+            <span style={{ color: C.sky, fontWeight: 700, display: 'block', marginTop: 8 }}>The InCynq Team</span>
           </div>
           {/* CTA */}
           <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
@@ -142,9 +143,17 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 
       {/* Actions */}
       <div style={{ padding: '10px 14px 4px', display: 'flex', gap: 16, alignItems: 'center' }}>
-        <button onClick={() => { onLike(post.id); onLikeDb?.(post.id, liked); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <button onClick={e => {
+          e.preventDefault(); e.stopPropagation();
+          if (likingRef.current) return;
+          likingRef.current = true;
+          setTimeout(() => { likingRef.current = false; }, 500);
+          const wasLiked = liked;
+          onLike(post.id);
+          onLikeDb?.(post.id, wasLiked);
+        }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 20, filter: liked ? 'none' : 'grayscale(1)' }}>{liked ? '❤️' : '🤍'}</span>
-          <span style={{ fontSize: 13, color: liked ? '#ff4466' : C.muted, fontWeight: 700 }}>{post.likes + (liked ? 1 : 0)}</span>
+          <span style={{ fontSize: 13, color: liked ? '#ff4466' : C.muted, fontWeight: 700 }}>{post.likes}</span>
         </button>
         <button onClick={handleShowComments} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ fontSize: 20 }}>💬</span>
@@ -391,13 +400,15 @@ export default function FeedScreen({ onGoToProfile }) {
               onGoToProfile={onGoToProfile}
               onLikeDb={async (id, isLiked) => {
                 if (typeof id === 'number') return;
+                console.log('Like attempt:', id, 'isLiked:', isLiked, 'user:', currentUser.id);
                 try {
                   if (isLiked) {
                     await unlikePost(id, currentUser.id);
+                    console.log('Unliked');
                   } else {
                     await likePost(id, currentUser.id);
+                    console.log('Liked');
                   }
-                  // Update like count in post
                   const newCount = await updatePostLikeCount(id);
                   setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: newCount } : p));
                 } catch(e) { console.warn('Like failed:', e.message); }
