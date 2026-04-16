@@ -8,7 +8,7 @@ import { getPosts } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
-function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport }) {
+function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete }) {
   const [reported, setReported] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const isOwn = post.userId === currentUser?.id;
@@ -178,7 +178,7 @@ export default function FeedScreen({ onGoToProfile }) {
     };
     loadPosts();
   }, []);
-  const { posts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
+  const { posts, setPosts, ads, liked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const feed = (() => {
