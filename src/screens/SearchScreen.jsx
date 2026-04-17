@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import C from '../theme';
+import { useState, useEffect } from 'react';
 import { visibleName } from '../data';
 import { useContent } from '../context/ContentContext';
-import { searchProfiles } from '../lib/db';
-import { useState, useEffect } from 'react';
+import { searchProfiles, followUser, unfollowUser } from '../lib/db';
+import { useApp } from '../context/AppContext';
 
 export default function SearchScreen() {
+  const { following, setFollowing, currentUser } = useApp();
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -88,8 +89,21 @@ export default function SearchScreen() {
                       <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
                       {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
                     </div>
-                    <button style={{ padding: '7px 16px', borderRadius: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-                      Follow
+                    <button onClick={async () => {
+                        const isFollowing = following.has(u.id);
+                        const n = new Set(following);
+                        isFollowing ? n.delete(u.id) : n.add(u.id);
+                        setFollowing(n);
+                        try {
+                          if (isFollowing) await unfollowUser(currentUser.id, u.id);
+                          else await followUser(currentUser.id, u.id);
+                        } catch(e) { console.warn('Follow failed:', e.message); }
+                      }}
+                      style={{ padding: '7px 16px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12,
+                        background: following.has(u.id) ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                        color: following.has(u.id) ? C.sky : '#060d14',
+                        border: following.has(u.id) ? `1px solid ${C.sky}44` : 'none' }}>
+                      {following.has(u.id) ? 'Following' : 'Follow'}
                     </button>
                   </div>
                 );

@@ -266,17 +266,23 @@ export default function ProfileScreen() {
           <InterestPicker
             selectedGroups={currentUser.groups || []}
             selectedSubs={currentUser.subs || []}
-            onGroupToggle={gid => {
+            onGroupToggle={async gid => {
               const groups = (currentUser.groups || []).includes(gid)
                 ? (currentUser.groups || []).filter(x => x !== gid)
                 : [...(currentUser.groups || []), gid];
               updateUser({ groups });
+              try {
+                await supabase.from('profiles').update({ groups }).eq('id', currentUser.id);
+              } catch(e) { console.warn('Save groups failed:', e.message); }
             }}
-            onSubToggle={sub => {
+            onSubToggle={async sub => {
               const subs = (currentUser.subs || []).includes(sub)
                 ? (currentUser.subs || []).filter(x => x !== sub)
                 : [...(currentUser.subs || []), sub];
               updateUser({ subs });
+              try {
+                await supabase.from('profiles').update({ subs }).eq('id', currentUser.id);
+              } catch(e) { console.warn('Save subs failed:', e.message); }
             }}
           />
         </div>
