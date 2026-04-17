@@ -1,18 +1,34 @@
 import { useState } from 'react';
 import C from '../theme';
-import { USERS, LOCS, visibleName } from '../data';
+import { visibleName } from '../data';
 import { useContent } from '../context/ContentContext';
+import { searchProfiles } from '../lib/db';
+import { useState, useEffect } from 'react';
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const [people, setPeople] = useState([]);
+  const [searching, setSearching] = useState(false);
   const { interestGroups: INTEREST_GROUPS } = useContent();
   const q = query.toLowerCase().trim();
 
-  const people  = q ? USERS.filter(u => u.id !== 0 && (u.username.toLowerCase().includes(q) || visibleName(u).toLowerCase().includes(q))) : [];
-  const brands  = q ? LOCS.filter(l => l.name.toLowerCase().includes(q) || l.owner.toLowerCase().includes(q)) : [];
+  // Search Supabase profiles
+  useEffect(() => {
+    if (!q) { setPeople([]); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await searchProfiles(q);
+        setPeople(results || []);
+      } catch(e) { console.warn('Search failed:', e.message); }
+      finally { setSearching(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const groups  = q ? INTEREST_GROUPS.filter(g => g.label.toLowerCase().includes(q)) : [];
   const tags    = q ? INTEREST_GROUPS.flatMap(g => (g.tags || []).filter(t => t.includes(q))).slice(0, 10) : [];
-  const hasResults = people.length || brands.length || groups.length || tags.length;
+  const hasResults = people.length || groups.length || tags.length;
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -60,19 +76,24 @@ export default function SearchScreen() {
           {people.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PEOPLE</div>
-              {people.map(u => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
-                  <img src={u.avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{visibleName(u)}</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
-                    {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
+              {searching && <div style={{ padding: '10px 16px', fontSize: 12, color: C.muted }}>Searching…</div>}
+              {people.map(u => {
+                const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
+                const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+                return (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
+                    <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                      {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
+                    </div>
+                    <button style={{ padding: '7px 16px', borderRadius: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+                      Follow
+                    </button>
                   </div>
-                  <button style={{ padding: '7px 16px', borderRadius: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
-                    Follow
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
