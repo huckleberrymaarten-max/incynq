@@ -284,6 +284,20 @@ export default function FeedScreen({ onGoToProfile }) {
 
         const dbPosts = await getPosts();
         if (dbPosts?.length) {
+          // Load comment counts for each post
+          const commentCounts = await Promise.all(
+            dbPosts.map(async p => {
+              try {
+                const { count } = await (await import('../lib/supabase')).supabase
+                  .from('post_comments')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('post_id', p.id);
+                return { id: p.id, count: count || 0 };
+              } catch { return { id: p.id, count: 0 }; }
+            })
+          );
+          const countMap = Object.fromEntries(commentCounts.map(c => [c.id, c.count]));
+
           const mapped = dbPosts.map(p => ({
             id: p.id,
             userId: p.user_id,
@@ -291,7 +305,7 @@ export default function FeedScreen({ onGoToProfile }) {
             caption: p.caption,
             tags: p.tags || [],
             likes: p.likes || 0,
-            comments: [],
+            comments: new Array(countMap[p.id] || 0).fill(null),
             time: new Date(p.created_at).toLocaleDateString(),
             locationId: p.location_id,
             _profile: p.profiles,
