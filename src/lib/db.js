@@ -111,13 +111,15 @@ export const uploadPostImage = async (userId, file) => {
 };
 
 // ── Search ──
-export const searchProfiles = async (query) => {
-  const { data, error } = await supabase
+export const searchProfiles = async (query, currentUserId) => {
+  let q = supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
     .neq('account_type', 'official')
     .limit(20);
+  if (currentUserId) q = q.neq('id', currentUserId);
+  const { data, error } = await q;
   if (error) throw error;
   return data;
 };

@@ -19,7 +19,7 @@ export default function SearchScreen() {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const results = await searchProfiles(q);
+        const results = await searchProfiles(q, currentUser?.id);
         setPeople(results || []);
       } catch(e) { console.warn('Search failed:', e.message); }
       finally { setSearching(false); }
