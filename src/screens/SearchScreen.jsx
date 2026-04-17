@@ -111,22 +111,7 @@ export default function SearchScreen() {
             </div>
           )}
 
-          {/* Brands & Locations */}
-          {brands.length > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BRANDS & LOCATIONS</div>
-              {brands.map(l => (
-                <div key={l.id} style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22`, alignItems: 'center' }}>
-                  <img src={l.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{l.name}</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{l.owner}</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>⭐ {l.rating} · {(l.visits/1000).toFixed(1)}k visits</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+
 
           {/* Interest Groups */}
           {groups.length > 0 && (
