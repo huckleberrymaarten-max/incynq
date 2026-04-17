@@ -94,7 +94,7 @@ export const createPost = async ({ userId, caption, imageUrl, tags }) => {
 export const getPosts = async () => {
   const { data, error } = await supabase
     .from('posts')
-    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .select('*, profiles(username, display_name, avatar_url, show_display_name), post_comments(id)')
     .eq('is_welcome', false)
     .order('created_at', { ascending: false });
   if (error) throw error;
