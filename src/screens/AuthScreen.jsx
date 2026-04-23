@@ -15,6 +15,29 @@ export default function AuthScreen({ onLogin }) {
   const [showTC, setShowTC] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotPassword = async () => {
+    setError('');
+    if (!resetEmail.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: 'https://incynq.app',
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (e) {
+      setError('Failed to send reset email. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     setError('');
@@ -93,6 +116,67 @@ export default function AuthScreen({ onLogin }) {
   return (
     <>
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+      
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#00000088', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 24, padding: 24, maxWidth: 420, width: '100%', border: `1px solid ${C.border}`, boxShadow: '0 20px 60px #00000066' }}>
+            {!resetSent ? (
+              <>
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Reset Password</h3>
+                <p style={{ fontSize: 13, color: C.sub, marginBottom: 20, lineHeight: 1.6 }}>
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>EMAIL</label>
+                  <input
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    type="email"
+                    placeholder="your@email.com"
+                    className="inp"
+                    onFocus={e => e.target.style.borderColor = C.sky}
+                    onBlur={e => e.target.style.borderColor = C.border}
+                  />
+                </div>
+                {error && (
+                  <div style={{ padding: '9px 12px', background: '#ff440011', border: '1px solid #ff440044', borderRadius: 10, color: '#ff6644', fontSize: 12, fontWeight: 600, marginBottom: 16 }}>
+                    {error}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => { setShowForgotPassword(false); setResetEmail(''); setError(''); setResetSent(false); }}
+                    style={{ flex: 1, padding: '11px', borderRadius: 12, background: C.card2, color: C.sub, fontWeight: 700, fontSize: 13 }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    style={{ flex: 1, padding: '11px', borderRadius: 12, background: loading ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: loading ? C.muted : '#060d14', fontWeight: 900, fontSize: 13 }}>
+                    {loading ? '⏳ Sending…' : 'Send Reset Link'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>✉️</div>
+                  <h3 style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Check Your Email</h3>
+                  <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
+                    We've sent a password reset link to <strong style={{ color: C.text }}>{resetEmail}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setShowForgotPassword(false); setResetEmail(''); setError(''); setResetSent(false); }}
+                  style={{ width: '100%', padding: '11px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 900, fontSize: 13 }}>
+                  Done
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
 
@@ -156,6 +240,15 @@ export default function AuthScreen({ onLogin }) {
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
                 <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>InCynq never asks for your SL password.</div>
+                {mode === 'login' && (
+                  <div style={{ marginTop: 8, textAlign: 'right' }}>
+                    <button
+                      onClick={() => setShowForgotPassword(true)}
+                      style={{ fontSize: 11, color: C.sky, fontWeight: 600, textDecoration: 'underline' }}>
+                      Forgot Password?
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Confirm — register only */}
