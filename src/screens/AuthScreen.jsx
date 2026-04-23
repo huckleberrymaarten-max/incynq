@@ -222,7 +222,7 @@ export default function AuthScreen({ onLogin }) {
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
                 <input value={slName} onChange={e => setSlName(e.target.value)}
-                  placeholder="e.g. maarten.huckleberry" className="inp"
+                  placeholder="firstname.lastname" className="inp"
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
               </div>
