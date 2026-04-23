@@ -7,7 +7,8 @@ import { useApp } from '../context/AppContext';
 import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
-import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount } from '../lib/db';
+import NotificationsScreen from './NotificationsScreen';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
@@ -35,11 +36,22 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 
   const handleComment = async () => {
     if (!commentText.trim()) return;
+    const text = commentText.trim();
     try {
-      const newComment = await addComment(post.id, currentUser.id, commentText.trim());
+      const newComment = await addComment(post.id, currentUser.id, text);
       setComments(prev => [...prev, newComment]);
       setCommentCount(prev => prev + 1);
       setCommentText('');
+      // Notify post owner (skip if own post)
+      if (post.userId && post.userId !== currentUser?.id) {
+        createNotification({
+          userId:  post.userId,
+          type:    'comment',
+          actorId: currentUser.id,
+          postId:  post.id,
+          text:    text.slice(0, 100),
+        });
+      }
     } catch(e) { console.warn('Comment failed:', e.message); }
   };
 
@@ -54,10 +66,10 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     ? currentUser
     : post._profile
       ? {
-          username: post._profile.username,
-          displayName: post._profile.display_name,
+          username:        post._profile.username,
+          displayName:     post._profile.display_name,
           showDisplayName: post._profile.show_display_name,
-          avatar: post._profile.avatar_url,
+          avatar:          post._profile.avatar_url,
         }
       : userOf(post.userId, USERS);
   const reasons = [
@@ -114,7 +126,6 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
       {/* Welcome post */}
       {post.isWelcome && (
         <div style={{ margin: '0 14px 8px', padding: '22px 20px', background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, border: `1px solid ${C.sky}44`, borderRadius: 16 }}>
-          {/* Logo + badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', flexShrink: 0, filter: `drop-shadow(0 0 8px ${C.sky}88)` }} />
             <div>
@@ -122,7 +133,6 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
               <div style={{ fontSize: 11, color: C.muted }}>Just for you</div>
             </div>
           </div>
-          {/* Message */}
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 10, lineHeight: 1.4 }}>
             Hey {visibleName(currentUser) || 'there'} 👋 &nbsp;You're in. ⚡
           </div>
@@ -132,7 +142,6 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             Good to have you here.<br />
             <span style={{ color: C.sky, fontWeight: 700, display: 'block', marginTop: 8 }}>The InCynq Team</span>
           </div>
-          {/* CTA */}
           <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
             👤 Go to Profile → add your interests
           </button>
@@ -222,7 +231,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
                 {c.user_id === currentUser?.id && (
                   <button onClick={async () => {
                     setComments(prev => prev.filter(x => x.id !== c.id));
-                  setCommentCount(prev => Math.max(0, prev - 1));
+                    setCommentCount(prev => Math.max(0, prev - 1));
                     try { await deleteComment(c.id); } catch(e) {}
                   }} style={{ color: C.muted, fontSize: 10 }}>✕</button>
                 )}
@@ -267,7 +276,12 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 export default function FeedScreen({ onGoToProfile }) {
   const [showHelp, setShowHelp] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
+
+  const { posts, setPosts, ads, liked, setLiked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue, notifications } = useApp();
+
+  const unreadNotifs = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -297,7 +311,6 @@ export default function FeedScreen({ onGoToProfile }) {
             _profile: p.profiles,
           }));
           setPosts(prev => {
-            // Keep welcome post, replace everything else with real posts
             const welcomePost = prev.find(p => p.isWelcome);
             return welcomePost ? [welcomePost, ...mapped] : mapped;
           });
@@ -310,13 +323,11 @@ export default function FeedScreen({ onGoToProfile }) {
     };
     loadPosts();
   }, []);
-  const { posts, setPosts, ads, liked, setLiked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue } = useApp();
+
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const feed = (() => {
     const result = [];
-
-    // Show welcome post at TOP if account is less than 24 hours old
     const accountAge = currentUser.createdAt ? Date.now() - new Date(currentUser.createdAt).getTime() : 0;
     const isNewUser = !currentUser.createdAt || accountAge < 86400000;
     const welcomePost = posts.find(p => p.isWelcome);
@@ -342,21 +353,35 @@ export default function FeedScreen({ onGoToProfile }) {
   return (
     <div>
       {/* Overlays */}
-      {showHelp && <HelpScreen onClose={() => setShowHelp(false)} />}
-      {showCompose && <ComposeScreen onClose={() => setShowCompose(false)} />}
+      {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
+      {showCompose       && <ComposeScreen onClose={() => setShowCompose(false)} />}
+      {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
 
       {/* Header */}
       <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* Logo + name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <img src={logo} alt="InCynq" style={{ width: 32, height: 32, objectFit: 'contain' }} />
           <span className="sg" style={{ fontWeight: 900, fontSize: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</span>
         </div>
-        {/* Right icons */}
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <button onClick={() => setShowCompose(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, paddingBottom: 1 }}>+</button>
           <button style={{ fontSize: 20 }}>🔍</button>
-          <button style={{ fontSize: 20 }}>🔔</button>
+          {/* Bell with unread badge */}
+          <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', fontSize: 20, lineHeight: 1 }}>
+            🔔
+            {unreadNotifs > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4,
+                background: '#ff3366', color: '#fff',
+                fontSize: 9, fontWeight: 900,
+                width: 16, height: 16, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `1.5px solid ${C.card}`,
+              }}>
+                {unreadNotifs > 9 ? '9+' : unreadNotifs}
+              </span>
+            )}
+          </button>
           <button style={{ fontSize: 20 }}>💬</button>
           <button
             onClick={() => setShowHelp(true)}
@@ -367,6 +392,13 @@ export default function FeedScreen({ onGoToProfile }) {
 
       {/* Feed */}
       <div style={{ paddingBottom: 80 }}>
+        {loadingPosts && (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: C.muted }}>
+            <div style={{ fontSize: 28, marginBottom: 10, animation: 'pulse 1.5s infinite' }}>⚡</div>
+            <div style={{ fontSize: 13 }}>Loading your feed…</div>
+          </div>
+        )}
+
         {feed.map((item, idx) => {
           if (item.type === 'sponsored') {
             const { ad, loc, matches } = item.data;
@@ -390,7 +422,13 @@ export default function FeedScreen({ onGoToProfile }) {
               onLike={toggleLike} onSave={toggleSave}
               liked={liked.has(p.id)} saved={saved.has(p.id)}
               currentUser={currentUser}
-              onReport={r => setReportQueue(prev => [...prev, { ...r, id: Date.now() }])}
+              onReport={async r => {
+                setReportQueue(prev => [...prev, { ...r, id: Date.now() }]);
+                try {
+                  const { createReport } = await import('../lib/db');
+                  await createReport({ postId: p.id, reporterId: currentUser.id, reason: r.reason });
+                } catch(e) { console.warn('Report failed:', e.message); }
+              }}
               onDelete={async id => {
                 setPosts(prev => prev.filter(p => p.id !== id));
                 try {
@@ -407,9 +445,18 @@ export default function FeedScreen({ onGoToProfile }) {
                 try {
                   if (isLiked) {
                     await unlikePost(id, currentUser.id);
-                    } else {
+                  } else {
                     await likePost(id, currentUser.id);
+                    // Notify post owner
+                    if (p.userId && p.userId !== currentUser.id) {
+                      createNotification({
+                        userId:  p.userId,
+                        type:    'like',
+                        actorId: currentUser.id,
+                        postId:  id,
+                      });
                     }
+                  }
                   const newCount = await updatePostLikeCount(id);
                   setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: newCount } : p));
                 } catch(e) { console.warn('Like failed:', e.message); }

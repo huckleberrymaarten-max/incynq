@@ -33,11 +33,15 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
     setStatus('Activating account…');
     await new Promise(r => setTimeout(r, 800));
 
-    // Save activation to Supabase if real account
+    // Save activation + 100 L$ welcome credit to Supabase
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const updates = { activated: true };
+        const updates = {
+          activated:         true,
+          wallet:            100,
+          welcome_credit_at: new Date().toISOString(),
+        };
         if (slAvatar) updates.avatar_url = slAvatar;
         await supabase.from('profiles').update(updates).eq('id', session.user.id);
       }
@@ -45,7 +49,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
       console.log('Could not save activation:', e.message);
     }
 
-    // Activate with SL picture if found, fallback to dicebear
+    // Activate locally — wallet: 100 passed through so ProfileScreen shows it immediately
     onActivate(slAvatar ? { avatar: slAvatar } : {});
     setSimulating(false);
     setStatus('');
@@ -55,7 +59,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, maxWidth: 480, margin: '0 auto' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ width: 72, height: 72, borderRadius: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 40px ${C.sky}66`, margin: '0 auto 12px', fontSize: 32 }}>🏧</div>
-        <div className="sg" style={{ fontWeight: 900, fontSize: 24, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</div>
+        <div className="sg" style={{ fontWeight: 900, fontSize: 22, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</div>
       </div>
 
       <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
@@ -80,6 +84,11 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Welcome credit notice */}
+        <div style={{ padding: '10px 14px', background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 12, marginBottom: 14, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+          🎁 <strong style={{ color: C.gold }}>100 L$ welcome credit</strong> will be added to your wallet on activation. Valid for 90 days.
         </div>
 
         {/* Account info */}

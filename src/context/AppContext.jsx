@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import { ME, INIT_POSTS, INIT_ADS, USERS, DAY, DEFAULT_FOLLOWING } from '../data';
+import { savePost, unsavePost } from '../lib/db';
 
 const AppContext = createContext(null);
 
@@ -20,12 +21,7 @@ export function AppProvider({ children }) {
   const [mySubs, setMySubs] = useState(ME.subs);
 
   // UI
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'like',   user: 'neon.wolf',  text: 'liked your photo',          time: '2m',  read: false },
-    { id: 2, type: 'follow', user: 'luna.rose',  text: 'started following you',      time: '15m', read: false },
-    { id: 3, type: 'comment',user: 'cyber.mod',  text: 'commented: "Stunning!"',     time: '1h',  read: false },
-    { id: 4, type: 'like',   user: 'star.gazer', text: 'liked your photo',          time: '2h',  read: true  },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [reportQueue, setReportQueue] = useState([]);
   const [suspendedAccounts, setSuspendedAccounts] = useState({});
   const [brandTeams, setBrandTeams] = useState({});
@@ -39,17 +35,48 @@ export function AppProvider({ children }) {
     setTimeout(() => setNotif(null), 3200);
   };
 
-  // Like/save
+  // Like
   const toggleLike = id => {
     const n = new Set(liked);
     n.has(id) ? n.delete(id) : n.add(id);
     setLiked(n);
   };
-  const toggleSave = id => {
+
+  // Save — persists to Supabase for real posts (UUID), local-only for numeric IDs
+  const toggleSave = async (id) => {
     const n = new Set(saved);
-    if (n.has(id)) { n.delete(id); toast('Removed from saved'); }
-    else { n.add(id); toast('Saved ✓'); }
+    const wasSaved = n.has(id);
+    wasSaved ? n.delete(id) : n.add(id);
     setSaved(n);
+    toast(wasSaved ? 'Removed from saved' : 'Saved ✓');
+
+    // Only persist UUID post IDs (not local numeric ones)
+    const isUUID = typeof id === 'string' && id.includes('-');
+    if (isUUID && currentUser?.id) {
+      try {
+        if (wasSaved) await unsavePost(currentUser.id, id);
+        else await savePost(currentUser.id, id);
+      } catch (e) {
+        console.warn('Save failed:', e.message);
+      }
+    }
+  };
+
+  // Add a single notification to the top of the list (for real-time feel)
+  const addNotification = (notif) => {
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Refresh notifications count from Supabase (call after marking read etc.)
+  const refreshNotifications = async () => {
+    if (!currentUser?.id) return;
+    try {
+      const { getNotifications } = await import('../lib/db');
+      const notifs = await getNotifications(currentUser.id);
+      setNotifications(notifs || []);
+    } catch (e) {
+      console.warn('Notification refresh failed:', e.message);
+    }
   };
 
   // Purchase ad
@@ -74,9 +101,9 @@ export function AppProvider({ children }) {
       setCurrentUser(u => ({ ...u, walletFrozen: true }));
     }
     setNotifications(prev => [{
-      id: Date.now(), type: 'removed', user: 'InCynq',
+      id: Date.now(), type: 'system', actor: null,
       text: permanent ? 'Your account has been permanently banned.' : `Your account has been suspended. Reason: ${reason}`,
-      time: 'just now', read: false,
+      created_at: new Date().toISOString(), read: false,
     }, ...prev]);
     toast(permanent ? '🚫 Account permanently banned' : '⏸️ Account suspended', 'gold');
   };
@@ -90,11 +117,11 @@ export function AppProvider({ children }) {
       posts, setPosts,
       ads, setAds,
       liked, setLiked, toggleLike,
-      saved, toggleSave,
+      saved, setSaved, toggleSave,
       following, setFollowing,
       myGroups, setMyGroups,
       mySubs, setMySubs,
-      notifications, setNotifications,
+      notifications, setNotifications, addNotification, refreshNotifications,
       reportQueue, setReportQueue,
       suspendedAccounts, setSuspendedAccounts,
       brandTeams, setBrandTeams,

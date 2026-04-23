@@ -14,7 +14,12 @@ import MainApp          from './screens/MainApp';
 import Toast            from './components/Toast';
 
 function AppRoutes() {
-  const { loggedIn, showOnboarding, currentUser, setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles, notif, setFollowing } = useApp();
+  const {
+    loggedIn, showOnboarding,
+    currentUser,
+    setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles,
+    notif, setFollowing, setSaved, setDiscoverable, setNotifications,
+  } = useApp();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -28,23 +33,30 @@ function AppRoutes() {
           console.log('Fetching profile for:', session.user.id);
           const profile = await getProfile(session.user.id);
           console.log('Profile:', profile);
+
           setCurrentUser({
-            id: session.user.id,
-            username: profile.username,
-            displayName: profile.display_name,
-            name: profile.display_name,
+            id:              session.user.id,
+            username:        profile.username,
+            displayName:     profile.display_name,
+            name:            profile.display_name,
             showDisplayName: profile.show_display_name,
-            avatar: profile.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}&backgroundColor=b6e3f4`,
-            bio: profile.bio || '',
-            groups: profile.groups || [],
-            subs: profile.subs || [],
-            gridStatus: profile.grid_status || 'online',
-            accountType: profile.account_type || 'resident',
-            wallet: profile.wallet || 0,
-            maturity: profile.maturity || 'general',
-            activated: profile.activated,
-            createdAt: profile.created_at,
+            avatar:          profile.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}&backgroundColor=b6e3f4`,
+            bio:             profile.bio || '',
+            groups:          profile.groups || [],
+            subs:            profile.subs || [],
+            gridStatus:      profile.grid_status || 'online',
+            accountType:     profile.account_type || 'resident',
+            adminRole:       profile.admin_role || null,
+            wallet:          profile.wallet || 0,
+            maturity:        profile.maturity || 'general',
+            activated:       profile.activated,
+            createdAt:       profile.created_at,
           });
+
+          // Restore discoverable preference
+          if (profile.discoverable !== undefined) {
+            setDiscoverable(profile.discoverable !== false);
+          }
 
           // Load follows from Supabase
           try {
@@ -53,8 +65,26 @@ function AppRoutes() {
             const merged = new Set([...followSet]);
             merged.add(0); // Always follow InCynq official
             setFollowing(merged);
-          } catch(e) {
+          } catch (e) {
             console.warn('Could not load follows:', e.message);
+          }
+
+          // Load saved posts from Supabase
+          try {
+            const { getSaved } = await import('./lib/db');
+            const savedSet = await getSaved(session.user.id);
+            setSaved(savedSet);
+          } catch (e) {
+            console.warn('Could not load saves:', e.message);
+          }
+
+          // Load notifications from Supabase
+          try {
+            const { getNotifications } = await import('./lib/db');
+            const notifs = await getNotifications(session.user.id);
+            setNotifications(notifs || []);
+          } catch (e) {
+            console.warn('Could not load notifications:', e.message);
           }
 
           setShowOnboarding(false);
@@ -76,6 +106,7 @@ function AppRoutes() {
       if (event === 'SIGNED_OUT') {
         setLoggedIn(false);
         setShowOnboarding(true);
+        setNotifications([]);
       }
     });
 
@@ -110,7 +141,7 @@ function AppRoutes() {
     return (
       <PendingScreen
         currentUser={currentUser}
-        onActivate={(updates = {}) => setCurrentUser(u => ({ ...u, activated: true, ...updates }))}
+        onActivate={(updates = {}) => setCurrentUser(u => ({ ...u, activated: true, wallet: 100, ...updates }))}
         onSignOut={async () => {
           await supabase.auth.signOut();
           setLoggedIn(false);
