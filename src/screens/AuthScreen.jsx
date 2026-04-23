@@ -123,9 +123,9 @@ export default function AuthScreen({ onLogin }) {
           <div style={{ background: C.card, borderRadius: 24, padding: 24, maxWidth: 420, width: '100%', border: `1px solid ${C.border}`, boxShadow: '0 20px 60px #00000066' }}>
             {!resetSent ? (
               <>
-                <h3 style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Reset Password</h3>
-                <p style={{ fontSize: 13, color: C.sub, marginBottom: 20, lineHeight: 1.6 }}>
-                  Enter your email address and we'll send you a link to reset your password.
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Forgot Password?</h3>
+                <p style={{ fontSize: 13, color: C.sub, marginBottom: 16, lineHeight: 1.6 }}>
+                  We'll send you a secure link that logs you in automatically. Once logged in, go to your <strong style={{ color: C.text }}>Profile → Settings → Change Password</strong> to set a new password.
                 </p>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>EMAIL</label>
@@ -163,9 +163,15 @@ export default function AuthScreen({ onLogin }) {
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>✉️</div>
                   <h3 style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Check Your Email</h3>
-                  <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>
-                    We've sent a password reset link to <strong style={{ color: C.text }}>{resetEmail}</strong>
+                  <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 12 }}>
+                    We've sent a login link to <strong style={{ color: C.text }}>{resetEmail}</strong>
                   </p>
+                  <div style={{ background: C.card2, borderRadius: 12, padding: 12, border: `1px solid ${C.border}` }}>
+                    <p style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>
+                      <strong style={{ color: C.text, display: 'block', marginBottom: 4 }}>📝 Remember:</strong>
+                      After clicking the link and logging in, go to <strong style={{ color: C.text }}>Profile → Change Password</strong> to set a new password.
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => { setShowForgotPassword(false); setResetEmail(''); setError(''); setResetSent(false); }}
