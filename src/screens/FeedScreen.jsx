@@ -21,7 +21,15 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   const [commentText, setCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const likingRef = useRef(false);
+
+  // Get images array (support both single and multiple images)
+  const images = post.images && post.images.length > 0 
+    ? post.images 
+    : post.image 
+    ? [post.image] 
+    : [];
 
   const loadComments = async () => {
     if (typeof post.id === 'number') return;
@@ -148,9 +156,68 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         </div>
       )}
 
-      {/* Image */}
-      {!post.isWelcome && post.image && (
-        <img src={post.image} alt="" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+      {/* Image carousel */}
+      {!post.isWelcome && images.length > 0 && (
+        <div style={{ position: 'relative' }}>
+          {/* Carousel container */}
+          <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
+            <div 
+              style={{ 
+                display: 'flex', 
+                transition: 'transform 0.3s ease',
+                transform: `translateX(-${currentImageIndex * 100}%)`
+              }}>
+              {images.map((img, i) => (
+                <img 
+                  key={i} 
+                  src={img} 
+                  alt="" 
+                  style={{ width: '100%', minWidth: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} 
+                />
+              ))}
+            </div>
+
+            {/* Navigation arrows (only if multiple images) */}
+            {images.length > 1 && (
+              <>
+                {currentImageIndex > 0 && (
+                  <button
+                    onClick={() => setCurrentImageIndex(currentImageIndex - 1)}
+                    style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: '#000000aa', color: 'white', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                    ‹
+                  </button>
+                )}
+                {currentImageIndex < images.length - 1 && (
+                  <button
+                    onClick={() => setCurrentImageIndex(currentImageIndex + 1)}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: '#000000aa', color: 'white', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                    ›
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Dots indicator (Instagram style) */}
+          {images.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', padding: '8px 0' }}>
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentImageIndex(i)}
+                  style={{ 
+                    width: 6, 
+                    height: 6, 
+                    borderRadius: '50%', 
+                    background: i === currentImageIndex ? C.sky : `${C.muted}66`,
+                    transition: 'all 0.2s',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Actions */}
