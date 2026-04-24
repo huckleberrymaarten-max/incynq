@@ -36,7 +36,7 @@ const DB_FIELD_MAP = {
   avatar:          'avatar_url',
 };
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ onOpenUserProfile }) {
   const { currentUser, setCurrentUser, setLinkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn, following, setFollowing } = useApp();
   const { interestGroups: INTEREST_GROUPS } = useContent();
   const [showSettings, setShowSettings] = useState(false);
@@ -780,10 +780,17 @@ export default function ProfileScreen() {
               )}
               {/* InCynq Official always shows first */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>InCynq</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@incynq</div>
+                <div 
+                  onClick={() => {
+                    setShowFollowing(false);
+                    onOpenUserProfile && onOpenUserProfile('incynq');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                  <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>InCynq</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@incynq</div>
+                  </div>
                 </div>
                 <span style={{ fontSize: 11, color: C.gold, fontWeight: 700, padding: '5px 12px', background: `${C.gold}18`, borderRadius: 20, border: `1px solid ${C.gold}44` }}>⚡ Official</span>
               </div>
@@ -793,12 +800,24 @@ export default function ProfileScreen() {
                 const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                    <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                    {/* Clickable user info */}
+                    <div 
+                      onClick={() => {
+                        setShowFollowing(false);
+                        onOpenUserProfile && onOpenUserProfile(u.username);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                      <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                      </div>
                     </div>
-                    <button onClick={() => toggleFollow(u.id)}
+                    {/* Unfollow button */}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFollow(u.id);
+                    }}
                       style={{ padding: '7px 14px', borderRadius: 20, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
                       Unfollow
                     </button>
@@ -834,12 +853,24 @@ export default function ProfileScreen() {
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                    <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                    {/* Clickable user info */}
+                    <div 
+                      onClick={() => {
+                        setShowFollowers(false);
+                        onOpenUserProfile && onOpenUserProfile(u.username);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                      <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                      </div>
                     </div>
-                    <button onClick={() => toggleFollow(u.id)}
+                    {/* Follow button */}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFollow(u.id);
+                    }}
                       style={{ 
                         padding: '7px 14px', 
                         borderRadius: 20, 

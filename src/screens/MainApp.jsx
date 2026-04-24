@@ -43,7 +43,7 @@ export default function MainApp() {
       {tab === 'search'    && <SearchScreen onOpenUserProfile={handleOpenUserProfile} />}
       {tab === 'events'    && <EventsScreen />}
       {tab === 'advertise' && <AdvertiseScreen />}
-      {tab === 'profile'   && <ProfileScreen />}
+      {tab === 'profile'   && <ProfileScreen onOpenUserProfile={handleOpenUserProfile} />}
 
       {/* Bottom nav */}
       <div style={{
