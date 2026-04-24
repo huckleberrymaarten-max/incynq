@@ -288,7 +288,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   };
 
   const handleCopyReferralLink = () => {
-    const link = `https://incynq.app/join/${currentUser.referral_code || 'LOADING'}`;
+    const link = `https://incynq.app/join/${currentUser.referralCode || 'LOADING'}`;
     navigator.clipboard.writeText(link);
     toast('Referral link copied! ✓');
   };
@@ -330,7 +330,14 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             }
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{visibleName(currentUser)}</div>
+            <div style={{ fontWeight: 900, fontSize: 18, color: C.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {visibleName(currentUser)}
+              {currentUser.account_type === 'official' && (
+                <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                  <path fill={C.gold} d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              )}
+            </div>
             {currentUser.showDisplayName !== false && currentUser.displayName && currentUser.displayName !== currentUser.username && (
               <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{currentUser.username}</div>
             )}
@@ -366,22 +373,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               </div>
             )}
 
-            {/* Official Badge */}
-            {currentUser?.account_type === 'official' && (
-              <div style={{ 
-                marginTop: 6, 
-                display: 'inline-block',
-                background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`,
-                border: `1px solid ${C.gold}44`,
-                borderRadius: 8,
-                padding: '4px 10px',
-                fontSize: 11,
-                fontWeight: 700,
-                color: C.gold
-              }}>
-                ⚡ Official
-              </div>
-            )}
           </div>
         </div>
 
@@ -924,10 +915,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {/* How it works */}
               <div style={{ background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 8 }}>How It Works</div>
-                <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>
                   Share your link. When friends sign up <strong>and activate</strong> (tap an InCynq terminal inworld), you earn <strong style={{ color: C.gold }}>10 L$</strong>.
                 </div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: C.sub, marginTop: 8, lineHeight: 1.5, fontWeight: 500 }}>
                   • Maximum 10 paid referrals per month<br />
                   • Unlimited invites (share freely!)<br />
                   • Resets monthly on the 1st
@@ -938,8 +929,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>YOUR REFERRAL LINK</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    https://incynq.app/join/{currentUser.referral_code || 'LOADING'}
+                  <div style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                    https://incynq.app/join/{currentUser.referralCode || 'LOADING'}
                   </div>
                   <button onClick={handleCopyReferralLink}
                     style={{ padding: '10px 16px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
