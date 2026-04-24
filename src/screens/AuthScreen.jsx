@@ -69,10 +69,12 @@ export default function AuthScreen({ onLogin }) {
     setLoading(true);
     try {
       const username = slName.trim().toLowerCase().replace(/ /g, '.');
-      const { displayName, userId } = await registerUser({ username, email, password });
+      const authData = await registerUser({ username, email, password });
+      const userId = authData.user?.id;
+      const displayName = authData.displayName;
       
       // Create referral if code provided
-      if (referralCode && referralCode.trim()) {
+      if (referralCode && referralCode.trim() && userId) {
         try {
           await createReferral(referralCode.trim().toUpperCase(), userId);
         } catch (e) {
