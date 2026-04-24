@@ -8,7 +8,7 @@ import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
-import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
@@ -64,8 +64,15 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   };
 
   const handleShowComments = () => {
-    setShowComments(!showComments);
-    if (!showComments && comments.length === 0) loadComments();
+    const willOpen = !showComments;
+    setShowComments(willOpen);
+    if (willOpen && comments.length === 0) loadComments();
+    // Analytics: track as a post view when user opens comments (engagement signal)
+    // ONLY for brand posts — resident posts are never tracked for privacy
+    const isBrandPost = post._profile?.account_type === 'brand';
+    if (willOpen && typeof post.id !== 'number' && !post.isWelcome && !post.isSponsored && isBrandPost) {
+      trackPostView(post.id, currentUser?.id, 'feed');
+    }
   };
 
   const [showReport, setShowReport] = useState(false);
@@ -381,6 +388,17 @@ export default function FeedScreen({ onGoToProfile }) {
             const welcomePost = prev.find(p => p.isWelcome);
             return welcomePost ? [welcomePost, ...mapped] : mapped;
           });
+
+          // Analytics: batch log impressions for BRAND POSTS ONLY (fire-and-forget)
+          // Resident posts are never tracked — privacy-first
+          if (currentUser?.id) {
+            const brandPostIds = dbPosts
+              .filter(p => p.profiles?.account_type === 'brand')
+              .map(p => p.id);
+            if (brandPostIds.length > 0) {
+              trackImpressionsBatch(brandPostIds, currentUser.id, 'feed');
+            }
+          }
         }
       } catch (e) {
         console.warn('Could not load posts from Supabase:', e.message);
