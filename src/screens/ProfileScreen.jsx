@@ -631,6 +631,14 @@ export default function ProfileScreen() {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>→</span>
             </button>
+            <button onClick={() => window.open('https://incynq.app/privacy', '_blank')}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🔒 Privacy Policy</span><span style={{ color: C.muted }}>↗</span>
+            </button>
+            <button onClick={() => window.open('https://incynq.app/cookies', '_blank')}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🍪 Cookie Policy</span><span style={{ color: C.muted }}>↗</span>
+            </button>
             {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={async () => {
