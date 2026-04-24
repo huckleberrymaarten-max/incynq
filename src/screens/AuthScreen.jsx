@@ -192,7 +192,7 @@ export default function AuthScreen({ onLogin }) {
                     placeholder="Enter code if you have one" className="inp"
                     onFocus={e => e.target.style.borderColor = C.sky}
                     onBlur={e => e.target.style.borderColor = C.border}
-                    maxLength={20} />
+                    maxLength={30} />
                   <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>Referred by a friend? Enter their code here.</div>
                 </div>
               )}

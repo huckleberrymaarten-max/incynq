@@ -929,11 +929,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>YOUR REFERRAL LINK</div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                  <div style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', fontSize: 12, color: C.text, wordBreak: 'break-all', fontWeight: 600, lineHeight: 1.4 }}>
                     https://incynq.app/join/{currentUser.referralCode || 'LOADING'}
                   </div>
                   <button onClick={handleCopyReferralLink}
-                    style={{ padding: '10px 16px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                    style={{ padding: '10px 16px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13, flexShrink: 0, alignSelf: 'flex-start' }}>
                     Copy
                   </button>
                 </div>
