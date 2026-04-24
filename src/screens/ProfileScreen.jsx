@@ -733,10 +733,18 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             )}
             {/* Legal */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>LEGAL</div>
-            <button onClick={() => setShowTC(true)}
-              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>→</span>
-            </button>
+            <a href="https://incynq.net/terms" target="_blank" rel="noopener noreferrer"
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+              <span>📄 Terms & Conditions</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
+            </a>
+            <a href="https://incynq.net/privacy" target="_blank" rel="noopener noreferrer"
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+              <span>🔒 Privacy Policy</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
+            </a>
+            <a href="https://incynq.net/cookies" target="_blank" rel="noopener noreferrer"
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+              <span>🍪 Cookies</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
+            </a>
             {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={async () => {
