@@ -10,7 +10,7 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -309,6 +309,34 @@ export default function ProfileScreen() {
             <button onClick={() => setShowGridStatus(true)} style={{ fontSize: 12, color: C.muted, marginTop: 2, textAlign: 'left' }}>
               {gridStatusLabel(currentUser.gridStatus || 'online')} <span style={{ color: C.sky, fontSize: 10 }}>✏️</span>
             </button>
+
+            {/* Member Since / Brand Since */}
+            {currentUser?.activated_at && (
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>📅</span>
+                <span>{formatMemberSince(
+                  currentUser.account_type === 'brand' ? currentUser.brand_joined_at || currentUser.created_at : currentUser.activated_at,
+                  currentUser.account_type
+                )}</span>
+              </div>
+            )}
+
+            {/* Founding Brand Badge (First 100 brands only) */}
+            {currentUser?.account_type === 'brand' && currentUser?.founding_brand_number && (
+              <div style={{ 
+                marginTop: 6, 
+                display: 'inline-block',
+                background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`,
+                border: `1px solid ${C.gold}44`,
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.gold
+              }}>
+                {getFoundingBrandBadge(currentUser.founding_brand_number)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -627,17 +655,9 @@ export default function ProfileScreen() {
             )}
             {/* Legal */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>LEGAL</div>
-            <button onClick={() => window.open('https://incynq.net/terms', '_blank')}
+            <button onClick={() => setShowTC(true)}
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>↗</span>
-            </button>
-            <button onClick={() => window.open('https://incynq.net/privacy', '_blank')}
-              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🔒 Privacy Policy</span><span style={{ color: C.muted }}>↗</span>
-            </button>
-            <button onClick={() => window.open('https://incynq.net/cookies', '_blank')}
-              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🍪 Cookie Policy</span><span style={{ color: C.muted }}>↗</span>
+              <span>📄 Terms & Conditions</span><span style={{ color: C.muted }}>→</span>
             </button>
             {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>

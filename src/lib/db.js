@@ -630,3 +630,94 @@ export const getUserReferrals = async (userId) => {
   }
 };
 
+// ══════════════════════════════════════════════════════════════
+// DYNAMIC MEMBER-BASED PRICING
+// ══════════════════════════════════════════════════════════════
+
+// Pricing tier tables (L$ per week) - EVERYONE pays current tier
+const PRICING_TIERS = {
+  1: { basic: 150,  featured: 400,  premium: 800  }, // 0-1,000 members
+  2: { basic: 250,  featured: 750,  premium: 1500 }, // 1,000-5,000 members
+  3: { basic: 400,  featured: 1200, premium: 2500 }, // 5,000-15,000 members
+  4: { basic: 600,  featured: 1800, premium: 3500 }, // 15,000+ members
+};
+
+// Tier thresholds (for display purposes)
+const TIER_THRESHOLDS = {
+  1: { min: 0,     max: 999,   label: 'Launch' },
+  2: { min: 1000,  max: 4999,  label: 'Growth' },
+  3: { min: 5000,  max: 14999, label: 'Established' },
+  4: { min: 15000, max: null,  label: 'Premium' },
+};
+
+// Get current member count
+export const getMemberCount = async () => {
+  try {
+    const { data, error } = await supabase.rpc('get_member_count');
+    if (error) throw error;
+    return data || 0;
+  } catch (error) {
+    console.error('Get member count failed:', error);
+    return 0;
+  }
+};
+
+// Get current pricing tier (1-4) - applies to ALL brands
+export const getCurrentPricingTier = async () => {
+  try {
+    const { data, error } = await supabase.rpc('get_current_pricing_tier');
+    if (error) throw error;
+    return data || 1;
+  } catch (error) {
+    console.error('Get pricing tier failed:', error);
+    return 1; // Default to Tier 1
+  }
+};
+
+// Get current ad prices (everyone pays the same)
+export const getCurrentAdPrices = async () => {
+  try {
+    const tier = await getCurrentPricingTier();
+    const memberCount = await getMemberCount();
+    
+    return {
+      tier,
+      prices: PRICING_TIERS[tier],
+      memberCount,
+      tierInfo: TIER_THRESHOLDS[tier],
+      nextTier: tier < 4 ? {
+        tier: tier + 1,
+        threshold: TIER_THRESHOLDS[tier + 1].min,
+        prices: PRICING_TIERS[tier + 1],
+      } : null,
+    };
+  } catch (error) {
+    console.error('Get current ad prices failed:', error);
+    return {
+      tier: 1,
+      prices: PRICING_TIERS[1],
+      memberCount: 0,
+      tierInfo: TIER_THRESHOLDS[1],
+      nextTier: null,
+    };
+  }
+};
+
+// Format "Member since" / "Brand since" date
+export const formatMemberSince = (date, accountType = 'member') => {
+  if (!date) return null;
+  
+  const d = new Date(date);
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  
+  const prefix = accountType === 'brand' ? 'Brand since' : 'Member since';
+  return `${prefix} ${month} ${year}`;
+};
+
+// Get founding brand badge text
+export const getFoundingBrandBadge = (foundingNumber) => {
+  if (!foundingNumber || foundingNumber > 100) return null;
+  return `🌟 Founding Brand ${foundingNumber}/100`;
+};
+
