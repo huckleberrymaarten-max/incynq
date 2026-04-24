@@ -124,6 +124,16 @@ export const getFollowingProfiles = async (userId) => {
   return data.map(f => f.profiles).filter(Boolean);
 };
 
+// Get profiles of users who follow this user (followers list)
+export const getFollowersProfiles = async (userId) => {
+  const { data, error } = await supabase
+    .from('follows')
+    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status)')
+    .eq('following_id', userId);
+  if (error) throw error;
+  return data.map(f => f.profiles).filter(Boolean);
+};
+
 // ── Posts ────────────────────────────────────────────────
 export const createPost = async ({ userId, caption, imageUrl, tags }) => {
   const { data, error } = await supabase

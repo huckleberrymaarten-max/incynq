@@ -10,7 +10,7 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getSuggestedUsersByGroup } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -65,6 +65,11 @@ export default function ProfileScreen() {
   const [followingProfiles, setFollowingProfiles] = useState([]);
   const [followingProfilesLoaded, setFollowingProfilesLoaded] = useState(false);
 
+  // Real followers profiles from Supabase
+  const [followersProfiles, setFollowersProfiles] = useState([]);
+  const [followersProfilesLoaded, setFollowersProfilesLoaded] = useState(false);
+  const [showFollowers, setShowFollowers] = useState(false);
+
   // Suggested users by interest group (discoverable only)
   const [suggestedUsers, setSuggestedUsers] = useState({});
 
@@ -90,6 +95,21 @@ export default function ProfileScreen() {
         // Fallback to static USERS
         setFollowingProfiles(USERS.filter(u => following.has(u.id)));
         setFollowingProfilesLoaded(true);
+      }
+    }
+  };
+
+  // Load followers profiles when Followers sheet opens
+  const handleOpenFollowers = async () => {
+    setShowFollowers(true);
+    if (!followersProfilesLoaded) {
+      try {
+        const profiles = await getFollowersProfiles(currentUser.id);
+        setFollowersProfiles(profiles);
+        setFollowersProfilesLoaded(true);
+      } catch(e) {
+        console.warn('Followers profiles failed:', e.message);
+        setFollowersProfilesLoaded(true);
       }
     }
   };
@@ -304,9 +324,9 @@ export default function ProfileScreen() {
             : [['Posts', stats.posts], ['Followers', stats.followers], ['Following', stats.following]]
           ).map(([label, val], i, arr) => (
             <div key={label}
-              onClick={label === 'Following' ? handleOpenFollowing : undefined}
-              style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', cursor: label === 'Following' ? 'pointer' : 'default' }}>
-              <div style={{ fontWeight: 900, fontSize: 18, color: label === 'Following' ? C.sky : C.text }}>
+              onClick={label === 'Following' ? handleOpenFollowing : label === 'Followers' ? handleOpenFollowers : undefined}
+              style={{ flex: 1, textAlign: 'center', padding: '12px 0', background: C.card2, borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', cursor: label === 'Following' || label === 'Followers' ? 'pointer' : 'default' }}>
+              <div style={{ fontWeight: 900, fontSize: 18, color: label === 'Following' || label === 'Followers' ? C.sky : C.text }}>
                 {statsLoading ? '–' : val}
               </div>
               <div style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>{label}</div>
@@ -712,6 +732,55 @@ export default function ProfileScreen() {
                     <button onClick={() => toggleFollow(u.id)}
                       style={{ padding: '7px 14px', borderRadius: 20, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
                       Unfollow
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Followers modal */}
+      {showFollowers && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowFollowers(false)}>
+          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }}
+            className="fadeUp" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>Followers</span>
+              <button onClick={() => setShowFollowers(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0 20px' }}>
+              {!followersProfilesLoaded && (
+                <div style={{ padding: '30px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading…</div>
+              )}
+              {followersProfilesLoaded && followersProfiles.length === 0 && (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>No followers yet.</div>
+              )}
+              {followersProfiles.map(u => {
+                if (!u) return null;
+                const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
+                const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+                const isFollowing = following.has(u.id);
+                return (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
+                    <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                    </div>
+                    <button onClick={() => toggleFollow(u.id)}
+                      style={{ 
+                        padding: '7px 14px', 
+                        borderRadius: 20, 
+                        background: isFollowing ? `${C.sky}18` : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                        border: isFollowing ? `1px solid ${C.sky}44` : 'none',
+                        color: isFollowing ? C.sky : '#060d14',
+                        fontWeight: 700, 
+                        fontSize: 12 
+                      }}>
+                      {isFollowing ? 'Unfollow' : 'Follow'}
                     </button>
                   </div>
                 );
