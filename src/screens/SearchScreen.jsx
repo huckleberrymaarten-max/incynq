@@ -5,7 +5,7 @@ import { useContent } from '../context/ContentContext';
 import { searchProfiles, followUser, unfollowUser, createNotification } from '../lib/db';
 import { useApp } from '../context/AppContext';
 
-export default function SearchScreen() {
+export default function SearchScreen({ onOpenUserProfile }) {
   const { following, setFollowing, currentUser } = useApp();
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState([]);
@@ -108,14 +108,23 @@ export default function SearchScreen() {
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
-                    <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
-                      {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
+                    {/* Clickable user info */}
+                    <div 
+                      onClick={() => onOpenUserProfile && onOpenUserProfile(u.username)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                      <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                        {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
+                      </div>
                     </div>
+                    {/* Follow button */}
                     <button
-                      onClick={() => handleFollow(u)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFollow(u);
+                      }}
                       style={{ padding: '7px 16px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12,
                         background: isFollowing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
                         color: isFollowing ? C.sky : '#060d14',

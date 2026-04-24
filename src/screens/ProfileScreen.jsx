@@ -10,7 +10,7 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -72,6 +72,12 @@ export default function ProfileScreen() {
 
   // Suggested users by interest group (discoverable only)
   const [suggestedUsers, setSuggestedUsers] = useState({});
+
+  // Referral system
+  const [showReferral, setShowReferral] = useState(false);
+  const [referralStats, setReferralStats] = useState(null);
+  const [referralStatsLoading, setReferralStatsLoading] = useState(false);
+
 
   // Load stats on mount
   useEffect(() => {
@@ -265,6 +271,28 @@ export default function ProfileScreen() {
     await persistProfile(updates);
   };
 
+  // ── Referral System ──────────────────────────────────────────
+  const handleOpenReferral = async () => {
+    setShowReferral(true);
+    if (!referralStatsLoading && !referralStats) {
+      setReferralStatsLoading(true);
+      try {
+        const stats = await getReferralStats(currentUser.id);
+        setReferralStats(stats);
+      } catch (e) {
+        console.warn('Referral stats failed:', e.message);
+      } finally {
+        setReferralStatsLoading(false);
+      }
+    }
+  };
+
+  const handleCopyReferralLink = () => {
+    const link = `https://incynq.app/join/${currentUser.referral_code || 'LOADING'}`;
+    navigator.clipboard.writeText(link);
+    toast('Referral link copied! ✓');
+  };
+
   // ── Discover ─────────────────────────────────────────────
   const discoverAll = (() => {
     if (!currentUser.groups?.length) return [];
@@ -376,6 +404,19 @@ export default function ProfileScreen() {
           </button>
         </div>
 
+        {/* Invite Friends (Referral Program) */}
+        <button onClick={handleOpenReferral}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`, borderRadius: 14, border: `1px solid ${C.gold}44`, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🎁</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>Invite Friends</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>Earn 10 L$ per activation</div>
+            </div>
+          </div>
+          <span style={{ color: C.muted }}>→</span>
+        </button>
+
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           <button onClick={() => setShowEdit(true)}
@@ -384,7 +425,7 @@ export default function ProfileScreen() {
           </button>
           <button onClick={handleDiscoverableToggle}
             style={{ flex: 1, padding: '10px', borderRadius: 12, background: discoverable ? `${C.sky}18` : C.card2, border: `1.5px solid ${discoverable ? C.sky : C.border}`, color: discoverable ? C.sky : C.sub, fontWeight: 700, fontSize: 13 }}>
-            {discoverable ? '👁️ Discoverable' : '👁️ Hidden'}
+            {discoverable ? 'I am Discoverable now' : 'I am Hiding now'}
           </button>
         </div>
 
@@ -813,6 +854,82 @@ export default function ProfileScreen() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Referral Modal */}
+      {showReferral && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowReferral(false)}>
+          <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }}
+            className="fadeUp" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 16, color: C.text }}>🎁 Invite Friends</span>
+              <button onClick={() => setShowReferral(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px 20px' }}>
+              
+              {/* How it works */}
+              <div style={{ background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 8 }}>How It Works</div>
+                <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>
+                  Share your link. When friends sign up <strong>and activate</strong> (tap an InCynq terminal inworld), you earn <strong style={{ color: C.gold }}>10 L$</strong>.
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                  • Maximum 10 paid referrals per month<br />
+                  • Unlimited invites (share freely!)<br />
+                  • Resets monthly on the 1st
+                </div>
+              </div>
+
+              {/* Your referral link */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>YOUR REFERRAL LINK</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px', fontSize: 13, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    https://incynq.app/join/{currentUser.referral_code || 'LOADING'}
+                  </div>
+                  <button onClick={handleCopyReferralLink}
+                    style={{ padding: '10px 16px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats */}
+              {referralStatsLoading && (
+                <div style={{ padding: '20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading stats…</div>
+              )}
+              {!referralStatsLoading && referralStats && (
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 8, letterSpacing: 0.5 }}>YOUR STATS</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{referralStats.paidThisMonth}/10</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Paid This Month</div>
+                    </div>
+                    <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: C.gold }}>{referralStats.totalEarned} L$</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Total Earned</div>
+                    </div>
+                    <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: C.text }}>{referralStats.totalReferrals}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Total Invited</div>
+                    </div>
+                    <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12, textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: C.sky }}>{referralStats.activatedReferrals}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Activated</div>
+                    </div>
+                  </div>
+                  {referralStats.remaining > 0 && referralStats.paidThisMonth > 0 && (
+                    <div style={{ marginTop: 12, padding: 10, background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 10, fontSize: 12, color: C.sub, textAlign: 'center' }}>
+                      💡 You can earn <strong style={{ color: C.sky }}>{referralStats.remaining * 10} L$</strong> more this month ({referralStats.remaining} referrals)
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

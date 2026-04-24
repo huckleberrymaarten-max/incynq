@@ -721,3 +721,20 @@ export const getFoundingBrandBadge = (foundingNumber) => {
   return `🌟 Founding Brand ${foundingNumber}/100`;
 };
 
+// Get profile by username (for viewing other users)
+export const getProfileByUsername = async (username) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username.toLowerCase())
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Get profile by username failed:', error);
+    return null;
+  }
+};
+
