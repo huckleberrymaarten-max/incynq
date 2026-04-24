@@ -3,7 +3,7 @@ import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
-import { getProfileByUsername, getProfileStats, followUser, unfollowUser, createNotification, formatMemberSince, getFoundingBrandBadge } from '../lib/db';
+import { getProfileByUsername, getProfileStats, followUser, unfollowUser, createNotification, formatMemberSince, getFoundingBrandBadge, trackProfileView } from '../lib/db';
 
 export default function UserProfileScreen({ username, onBack }) {
   const { currentUser, following, setFollowing } = useApp();
@@ -22,6 +22,13 @@ export default function UserProfileScreen({ username, onBack }) {
           setProfile(profileData);
           const statsData = await getProfileStats(profileData.id);
           setStats(statsData);
+
+          // Analytics: track profile view for BRAND accounts only
+          // Resident profiles are never tracked — privacy-first
+          // (trackProfileView also auto-excludes self-views)
+          if (profileData.account_type === 'brand' && currentUser?.id) {
+            trackProfileView(profileData.id, currentUser.id, 'direct');
+          }
         }
       } catch (e) {
         console.warn('Load profile failed:', e.message);
