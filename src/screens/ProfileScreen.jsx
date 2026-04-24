@@ -10,7 +10,7 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getSuggestedUsersByGroup } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -65,6 +65,9 @@ export default function ProfileScreen() {
   const [followingProfiles, setFollowingProfiles] = useState([]);
   const [followingProfilesLoaded, setFollowingProfilesLoaded] = useState(false);
 
+  // Suggested users by interest group (discoverable only)
+  const [suggestedUsers, setSuggestedUsers] = useState({});
+
   // Load stats on mount
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -87,6 +90,24 @@ export default function ProfileScreen() {
         // Fallback to static USERS
         setFollowingProfiles(USERS.filter(u => following.has(u.id)));
         setFollowingProfilesLoaded(true);
+      }
+    }
+  };
+
+  // Load suggested users when Discover opens
+  const handleOpenDiscover = async () => {
+    handleOpenDiscover();
+    // Load suggested users for each interest group
+    if (currentUser.groups?.length > 0) {
+      for (const groupId of currentUser.groups) {
+        if (!suggestedUsers[groupId]) {
+          try {
+            const users = await getSuggestedUsersByGroup(groupId, currentUser.id, 10);
+            setSuggestedUsers(prev => ({ ...prev, [groupId]: users }));
+          } catch(e) {
+            console.warn(`Suggested users for group ${groupId} failed:`, e.message);
+          }
+        }
       }
     }
   };
@@ -401,8 +422,20 @@ export default function ProfileScreen() {
             {currentUser.groups?.map(groupId => {
               const group = INTEREST_GROUPS.find(g => g.id === groupId);
               if (!group) return null;
-              const people = USERS.filter(u => u.id !== 0 && u.id !== currentUser.id && u.groups?.includes(groupId));
-              const brands = LOCS.filter(l => l.groups?.includes(groupId)).map(l => ({ id: `b_${l.id}`, username: l.owner, name: l.name, avatar: l.image, isBrand: true, followers: l.visits }));
+              
+              // Use real Supabase data (discoverable users only)
+              const people = suggestedUsers[groupId] || [];
+              
+              // Keep brands from static data for now (until brands are in database)
+              const brands = LOCS.filter(l => l.groups?.includes(groupId)).map(l => ({ 
+                id: `b_${l.id}`, 
+                username: l.owner, 
+                name: l.name, 
+                avatar: l.image, 
+                isBrand: true, 
+                followers: l.visits 
+              }));
+              
               const all = [...people, ...brands].sort((a, b) => stableHash(a.id) - stableHash(b.id)).slice(0, 10);
               if (!all.length) return null;
               return (
@@ -418,18 +451,23 @@ export default function ProfileScreen() {
                     {all.map(u => {
                       const mutuals = stableHash(u.id) % 8;
                       const isFollowing = following.has(u.id);
+                      // Handle both Supabase profiles and brand objects
+                      const displayName = u.isBrand ? u.name : (u.display_name || u.username);
+                      const avatar = u.isBrand ? u.avatar : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
+                      const followers = u.isBrand ? u.followers : (u.followers || 0);
+                      
                       return (
                         <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${group.color}22` }}>
                           <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto 7px' }}>
-                            <img src={u.avatar} alt="" style={{ width: 52, height: 52, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${group.color}55` }} />
+                            <img src={avatar} alt="" style={{ width: 52, height: 52, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${group.color}55` }} />
                             {u.isBrand && <div style={{ position: 'absolute', bottom: 0, right: 0, background: `${C.gold}ee`, fontSize: 8, fontWeight: 900, color: '#000', width: 15, height: 15, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏢</div>}
                           </div>
                           <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                            {u.isBrand ? u.name : u.username}
+                            {displayName}
                           </div>
                           {mutuals > 0 && <div style={{ fontSize: 10, color: C.muted, marginBottom: 2, fontWeight: 600 }}>👥 {mutuals} mutual{mutuals !== 1 ? 's' : ''}</div>}
                           <div style={{ fontSize: 10, color: C.muted, marginBottom: 7 }}>
-                            {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} followers`}
+                            {u.isBrand ? `${(followers / 1000).toFixed(1)}k visits` : `${followers.toLocaleString()} followers`}
                           </div>
                           <button onClick={() => toggleFollow(u.id)}
                             style={{ width: '100%', fontSize: 10, fontWeight: 800, padding: '5px 0', borderRadius: 20,

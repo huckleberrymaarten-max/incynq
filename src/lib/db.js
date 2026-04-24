@@ -138,9 +138,24 @@ export const searchProfiles = async (query, currentUserId) => {
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
     .neq('account_type', 'official')
+    .eq('discoverable', true) // Only show discoverable users in search
     .limit(20);
   if (currentUserId) q = q.neq('id', currentUserId);
   const { data, error } = await q;
+  if (error) throw error;
+  return data;
+};
+
+// Get suggested users by interest group (discoverable only)
+export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 10) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
+    .contains('groups', [groupId])
+    .eq('discoverable', true) // Only show discoverable users
+    .neq('id', currentUserId) // Exclude current user
+    .neq('account_type', 'official') // Exclude InCynq
+    .limit(limit);
   if (error) throw error;
   return data;
 };
