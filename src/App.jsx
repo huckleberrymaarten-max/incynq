@@ -53,10 +53,8 @@ function AppRoutes() {
             createdAt:       profile.created_at,
           });
 
-          // Restore discoverable preference
-          if (profile.discoverable !== undefined) {
-            setDiscoverable(profile.discoverable !== false);
-          }
+          // Restore discoverable preference (default to true if not set)
+          setDiscoverable(profile.discoverable !== false);
 
           // Load follows from Supabase
           try {
