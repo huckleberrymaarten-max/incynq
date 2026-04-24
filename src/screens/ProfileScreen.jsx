@@ -365,6 +365,23 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 {getFoundingBrandBadge(currentUser.founding_brand_number)}
               </div>
             )}
+
+            {/* Official Badge */}
+            {currentUser?.account_type === 'official' && (
+              <div style={{ 
+                marginTop: 6, 
+                display: 'inline-block',
+                background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`,
+                border: `1px solid ${C.gold}44`,
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.gold
+              }}>
+                ⚡ Official
+              </div>
+            )}
           </div>
         </div>
 
@@ -778,23 +795,25 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {followingProfilesLoaded && followingProfiles.length === 0 && (
                 <div style={{ padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Not following anyone yet.</div>
               )}
-              {/* InCynq Official always shows first */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                <div 
-                  onClick={() => {
-                    setShowFollowing(false);
-                    onOpenUserProfile && onOpenUserProfile('incynq');
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                  <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>InCynq</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@incynq</div>
+              {/* InCynq Official always shows first (unless you ARE InCynq) */}
+              {currentUser.username !== 'incynq' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
+                  <div 
+                    onClick={() => {
+                      setShowFollowing(false);
+                      onOpenUserProfile && onOpenUserProfile('incynq');
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                    <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>InCynq</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@incynq</div>
+                    </div>
                   </div>
+                  <span style={{ fontSize: 11, color: C.gold, fontWeight: 700, padding: '5px 12px', background: `${C.gold}18`, borderRadius: 20, border: `1px solid ${C.gold}44` }}>⚡ Official</span>
                 </div>
-                <span style={{ fontSize: 11, color: C.gold, fontWeight: 700, padding: '5px 12px', background: `${C.gold}18`, borderRadius: 20, border: `1px solid ${C.gold}44` }}>⚡ Official</span>
-              </div>
-              {followingProfiles.map(u => {
+              )}
+              {followingProfiles.filter(u => u && u.id !== currentUser.id).map(u => {
                 if (!u) return null;
                 const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
                 const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
@@ -846,7 +865,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {followersProfilesLoaded && followersProfiles.length === 0 && (
                 <div style={{ padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>No followers yet.</div>
               )}
-              {followersProfiles.map(u => {
+              {followersProfiles.filter(u => u && u.id !== currentUser.id).map(u => {
                 if (!u) return null;
                 const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
                 const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;

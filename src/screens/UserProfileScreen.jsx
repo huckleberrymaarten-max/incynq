@@ -131,6 +131,23 @@ export default function UserProfileScreen({ username, onBack }) {
                 {getFoundingBrandBadge(profile.founding_brand_number)}
               </div>
             )}
+
+            {/* Official Badge */}
+            {profile.account_type === 'official' && (
+              <div style={{ 
+                marginTop: 6, 
+                display: 'inline-block',
+                background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`,
+                border: `1px solid ${C.gold}44`,
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.gold
+              }}>
+                ⚡ Official
+              </div>
+            )}
           </div>
         </div>
 
