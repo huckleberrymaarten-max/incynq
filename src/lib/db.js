@@ -935,3 +935,304 @@ export const getBrandSummary = async (brandId, daysBack = 30) => {
     profile_unique_viewers: profile.unique_viewers,
   };
 };
+
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD SUBSCRIPTION FUNCTIONS
+// Free for residents (blocked), free for official InCynq,
+// paid upgrade for brands (500 L$/mo, 3-day grace, auto-renewal)
+// ══════════════════════════════════════════════════════════════
+
+// ── Get current dashboard tier for a brand ────────────────
+export const getDashboardTier = async (brandId) => {
+  try {
+    const { data, error } = await supabase.rpc('get_dashboard_tier', { p_brand_id: brandId });
+    if (error) throw error;
+    return data; // { tier: 'free' | 'upgraded', active, status, is_official, current_period_end, ... }
+  } catch (err) {
+    console.warn('Get dashboard tier failed:', err.message);
+    return { tier: 'free', active: false };
+  }
+};
+
+// ── Upgrade dashboard (charges wallet 500 L$) ─────────────
+export const upgradeDashboard = async (brandId) => {
+  try {
+    const { data, error } = await supabase.rpc('upgrade_dashboard', { p_brand_id: brandId });
+    if (error) throw error;
+    return data; // { success: true/false, ...details }
+  } catch (err) {
+    console.error('Upgrade dashboard failed:', err);
+    return { success: false, error: err.message };
+  }
+};
+
+// ── Get dashboard subscription details ────────────────────
+export const getDashboardSubscription = async (brandId) => {
+  try {
+    const { data, error } = await supabase
+      .from('dashboard_subscriptions')
+      .select('*')
+      .eq('brand_id', brandId)
+      .in('status', ['active', 'grace'])
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  } catch (err) {
+    console.warn('Get subscription failed:', err.message);
+    return null;
+  }
+};
+
+// ── Get dashboard payment history ─────────────────────────
+export const getDashboardPayments = async (brandId, limit = 10) => {
+  try {
+    const { data, error } = await supabase
+      .from('dashboard_payments')
+      .select('*')
+      .eq('brand_id', brandId)
+      .order('paid_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.warn('Get payments failed:', err.message);
+    return [];
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// FREE TIER ANALYTICS QUERIES (every brand + official)
+// ══════════════════════════════════════════════════════════════
+
+// ── Basic stats for free tier (last 30 days) ──────────────
+export const getBasicBrandStats = async (brandId) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const sinceISO = since.toISOString();
+
+    // Get all posts by brand
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id, created_at')
+      .eq('user_id', brandId)
+      .eq('is_welcome', false)
+      .gte('created_at', sinceISO);
+
+    const postIds = (posts || []).map(p => p.id);
+
+    // Post views (total + unique)
+    let totalViews = 0;
+    let uniqueViewers = 0;
+    if (postIds.length > 0) {
+      const { data: views } = await supabase
+        .from('post_views')
+        .select('id, viewer_id')
+        .in('post_id', postIds);
+      totalViews = views?.length || 0;
+      uniqueViewers = new Set((views || []).filter(v => v.viewer_id).map(v => v.viewer_id)).size;
+    }
+
+    // Impressions
+    let totalImpressions = 0;
+    if (postIds.length > 0) {
+      const { count } = await supabase
+        .from('post_impressions')
+        .select('*', { count: 'exact', head: true })
+        .in('post_id', postIds);
+      totalImpressions = count || 0;
+    }
+
+    // Profile views
+    const { data: profileViews } = await supabase
+      .from('profile_views')
+      .select('id, viewer_id')
+      .eq('profile_id', brandId)
+      .gte('viewed_at', sinceISO);
+    const profileViewCount = profileViews?.length || 0;
+    const uniqueProfileVisitors = new Set((profileViews || []).filter(v => v.viewer_id).map(v => v.viewer_id)).size;
+
+    // Current follower count
+    const { count: followerCount } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', brandId);
+
+    // New followers (last 30 days)
+    const { count: newFollowers } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', brandId)
+      .gte('created_at', sinceISO);
+
+    return {
+      post_count: posts?.length || 0,
+      total_views: totalViews,
+      unique_viewers: uniqueViewers,
+      total_impressions: totalImpressions,
+      profile_views: profileViewCount,
+      unique_profile_visitors: uniqueProfileVisitors,
+      followers: followerCount || 0,
+      new_followers: newFollowers || 0,
+    };
+  } catch (err) {
+    console.warn('Basic stats failed:', err.message);
+    return null;
+  }
+};
+
+// ── Simple 7-day view trend (free tier chart) ─────────────
+export const getSimpleViewTrend = async (brandId) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
+    
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('user_id', brandId)
+      .eq('is_welcome', false);
+    
+    const postIds = (posts || []).map(p => p.id);
+    if (postIds.length === 0) return [];
+
+    const { data: views } = await supabase
+      .from('post_views')
+      .select('viewed_at')
+      .in('post_id', postIds)
+      .gte('viewed_at', since.toISOString())
+      .order('viewed_at', { ascending: true });
+
+    // Group by day
+    const dayMap = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dayMap[d.toISOString().split('T')[0]] = 0;
+    }
+    (views || []).forEach(v => {
+      const day = v.viewed_at.split('T')[0];
+      if (dayMap[day] !== undefined) dayMap[day] += 1;
+    });
+
+    return Object.entries(dayMap).map(([date, count]) => ({ date, count }));
+  } catch (err) {
+    console.warn('View trend failed:', err.message);
+    return [];
+  }
+};
+
+// ── Top posts (free tier shows top 3, paid shows all) ─────
+export const getTopPosts = async (brandId, limit = 3) => {
+  try {
+    const { data, error } = await supabase
+      .from('post_analytics')
+      .select('*, posts!inner(caption, image_url, created_at)')
+      .eq('author_id', brandId)
+      .order('total_views', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.warn('Top posts failed:', err.message);
+    return [];
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// PAID TIER ANALYTICS QUERIES (upgraded brands + official)
+// ══════════════════════════════════════════════════════════════
+
+// ── Extended 90-day stats ─────────────────────────────────
+export const getExtendedBrandStats = async (brandId, daysBack = 90) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - daysBack);
+    const sinceISO = since.toISOString();
+
+    const { data: posts } = await supabase
+      .from('posts')
+      .select('id, created_at')
+      .eq('user_id', brandId)
+      .eq('is_welcome', false)
+      .gte('created_at', sinceISO);
+
+    const postIds = (posts || []).map(p => p.id);
+    if (postIds.length === 0) {
+      return {
+        post_count: 0, total_views: 0, unique_viewers: 0,
+        total_impressions: 0, total_likes: 0, total_comments: 0,
+        avg_vtr: 0, engagement_rate: 0, raw_views: []
+      };
+    }
+
+    const [viewsRes, imprRes, likesRes, commentsRes] = await Promise.all([
+      supabase.from('post_views').select('id, viewer_id, viewed_at').in('post_id', postIds),
+      supabase.from('post_impressions').select('id, viewer_id').in('post_id', postIds),
+      supabase.from('post_likes').select('post_id, user_id').in('post_id', postIds),
+      supabase.from('post_comments').select('post_id, user_id').in('post_id', postIds),
+    ]);
+
+    const views = viewsRes.data || [];
+    const impressions = imprRes.data || [];
+    const likes = likesRes.data || [];
+    const comments = commentsRes.data || [];
+
+    const avgVtr = impressions.length > 0 
+      ? Math.round((views.length / impressions.length) * 1000) / 10 
+      : 0;
+    
+    const engagementRate = views.length > 0
+      ? Math.round(((likes.length + comments.length) / views.length) * 1000) / 10
+      : 0;
+
+    return {
+      post_count: posts?.length || 0,
+      total_views: views.length,
+      unique_viewers: new Set(views.filter(v => v.viewer_id).map(v => v.viewer_id)).size,
+      total_impressions: impressions.length,
+      total_likes: likes.length,
+      total_comments: comments.length,
+      avg_vtr: avgVtr,
+      engagement_rate: engagementRate,
+      raw_views: views, // for time-of-day analysis
+    };
+  } catch (err) {
+    console.warn('Extended stats failed:', err.message);
+    return null;
+  }
+};
+
+// ── Peak viewing hours analysis ───────────────────────────
+export const getPeakViewingHours = async (brandId, daysBack = 30) => {
+  try {
+    const stats = await getExtendedBrandStats(brandId, daysBack);
+    if (!stats?.raw_views?.length) return null;
+
+    const hourCounts = Array(24).fill(0);
+    stats.raw_views.forEach(v => {
+      const hour = new Date(v.viewed_at).getHours();
+      hourCounts[hour] += 1;
+    });
+
+    const dayOfWeekCounts = Array(7).fill(0);
+    stats.raw_views.forEach(v => {
+      const dow = new Date(v.viewed_at).getDay();
+      dayOfWeekCounts[dow] += 1;
+    });
+
+    const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+    const peakDay = dayOfWeekCounts.indexOf(Math.max(...dayOfWeekCounts));
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return {
+      hour_breakdown: hourCounts,
+      day_breakdown: dayOfWeekCounts.map((count, i) => ({ day: dayNames[i], count })),
+      peak_hour: peakHour,
+      peak_day: dayNames[peakDay],
+    };
+  } catch (err) {
+    console.warn('Peak hours failed:', err.message);
+    return null;
+  }
+};
