@@ -37,6 +37,29 @@ export const registerUser = async ({ username, email, password }) => {
     }
   });
   if (error) throw error;
+  
+  // Auto-follow InCynq official account
+  if (data.user?.id) {
+    try {
+      const { data: incynqProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('account_type', 'official')
+        .single();
+      
+      if (incynqProfile) {
+        await supabase
+          .from('follows')
+          .insert({
+            follower_id: data.user.id,
+            following_id: incynqProfile.id
+          });
+      }
+    } catch (e) {
+      console.warn('Auto-follow InCynq failed:', e.message);
+    }
+  }
+  
   return { ...data, displayName };
 };
 
@@ -133,29 +156,70 @@ export const uploadPostImage = async (userId, file) => {
 
 // ── Search ───────────────────────────────────────────────
 export const searchProfiles = async (query, currentUserId) => {
+  // Check if current user is admin/owner/official (can see hidden users)
+  let canSeeHidden = false;
+  if (currentUserId) {
+    const { data: currentUserProfile } = await supabase
+      .from('profiles')
+      .select('account_type, role')
+      .eq('id', currentUserId)
+      .single();
+    
+    canSeeHidden = currentUserProfile?.account_type === 'official' 
+      || currentUserProfile?.account_type === 'admin'
+      || currentUserProfile?.account_type === 'super_admin'
+      || currentUserProfile?.role === 'owner';
+  }
+  
   let q = supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-    .neq('account_type', 'official')
-    .eq('discoverable', true) // Only show discoverable users in search
-    .limit(20);
+    .neq('account_type', 'official');
+  
+  // Only filter by discoverable if user is NOT an admin/owner/InCynq
+  if (!canSeeHidden) {
+    q = q.eq('discoverable', true);
+  }
+  
+  q = q.limit(20);
   if (currentUserId) q = q.neq('id', currentUserId);
   const { data, error } = await q;
   if (error) throw error;
   return data;
 };
 
-// Get suggested users by interest group (discoverable only)
+// Get suggested users by interest group (discoverable only, unless admin/owner/InCynq)
 export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 10) => {
-  const { data, error } = await supabase
+  // Check if current user is admin/owner/official (can see hidden users)
+  let canSeeHidden = false;
+  if (currentUserId) {
+    const { data: currentUserProfile } = await supabase
+      .from('profiles')
+      .select('account_type, role')
+      .eq('id', currentUserId)
+      .single();
+    
+    canSeeHidden = currentUserProfile?.account_type === 'official' 
+      || currentUserProfile?.account_type === 'admin'
+      || currentUserProfile?.account_type === 'super_admin'
+      || currentUserProfile?.role === 'owner';
+  }
+  
+  let q = supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .contains('groups', [groupId])
-    .eq('discoverable', true) // Only show discoverable users
     .neq('id', currentUserId) // Exclude current user
-    .neq('account_type', 'official') // Exclude InCynq
-    .limit(limit);
+    .neq('account_type', 'official'); // Exclude InCynq
+  
+  // Only filter by discoverable if user is NOT an admin/owner/InCynq
+  if (!canSeeHidden) {
+    q = q.eq('discoverable', true);
+  }
+  
+  q = q.limit(limit);
+  const { data, error } = await q;
   if (error) throw error;
   return data;
 };
