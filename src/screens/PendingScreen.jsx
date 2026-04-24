@@ -2,6 +2,7 @@ import { useState } from 'react';
 import C from '../theme';
 import { visibleName } from '../data';
 import { supabase } from '../lib/supabase';
+import { processReferralReward } from '../lib/db';
 
 // Fetch SL profile picture using avatar username
 const fetchSLAvatar = async (username) => {
@@ -39,11 +40,23 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
       if (session?.user) {
         const updates = {
           activated:         true,
+          activated_at:      new Date().toISOString(),
           wallet:            100,
           welcome_credit_at: new Date().toISOString(),
         };
         if (slAvatar) updates.avatar_url = slAvatar;
         await supabase.from('profiles').update(updates).eq('id', session.user.id);
+        
+        // Process referral reward (if user was referred)
+        try {
+          const rewardPaid = await processReferralReward(session.user.id);
+          if (rewardPaid) {
+            console.log('Referral reward paid to referrer!');
+          }
+        } catch (error) {
+          console.warn('Referral reward check failed:', error.message);
+          // Don't block activation if referral reward fails
+        }
       }
     } catch (e) {
       console.log('Could not save activation:', e.message);
@@ -88,7 +101,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
 
         {/* Welcome credit notice */}
         <div style={{ padding: '10px 14px', background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 12, marginBottom: 14, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-          🎁 <strong style={{ color: C.gold }}>100 L$ welcome credit</strong> will be added to your wallet on activation.
+          🎁 <strong style={{ color: C.gold }}>100 L$ welcome credit</strong> will be added to your wallet on activation. Valid for 90 days.
         </div>
 
         {/* Account info */}
