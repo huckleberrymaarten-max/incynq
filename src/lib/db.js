@@ -748,3 +748,190 @@ export const getProfileByUsername = async (username) => {
   }
 };
 
+// ══════════════════════════════════════════════════════════════
+// ANALYTICS TRACKING (Phase 1 — silent data collection)
+// ══════════════════════════════════════════════════════════════
+
+// ── Session ID helper ─────────────────────────────────────
+// Groups views within the same browser session to prevent inflation
+// from a user repeatedly re-opening the same post in one sitting.
+const getAnalyticsSessionId = () => {
+  let sessionId = sessionStorage.getItem('incynq_session_id');
+  if (!sessionId) {
+    sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    sessionStorage.setItem('incynq_session_id', sessionId);
+  }
+  return sessionId;
+};
+
+// ── Track post view (when post is opened/expanded) ───────
+// Fire-and-forget — never blocks UI, never breaks the app
+export const trackPostView = async (postId, viewerId, source = 'feed') => {
+  if (!postId) return;
+  
+  try {
+    // Dedupe: don't log same post twice in same session
+    const dedupeKey = `pv_${postId}_${getAnalyticsSessionId()}`;
+    if (sessionStorage.getItem(dedupeKey)) return;
+    sessionStorage.setItem(dedupeKey, '1');
+    
+    await supabase.from('post_views').insert({
+      post_id: postId,
+      viewer_id: viewerId || null,
+      source,
+      session_id: getAnalyticsSessionId(),
+    });
+  } catch (err) {
+    // Silent fail — analytics must never break the app
+    console.debug('Analytics: trackPostView failed', err);
+  }
+};
+
+// ── Track post impression (when post appears in feed) ────
+export const trackPostImpression = async (postId, viewerId, source = 'feed') => {
+  if (!postId) return;
+  
+  try {
+    const dedupeKey = `pi_${postId}_${getAnalyticsSessionId()}`;
+    if (sessionStorage.getItem(dedupeKey)) return;
+    sessionStorage.setItem(dedupeKey, '1');
+    
+    await supabase.from('post_impressions').insert({
+      post_id: postId,
+      viewer_id: viewerId || null,
+      source,
+    });
+  } catch (err) {
+    console.debug('Analytics: trackPostImpression failed', err);
+  }
+};
+
+// ── Track profile view (when someone visits a profile) ───
+// Self-views automatically excluded
+export const trackProfileView = async (profileId, viewerId, source = 'direct') => {
+  if (!profileId) return;
+  if (profileId === viewerId) return; // Don't log self-views
+  
+  try {
+    const dedupeKey = `prv_${profileId}_${getAnalyticsSessionId()}`;
+    if (sessionStorage.getItem(dedupeKey)) return;
+    sessionStorage.setItem(dedupeKey, '1');
+    
+    await supabase.from('profile_views').insert({
+      profile_id: profileId,
+      viewer_id: viewerId || null,
+      source,
+    });
+  } catch (err) {
+    console.debug('Analytics: trackProfileView failed', err);
+  }
+};
+
+// ── Batch track impressions (for feed loads) ─────────────
+// More efficient than calling trackPostImpression one by one
+export const trackImpressionsBatch = async (postIds, viewerId, source = 'feed') => {
+  if (!postIds || postIds.length === 0) return;
+  
+  try {
+    const sessionId = getAnalyticsSessionId();
+    const rows = postIds
+      .filter(postId => {
+        const dedupeKey = `pi_${postId}_${sessionId}`;
+        if (sessionStorage.getItem(dedupeKey)) return false;
+        sessionStorage.setItem(dedupeKey, '1');
+        return true;
+      })
+      .map(postId => ({
+        post_id: postId,
+        viewer_id: viewerId || null,
+        source,
+      }));
+    
+    if (rows.length === 0) return;
+    await supabase.from('post_impressions').insert(rows);
+  } catch (err) {
+    console.debug('Analytics: trackImpressionsBatch failed', err);
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// ANALYTICS QUERIES (for Phase 2 dashboard — ready but unused yet)
+// ══════════════════════════════════════════════════════════════
+
+// Get analytics for a single post
+export const getPostAnalytics = async (postId) => {
+  const { data, error } = await supabase
+    .from('post_analytics')
+    .select('*')
+    .eq('post_id', postId)
+    .single();
+  
+  if (error) throw error;
+  return data;
+};
+
+// Get all analytics for a brand's posts (with date range)
+export const getBrandAnalytics = async (brandId, daysBack = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - daysBack);
+  
+  const { data, error } = await supabase
+    .from('post_analytics')
+    .select('*')
+    .eq('author_id', brandId)
+    .gte('created_at', since.toISOString())
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
+};
+
+// Get profile view count for a brand (last N days)
+export const getProfileViewStats = async (profileId, daysBack = 30) => {
+  const since = new Date();
+  since.setDate(since.getDate() - daysBack);
+  
+  const { data, error } = await supabase
+    .from('profile_views')
+    .select('id, viewer_id, viewed_at, source')
+    .eq('profile_id', profileId)
+    .gte('viewed_at', since.toISOString());
+  
+  if (error) throw error;
+  
+  const uniqueViewers = new Set(data.filter(v => v.viewer_id).map(v => v.viewer_id)).size;
+  
+  return {
+    total_views: data.length,
+    unique_viewers: uniqueViewers,
+    by_source: data.reduce((acc, v) => {
+      const src = v.source || 'unknown';
+      acc[src] = (acc[src] || 0) + 1;
+      return acc;
+    }, {}),
+    raw: data,
+  };
+};
+
+// Get aggregated brand summary (views + impressions across all posts)
+export const getBrandSummary = async (brandId, daysBack = 30) => {
+  const posts = await getBrandAnalytics(brandId, daysBack);
+  const profile = await getProfileViewStats(brandId, daysBack);
+  
+  const totals = posts.reduce((acc, p) => ({
+    total_views: acc.total_views + (p.total_views || 0),
+    unique_viewers: acc.unique_viewers + (p.unique_viewers || 0),
+    total_impressions: acc.total_impressions + (p.total_impressions || 0),
+    unique_impressions: acc.unique_impressions + (p.unique_impressions || 0),
+  }), { total_views: 0, unique_viewers: 0, total_impressions: 0, unique_impressions: 0 });
+  
+  return {
+    post_count: posts.length,
+    ...totals,
+    avg_view_through_rate: posts.length > 0
+      ? Math.round(posts.reduce((sum, p) => sum + (parseFloat(p.view_through_rate_pct) || 0), 0) / posts.length * 100) / 100
+      : 0,
+    profile_views: profile.total_views,
+    profile_unique_viewers: profile.unique_viewers,
+  };
+};
