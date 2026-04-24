@@ -29,18 +29,54 @@ Contact: legal@incynq.app
 - **Location Data:** Approximate location for local features (when permitted)
 - **Cookies:** Session cookies for authentication (see Cookie Policy)
 
-### 2.3 Future Analytics & Referral Tracking
+### 2.3 Analytics Tracking (Brand Content Only)
 
-**Brand Analytics (Future):**
-We plan to introduce analytics for brand accounts to measure engagement, including:
-- Post views and reach
-- Interaction rates (likes, comments, shares)
-- Follower demographics (aggregated and anonymized)
-- Engagement trends
+To help brands understand whether their posts and profiles are reaching the community, we collect limited interaction data — **but only in connection with brand accounts**. Resident (member) posts and profiles are never tracked.
 
-**Note:** These analytics will only be available to brand account holders for their own content and will not share individual user identities.
+**What we collect for brand content:**
+- **Post impressions** — when a brand post appears in someone's feed
+- **Post views** — when a user opens the comments or detail view of a brand post
+- **Profile visits** — when a user opens a brand profile
 
-**Referral Program:**
+**What this data includes:**
+- The post or profile that was viewed
+- The viewer's account ID (so we can count unique viewers)
+- A timestamp
+- The source (feed, search, direct link, etc.)
+- A browser session ID (used only to prevent counting the same view twice)
+
+**What this data is used for:**
+- Showing the brand their own analytics (impressions, views, top posts)
+- Calculating engagement metrics (view-through rate, peak viewing hours)
+- Nothing else — not sold, not shared with other users or third parties
+
+**Who can see your viewing activity:**
+- The brand whose post or profile you viewed can see **aggregate numbers** (total views, unique viewers, peak hours)
+- The brand **cannot** see a list of which specific users viewed their content — individual viewer identities are not exposed in the dashboard
+- Database-level Row Level Security (RLS) enforces this at the data layer
+
+**What we never track:**
+- Resident (non-brand) posts — completely excluded
+- Your own self-views (viewing your own profile or content)
+- Welcome posts and system content
+- Any activity outside InCynq
+
+**Data retention:**
+Analytics data is retained for up to 365 days and then automatically deleted. You can request earlier deletion by emailing legal@incynq.app.
+
+### 2.4 Dashboard Subscription Data (Brand Accounts Only)
+
+Brand accounts may choose to pay for a dashboard upgrade (500 L$/month). For this we collect:
+
+- Subscription status (active, grace period, expired)
+- Billing cycle dates
+- Payment history (L$ charged, wallet balance before/after)
+- Renewal notification tracking (so we don't send you the same reminder twice)
+
+This data is visible only to the brand account itself.
+
+### 2.5 Referral Program
+
 We track referral relationships when you invite friends to join InCynq:
 - Your unique referral code
 - Which users signed up using your referral link
@@ -59,7 +95,8 @@ We use your information to:
 - **Personalization:** Customize your feed based on interests and connections
 - **Safety & Security:** Prevent fraud, abuse, and protect user safety
 - **Legal Compliance:** Comply with legal obligations and enforce our Terms of Service
-- **Future Analytics:** Provide engagement metrics to brand accounts (anonymized)
+- **Brand Analytics:** Provide engagement metrics to brand accounts (see 2.3)
+- **Dashboard Subscriptions:** Process renewals, send billing reminders, manage grace periods
 - **Referral Program:** Track referrals, credit rewards, and prevent abuse
 
 ## 4. Legal Basis for Processing (GDPR)
@@ -67,8 +104,8 @@ We use your information to:
 We process your data based on:
 
 - **Contract Performance:** To provide our services as agreed
-- **Legitimate Interests:** Platform security, fraud prevention, service improvement
-- **Consent:** For optional features like location sharing and analytics
+- **Legitimate Interests:** Platform security, fraud prevention, service improvement, brand analytics (for brand accounts only)
+- **Consent:** For optional features like location sharing
 - **Legal Obligation:** To comply with applicable laws
 
 ## 5. Data Sharing and Disclosure
@@ -95,12 +132,13 @@ We may disclose information if required by law, court order, or to protect right
 - Sell your personal data to third parties
 - Share your data with advertisers (for now)
 - Track you across other websites
+- Show brands the specific identity of individual viewers — only aggregate counts
 
 ## 6. Your Rights (GDPR)
 
 As an EU resident, you have the right to:
 
-- **Access:** Request a copy of your personal data
+- **Access:** Request a copy of your personal data, including any analytics data we hold about your activity
 - **Rectification:** Correct inaccurate or incomplete data
 - **Erasure:** Request deletion of your account and data
 - **Restriction:** Limit how we process your data
@@ -116,11 +154,13 @@ We retain your data:
 
 - **Active Accounts:** While your account is active
 - **Deleted Accounts:** Up to 30 days after deletion for backup/recovery
+- **Analytics Data:** Up to 365 days, then automatically deleted
+- **Payment Records:** As required by EU tax and accounting law (typically 7 years)
 - **Legal Requirements:** Longer if required by law
 
 ## 8. Children's Privacy
 
-InCynq is intended for Second Life residents who are 18+ (or 16+ with parental consent in their region). We do not knowingly collect data from children under the minimum age.
+InCynq is intended for Second Life residents who are 16 or older. We do not knowingly collect data from children under the minimum age.
 
 ## 9. International Data Transfers
 
@@ -131,6 +171,7 @@ Your data is stored on Supabase servers (EU region where possible). Transfers ou
 We use industry-standard security measures:
 - Encryption (HTTPS, database encryption)
 - Secure authentication (hashed passwords)
+- Database-level Row Level Security (RLS) policies
 - Access controls and monitoring
 - Regular security audits
 
@@ -138,7 +179,7 @@ However, no system is 100% secure. Use strong passwords and report suspicious ac
 
 ## 11. Changes to This Policy
 
-We may update this Privacy Policy. Changes will be posted with a new "Last Updated" date. Continued use after changes constitutes acceptance.
+We may update this Privacy Policy. Material changes will be posted with a new "Last Updated" date and announced via an InCynq Official post at least 30 days in advance. Continued use after changes constitutes acceptance.
 
 ## 12. Contact Us
 

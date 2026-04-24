@@ -6,6 +6,8 @@
 
 Cookies are small text files stored on your device when you visit a website. They help websites remember your preferences and improve your experience.
 
+This policy also covers **similar technologies** we use, such as browser session storage, which works like a cookie but is automatically cleared when you close your browser tab.
+
 ## 2. Cookies We Use
 
 ### 2.1 Essential Cookies (Required)
@@ -34,18 +36,34 @@ These cookies remember your preferences:
 
 **Legal Basis:** Consent (you can disable in Settings)
 
-### 2.3 Analytics Cookies (Future - Not Yet Implemented)
+### 2.3 Analytics Session Storage (Brand Content Only)
 
-We plan to add analytics for brand accounts to measure post engagement:
+To prevent inflated view counts for brands, we use browser session storage (not a persistent cookie) to deduplicate analytics events within a single browsing session.
 
-| Purpose | Data Collected | Duration |
-|---------|----------------|----------|
-| **Post Views** | Anonymous view counts | 90 days |
-| **Engagement Metrics** | Aggregated interaction data | 90 days |
+| Item | Purpose | Duration |
+|------|---------|----------|
+| **incynq_session_id** | A random session ID used to group multiple page views in the same session so one user scrolling past a brand post is counted as one impression, not five | Session only — cleared automatically when you close your browser tab |
+| **pv_* / pi_* / prv_*** | One-time flags marking "this brand post/profile has already been logged in this session" | Session only |
 
-**Legal Basis:** Legitimate interest (improving services for brands)
+**Important to know:**
+- This data never leaves your browser
+- It is only used to **decide whether to send an analytics event** — it's not itself tracking data
+- It only applies to brand content — resident posts are never tracked at all
+- It contains no personal information, no identifiers, and no history
 
-**Note:** These will be aggregated and anonymized. Individual users will NOT be tracked.
+**Legal Basis:** Legitimate interest (providing brands with accurate, non-inflated analytics — see Privacy Policy section 2.3)
+
+### 2.4 Analytics Data (Server-side, Brand Content Only)
+
+Separate from the session storage above, we also store analytics **in our database** when you interact with brand content. This is not a cookie, but we disclose it here for transparency.
+
+| Event | What's Recorded | Retention |
+|-------|-----------------|-----------|
+| Brand post impression (post appeared in your feed) | post_id, your user_id, timestamp, source | 365 days |
+| Brand post view (you opened its comments) | post_id, your user_id, timestamp, source | 365 days |
+| Brand profile visit | profile_id, your user_id, timestamp, source | 365 days |
+
+See the Privacy Policy for full details on who can access this data (spoiler: only the brand can see aggregate counts — your individual identity is never exposed in their dashboard).
 
 ## 3. Third-Party Cookies
 
@@ -90,11 +108,11 @@ You can manage optional cookies in:
 
 ### 4.3 Do Not Track
 
-We respect "Do Not Track" browser signals. When enabled, we will not use optional analytics cookies.
+We respect "Do Not Track" browser signals. When enabled, we will not use optional analytics session storage for brand content tracking.
 
 ## 5. Cookie Duration
 
-- **Session Cookies:** Deleted when you close your browser
+- **Session Cookies / Session Storage:** Deleted when you close your browser tab
 - **Persistent Cookies:** Stored for specified duration (7 days to 1 year)
 - **You can delete cookies anytime** through your browser settings
 
@@ -111,4 +129,4 @@ For cookie-related questions:
 
 ---
 
-**Cookie Summary:** We only use essential cookies for login/security. Optional cookies require your consent. We don't track you across the web.
+**Cookie Summary:** We use essential cookies for login/security, session storage to keep brand analytics accurate, and nothing for cross-site tracking or advertising.
