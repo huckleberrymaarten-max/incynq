@@ -88,7 +88,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
 
         {/* Welcome credit notice */}
         <div style={{ padding: '10px 14px', background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 12, marginBottom: 14, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-          🎁 <strong style={{ color: C.gold }}>100 L$ welcome credit</strong> will be added to your wallet on activation. Valid for 90 days.
+          🎁 <strong style={{ color: C.gold }}>100 L$ welcome credit</strong> will be added to your wallet on activation.
         </div>
 
         {/* Account info */}
