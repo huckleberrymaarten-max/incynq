@@ -75,7 +75,7 @@ export const QA_DATA = [
           { q: "How do maturity levels work?", a: "You can select one or more levels in Settings → Maturity Level. General is always on and cannot be turned off. Moderate can be toggled freely. Adult requires SL adult verification and confirmation you are 18 or over. You see content from all levels you have enabled." },
           { q: "Are suspensions automatic?", a: "No. Every suspension is a manual decision by the InCynq team after reviewing a report. Reports auto-hide content but nothing else happens until a human makes a call." },
           { q: "Does InCynq sell my data?", a: "Never. InCynq is operated from Ireland under EU GDPR. We collect only what is needed to run the platform. We do not sell, share, or trade your personal data with anyone." },
-          { q: "How do I delete my account?", a: "Contact support@incynq.app to request account deletion. You have a 14-day cool-off period to change your mind. After that, everything is permanently deleted." },
+          { q: "How do I delete my account?", a: "Contact legal@incynq.app to request account deletion. You have a 14-day cool-off period to change your mind. After that, everything is permanently deleted." },
         ],
       },
       {
@@ -154,8 +154,8 @@ export const QA_DATA = [
         items: [
           { q: "What happens if my brand is reported?", a: "Reports go to our manual review queue. Content is auto-hidden pending review. We review every report ourselves. Nothing happens to your account automatically — a human makes every decision." },
           { q: "What counts as a serious breach for a brand?", a: "Adult ads shown to non-adults, explicit content in ads or posts, harassment, hate speech, fraud, impersonation, and anything involving minors. These are treated seriously from the first offence." },
-          { q: "What is the suspension process?", a: "First serious offence: immediate suspension, Brand Wallet frozen, all ads paused. You can appeal at support@incynq.app within 14 days. Second offence or extremely severe first offence: permanent ban, wallet forfeited, no appeal." },
-          { q: "Can I appeal a suspension?", a: "Yes. Contact support@incynq.app with your brand name and the reason you believe the suspension was issued in error. We aim to respond within 48 hours." },
+          { q: "What is the suspension process?", a: "First serious offence: immediate suspension, Brand Wallet frozen, all ads paused. You can appeal at legal@incynq.app within 14 days. Second offence or extremely severe first offence: permanent ban, wallet forfeited, no appeal." },
+          { q: "Can I appeal a suspension?", a: "Yes. Contact legal@incynq.app with your brand name and the reason you believe the suspension was issued in error. We aim to respond within 48 hours." },
           { q: "Are there automated suspensions?", a: "No. We do not auto-suspend anyone based on report counts or algorithms. Every action is a manual decision made by the InCynq team." },
         ],
       },

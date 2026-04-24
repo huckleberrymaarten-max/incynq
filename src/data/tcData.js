@@ -52,11 +52,11 @@ export const TC_DATA = {
     },
     {
       title: "12. Enforcement",
-      content: "We take safety seriously. Serious breaches (adult content to minors, harassment, fraud, explicit content): immediate suspension, wallet frozen.\n\nSevere or repeat offences: permanent ban with no refund and, where required by law, report to relevant authorities including Linden Lab.\n\nYou have the right to appeal any suspension by contacting support@incynq.app within 14 days of the suspension.",
+      content: "We take safety seriously. Serious breaches (adult content to minors, harassment, fraud, explicit content): immediate suspension, wallet frozen.\n\nSevere or repeat offences: permanent ban with no refund and, where required by law, report to relevant authorities including Linden Lab.\n\nYou have the right to appeal any suspension by contacting legal@incynq.app within 14 days of the suspension.",
     },
     {
       title: "13. Privacy & GDPR",
-      content: "InCynq is operated from Ireland and complies with EU GDPR. We collect only the data needed to run the platform: your SL avatar name, email address, interests, and content you choose to post.\n\nWe do not sell your data. Ever. We do not show you ads based on your personal data — ads are matched to your chosen interest groups only.\n\nYou can request deletion of your account and all associated data at any time by contacting support@incynq.app. Brand wallet balances are subject to a 30-day grace period before deletion.",
+      content: "InCynq is operated from Ireland and complies with EU GDPR. We collect only the data needed to run the platform: your SL avatar name, email address, interests, and content you choose to post.\n\nWe do not sell your data. Ever. We do not show you ads based on your personal data — ads are matched to your chosen interest groups only.\n\nYou can request deletion of your account and all associated data at any time by contacting legal@incynq.app. Brand wallet balances are subject to a 30-day grace period before deletion.",
     },
     {
       title: "14. Changes to these terms",
