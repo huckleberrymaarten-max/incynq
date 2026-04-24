@@ -8,6 +8,7 @@ import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
+import DashboardScreen from './DashboardScreen';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats } from '../lib/db';
@@ -77,6 +78,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showReferral, setShowReferral] = useState(false);
   const [referralStats, setReferralStats] = useState(null);
   const [referralStatsLoading, setReferralStatsLoading] = useState(false);
+
+  // Dashboard (brand + official accounts only)
+  const [showDashboard, setShowDashboard] = useState(false);
+  const isBrand = currentUser?.accountType === 'brand';
+  const isOfficialAccount = currentUser?.accountType === 'official';
+  const canAccessDashboard = isBrand || isOfficialAccount;
 
 
   // Load stats on mount
@@ -424,6 +431,28 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           </div>
           <span style={{ color: C.muted }}>→</span>
         </button>
+
+        {/* Dashboard (brand + official accounts only) */}
+        {canAccessDashboard && (
+          <button onClick={() => setShowDashboard(true)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: `linear-gradient(135deg, ${C.sky}22, ${C.sky}11)`, borderRadius: 14, border: `1px solid ${C.sky}44`, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 20 }}>📊</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.sky }}>
+                  Dashboard
+                  {isOfficialAccount && (
+                    <span style={{ marginLeft: 6, fontSize: 9, background: `${C.sky}22`, color: C.sky, border: `1px solid ${C.sky}44`, padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>⚡ Official</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>
+                  {isOfficialAccount ? 'Full insights — always free' : 'Views, impressions & insights'}
+                </div>
+              </div>
+            </div>
+            <span style={{ color: C.muted }}>→</span>
+          </button>
+        )}
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
@@ -974,6 +1003,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             </div>
           </div>
         </div>
+      )}
+      {/* Dashboard overlay (brand + official accounts only) */}
+      {showDashboard && canAccessDashboard && (
+        <DashboardScreen onClose={() => setShowDashboard(false)} />
       )}
     </div>
   );
