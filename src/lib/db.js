@@ -37,29 +37,6 @@ export const registerUser = async ({ username, email, password }) => {
     }
   });
   if (error) throw error;
-  
-  // Auto-follow InCynq official account
-  if (data.user?.id) {
-    try {
-      const { data: incynqProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('account_type', 'official')
-        .single();
-      
-      if (incynqProfile) {
-        await supabase
-          .from('follows')
-          .insert({
-            follower_id: data.user.id,
-            following_id: incynqProfile.id
-          });
-      }
-    } catch (e) {
-      console.warn('Auto-follow InCynq failed:', e.message);
-    }
-  }
-  
   return { ...data, displayName };
 };
 
@@ -124,16 +101,6 @@ export const getFollowingProfiles = async (userId) => {
   return data.map(f => f.profiles).filter(Boolean);
 };
 
-// Get profiles of users who follow this user (followers list)
-export const getFollowersProfiles = async (userId) => {
-  const { data, error } = await supabase
-    .from('follows')
-    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status)')
-    .eq('following_id', userId);
-  if (error) throw error;
-  return data.map(f => f.profiles).filter(Boolean);
-};
-
 // ── Posts ────────────────────────────────────────────────
 export const createPost = async ({ userId, caption, imageUrl, tags }) => {
   const { data, error } = await supabase
@@ -166,70 +133,29 @@ export const uploadPostImage = async (userId, file) => {
 
 // ── Search ───────────────────────────────────────────────
 export const searchProfiles = async (query, currentUserId) => {
-  // Check if current user is admin/owner/official (can see hidden users)
-  let canSeeHidden = false;
-  if (currentUserId) {
-    const { data: currentUserProfile } = await supabase
-      .from('profiles')
-      .select('account_type, role')
-      .eq('id', currentUserId)
-      .single();
-    
-    canSeeHidden = currentUserProfile?.account_type === 'official' 
-      || currentUserProfile?.account_type === 'admin'
-      || currentUserProfile?.account_type === 'super_admin'
-      || currentUserProfile?.role === 'owner';
-  }
-  
   let q = supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-    .neq('account_type', 'official');
-  
-  // Only filter by discoverable if user is NOT an admin/owner/InCynq
-  if (!canSeeHidden) {
-    q = q.eq('discoverable', true);
-  }
-  
-  q = q.limit(20);
+    .neq('account_type', 'official')
+    .eq('discoverable', true) // Only show discoverable users in search
+    .limit(20);
   if (currentUserId) q = q.neq('id', currentUserId);
   const { data, error } = await q;
   if (error) throw error;
   return data;
 };
 
-// Get suggested users by interest group (discoverable only, unless admin/owner/InCynq)
+// Get suggested users by interest group (discoverable only)
 export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 10) => {
-  // Check if current user is admin/owner/official (can see hidden users)
-  let canSeeHidden = false;
-  if (currentUserId) {
-    const { data: currentUserProfile } = await supabase
-      .from('profiles')
-      .select('account_type, role')
-      .eq('id', currentUserId)
-      .single();
-    
-    canSeeHidden = currentUserProfile?.account_type === 'official' 
-      || currentUserProfile?.account_type === 'admin'
-      || currentUserProfile?.account_type === 'super_admin'
-      || currentUserProfile?.role === 'owner';
-  }
-  
-  let q = supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .contains('groups', [groupId])
+    .eq('discoverable', true) // Only show discoverable users
     .neq('id', currentUserId) // Exclude current user
-    .neq('account_type', 'official'); // Exclude InCynq
-  
-  // Only filter by discoverable if user is NOT an admin/owner/InCynq
-  if (!canSeeHidden) {
-    q = q.eq('discoverable', true);
-  }
-  
-  q = q.limit(limit);
-  const { data, error } = await q;
+    .neq('account_type', 'official') // Exclude InCynq
+    .limit(limit);
   if (error) throw error;
   return data;
 };
@@ -561,3 +487,146 @@ export const adminDeleteEvent = async (eventId) => {
   const { error } = await supabase.from('events').delete().eq('id', eventId);
   if (error) throw error;
 };
+
+// ══════════════════════════════════════════════════════════════
+// REFERRAL SYSTEM
+// ══════════════════════════════════════════════════════════════
+
+// Get user's referral stats
+export const getReferralStats = async (userId) => {
+  try {
+    // Get total referrals
+    const { count: totalReferrals } = await supabase
+      .from('referrals')
+      .select('*', { count: 'exact', head: true })
+      .eq('referrer_id', userId);
+
+    // Get activated referrals
+    const { count: activatedReferrals } = await supabase
+      .from('referrals')
+      .select('*', { count: 'exact', head: true })
+      .eq('referrer_id', userId)
+      .eq('activated', true);
+
+    // Get paid referrals this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { count: paidThisMonth } = await supabase
+      .from('referrals')
+      .select('*', { count: 'exact', head: true })
+      .eq('referrer_id', userId)
+      .eq('reward_paid', true)
+      .gte('reward_paid_at', startOfMonth.toISOString());
+
+    // Get total earnings
+    const { count: totalPaidReferrals } = await supabase
+      .from('referrals')
+      .select('*', { count: 'exact', head: true })
+      .eq('referrer_id', userId)
+      .eq('reward_paid', true);
+
+    return {
+      totalReferrals: totalReferrals || 0,
+      activatedReferrals: activatedReferrals || 0,
+      paidThisMonth: paidThisMonth || 0,
+      totalEarned: (totalPaidReferrals || 0) * 10, // 10 L$ per referral
+      remaining: Math.max(0, 10 - (paidThisMonth || 0)), // How many more can be paid this month
+    };
+  } catch (error) {
+    console.error('Get referral stats failed:', error);
+    throw error;
+  }
+};
+
+// Create referral record when someone signs up with a code
+export const createReferral = async (referralCode, referredUserId) => {
+  try {
+    // Find the referrer by their referral code
+    const { data: referrer } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('referral_code', referralCode)
+      .single();
+
+    if (!referrer) {
+      throw new Error('Invalid referral code');
+    }
+
+    // Don't allow self-referrals
+    if (referrer.id === referredUserId) {
+      throw new Error('Cannot refer yourself');
+    }
+
+    // Create the referral record
+    const { data, error } = await supabase
+      .from('referrals')
+      .insert({
+        referrer_id: referrer.id,
+        referred_id: referredUserId,
+        referral_code: referralCode,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Update the referred user's profile to track who referred them
+    await supabase
+      .from('profiles')
+      .update({ referred_by_code: referralCode })
+      .eq('id', referredUserId);
+
+    return data;
+  } catch (error) {
+    console.error('Create referral failed:', error);
+    throw error;
+  }
+};
+
+// Process referral reward when someone activates (taps terminal)
+export const processReferralReward = async (userId) => {
+  try {
+    // Call the database function to process the reward
+    const { data, error } = await supabase
+      .rpc('process_referral_reward', { referred_user_id: userId });
+
+    if (error) throw error;
+    return data; // Returns true if reward was paid, false if not
+  } catch (error) {
+    console.error('Process referral reward failed:', error);
+    return false;
+  }
+};
+
+// Get list of referrals for a user
+export const getUserReferrals = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('referrals')
+      .select(`
+        id,
+        activated,
+        activated_at,
+        reward_paid,
+        reward_paid_at,
+        created_at,
+        referred:profiles!referrals_referred_id_fkey(
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('referrer_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Get user referrals failed:', error);
+    throw error;
+  }
+};
+

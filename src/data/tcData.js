@@ -36,30 +36,34 @@ export const TC_DATA = {
     },
     {
       title: "8. InCynq wallet",
-      content: "Every registered member receives a 100 L$ welcome credit upon account activation. This credit is non-transferable, has no cash value, and expires 90 days after registration if unused.\n\nMembers can top up their wallet by paying the IncynqPayments avatar inworld. Wallet credits are used for event boosting (members) and event boosting plus advertising (brands).\n\nAll L$ deposited are non-refundable. InCynq is not responsible for payments made to the wrong avatar. Always verify you are paying IncynqPayments before sending L$.\n\nWallets of suspended or banned accounts will be frozen. No refunds will be issued for frozen wallet balances where the suspension is due to a breach of these terms.",
+      content: "Every registered member receives a 100 L$ welcome credit upon account activation. This credit is non-transferable and has no cash value.\n\nMembers can top up their wallet by paying the IncynqPayments avatar inworld. Wallet credits are used for event boosting (members) and event boosting plus advertising (brands).\n\nAll L$ deposited are non-refundable. InCynq is not responsible for payments made to the wrong avatar. Always verify you are paying IncynqPayments before sending L$.\n\nWallets of suspended or banned accounts will be frozen. No refunds will be issued for frozen wallet balances where the suspension is due to a breach of these terms.",
     },
     {
-      title: "9. Cynqified verification",
+      title: "9. Referral program",
+      content: "Members can earn L$ by inviting friends to InCynq. You receive 10 L$ for each friend who signs up using your referral link and activates their account by tapping an InCynq terminal inworld.\n\nYou can earn rewards for up to 10 successful referrals per calendar month. The limit resets on the 1st of each month. You can share your referral link with unlimited people — the limit applies only to paid rewards, not invitations.\n\nReferral rewards are credited directly to your InCynq wallet and can be used for event boosting or other platform services. Referral earnings are non-refundable and have no cash value.\n\nAbuse of the referral system (creating fake accounts, automated sign-ups, or other fraudulent activity) will result in permanent account suspension with no refund of wallet balance.",
+    },
+    {
+      title: "10. Cynqified verification",
       content: "The ⚡ Cynqified badge is awarded at InCynq's sole discretion after manual review. The 1,500 L$ application fee is non-refundable whether approved or rejected.\n\nInCynq may revoke the Cynqified badge if a brand breaches these terms.",
     },
     {
-      title: "10. Brand activation",
+      title: "11. Brand activation",
       content: "Brand accounts require a one-time activation fee of 3,500 L$, paid using an InCynq ATM inworld. This fee is credited to the brand wallet and is not refundable as cash.\n\nBrand activation gives access to the full advertising suite, event boosting, and Cynqified verification eligibility.",
     },
     {
-      title: "11. Child safety",
+      title: "12. Child safety",
       content: "InCynq has a zero tolerance policy for any content that sexualises, endangers, or targets minors. This includes grooming behaviour, age-play of a sexual nature, and any attempt to isolate minors from trusted adults.\n\nAny account found to be involved in such behaviour will be permanently banned immediately and reported to the relevant authorities. There are no warnings, no appeals, and no exceptions.\n\nIf you witness this behaviour, report it immediately using the report button on any post or profile.",
     },
     {
-      title: "12. Enforcement",
+      title: "13. Enforcement",
       content: "We take safety seriously. Serious breaches (adult content to minors, harassment, fraud, explicit content): immediate suspension, wallet frozen.\n\nSevere or repeat offences: permanent ban with no refund and, where required by law, report to relevant authorities including Linden Lab.\n\nYou have the right to appeal any suspension by contacting legal@incynq.app within 14 days of the suspension.",
     },
     {
-      title: "13. Privacy & GDPR",
+      title: "14. Privacy & GDPR",
       content: "InCynq is operated from Ireland and complies with EU GDPR. We collect only the data needed to run the platform: your SL avatar name, email address, interests, and content you choose to post.\n\nWe do not sell your data. Ever. We do not show you ads based on your personal data — ads are matched to your chosen interest groups only.\n\nYou can request deletion of your account and all associated data at any time by contacting legal@incynq.app. Brand wallet balances are subject to a 30-day grace period before deletion.",
     },
     {
-      title: "14. Changes to these terms",
+      title: "15. Changes to these terms",
       content: "We'll give you 30 days' notice before any material changes to these terms. A notice will appear in your feed from InCynq Official. Continued use of InCynq after the notice period means you accept the updated terms.",
     },
   ],
