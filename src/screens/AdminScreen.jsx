@@ -139,6 +139,14 @@ function MembersTab({ currentUser }) {
 
   const handleSaveUser = async () => {
     if (!selectedUser) return;
+    
+    // Protect official accounts and owners from modification
+    if (selectedUser.account_type === 'official' || selectedUser.role === 'owner') {
+      toast('Official accounts and owners cannot be modified', 'error');
+      setSaving(false);
+      return;
+    }
+    
     setSaving(true);
     try {
       const updates = {};
@@ -154,6 +162,11 @@ function MembersTab({ currentUser }) {
   };
 
   const handleSuspend = async (u) => {
+    // Protect official accounts and owners from suspension
+    if (u.account_type === 'official' || u.role === 'owner') {
+      toast('Official accounts and owners cannot be suspended', 'error');
+      return;
+    }
     try {
       await adminUpdateUser(u.id, { account_type: 'suspended', wallet_frozen: true });
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, account_type: 'suspended' } : x));
@@ -234,9 +247,22 @@ function MembersTab({ currentUser }) {
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>ACCOUNT TYPE</label>
-              <select value={editType} onChange={e => setEditType(e.target.value)} className="inp">
+              <select 
+                value={editType} 
+                onChange={e => setEditType(e.target.value)} 
+                disabled={selectedUser.account_type === 'official' || selectedUser.role === 'owner'}
+                className="inp"
+                style={{ 
+                  opacity: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? 0.5 : 1,
+                  cursor: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? 'not-allowed' : 'pointer'
+                }}>
                 {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
+              {(selectedUser.account_type === 'official' || selectedUser.role === 'owner') && (
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
+                  🔒 Protected account - cannot be modified
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -245,9 +271,22 @@ function MembersTab({ currentUser }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { handleSuspend(selectedUser); setSelectedUser(null); }}
-                style={{ flex: 1, padding: '11px', borderRadius: 12, background: '#ff446611', border: '1px solid #ff446633', color: '#ff6644', fontWeight: 700, fontSize: 13 }}>
-                ⏸️ Suspend
+              <button 
+                onClick={() => { handleSuspend(selectedUser); setSelectedUser(null); }}
+                disabled={selectedUser.account_type === 'official' || selectedUser.role === 'owner'}
+                style={{ 
+                  flex: 1, 
+                  padding: '11px', 
+                  borderRadius: 12, 
+                  background: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? C.card2 : '#ff446611', 
+                  border: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? `1px solid ${C.border}` : '1px solid #ff446633', 
+                  color: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? C.muted : '#ff6644', 
+                  fontWeight: 700, 
+                  fontSize: 13,
+                  cursor: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? 'not-allowed' : 'pointer',
+                  opacity: (selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? 0.5 : 1
+                }}>
+                ⏸️ {(selectedUser.account_type === 'official' || selectedUser.role === 'owner') ? 'Protected' : 'Suspend'}
               </button>
               <button onClick={handleSaveUser} disabled={saving}
                 style={{ flex: 2, padding: '11px', borderRadius: 12, background: saving ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: saving ? C.muted : '#060d14', fontWeight: 800, fontSize: 13 }}>
