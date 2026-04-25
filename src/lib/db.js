@@ -1355,7 +1355,7 @@ export const createPaymentIntent = async (userId, amountLinden) => {
 
   const { data, error } = await supabase.rpc('create_payment_intent', {
     p_user_id: userId,
-    p_amount_linden: parseInt(amountLinden, 10),
+    p_amount: parseInt(amountLinden, 10),
   });
 
   if (error) {
