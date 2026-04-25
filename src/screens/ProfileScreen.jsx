@@ -347,7 +347,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: C.text, display: 'flex', alignItems: 'center', gap: 6 }}>
               {visibleName(currentUser)}
-              {currentUser.account_type === 'official' && (
+              {currentUser.accountType === 'official' && (
                 <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
                   <path fill={C.gold} d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                 </svg>
@@ -361,18 +361,18 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             </button>
 
             {/* Member Since / Brand Since */}
-            {currentUser?.activated_at && (
+            {currentUser?.activatedAt && (
               <div style={{ fontSize: 11, color: C.muted, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span>📅</span>
                 <span>{formatMemberSince(
-                  currentUser.account_type === 'brand' ? currentUser.brand_joined_at || currentUser.created_at : currentUser.activated_at,
-                  currentUser.account_type
+                  currentUser.accountType === 'brand' ? currentUser.brandJoinedAt || currentUser.createdAt : currentUser.activatedAt,
+                  currentUser.accountType
                 )}</span>
               </div>
             )}
 
             {/* Founding Brand Badge (First 100 brands only) */}
-            {currentUser?.account_type === 'brand' && currentUser?.founding_brand_number && (
+            {currentUser?.accountType === 'brand' && currentUser?.foundingBrandNumber && (
               <div style={{ 
                 marginTop: 6, 
                 display: 'inline-block',
@@ -384,7 +384,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 fontWeight: 700,
                 color: C.gold
               }}>
-                {getFoundingBrandBadge(currentUser.founding_brand_number)}
+                {getFoundingBrandBadge(currentUser.foundingBrandNumber)}
               </div>
             )}
 
