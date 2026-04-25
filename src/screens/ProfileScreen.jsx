@@ -35,6 +35,7 @@ const DB_FIELD_MAP = {
   subs:            'subs',
   showDisplayName: 'show_display_name',
   avatar:          'avatar_url',
+  discoverable:    'discoverable',
 };
 
 export default function ProfileScreen({ onOpenUserProfile }) {
@@ -260,11 +261,18 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
   const handleDiscoverableToggle = async () => {
     const newVal = !discoverable;
+    // Optimistic UI update
     setDiscoverable(newVal);
     toast(newVal ? 'Visible in Discovery' : 'Hidden from Discovery');
+    // Persist via the same path as every other profile change
     try {
-      await supabase.from('profiles').update({ discoverable: newVal }).eq('id', currentUser.id);
-    } catch (e) { console.warn('Discoverable save failed:', e.message); }
+      await persistProfile({ discoverable: newVal });
+    } catch (e) {
+      // Roll back UI on failure
+      setDiscoverable(!newVal);
+      toast('Could not save — try again', 'peach');
+      console.warn('Discoverable save failed:', e.message);
+    }
   };
 
   const handleShowDisplayNameToggle = async () => {

@@ -1,7 +1,7 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { ContentProvider } from './context/ContentContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import logo from './assets/Q_Logo_.png';
 import { getProfile } from './lib/db';
@@ -18,10 +18,106 @@ function AppRoutes() {
     loggedIn, showOnboarding,
     currentUser,
     setLoggedIn, setShowOnboarding, setCurrentUser, setLinkedProfiles,
-    notif, setFollowing, setSaved, setDiscoverable, setNotifications,
+    notif, setFollowing, setSaved, setDiscoverable, setGridStatus,
+    setMyGroups, setMySubs, setNotifications,
   } = useApp();
   const [checking, setChecking] = useState(true);
 
+  // ═══════════════════════════════════════════════════════════════
+  // HYDRATE PROFILE — single source of truth for ALL login paths
+  // Called by: session restore (page reload) AND manual login
+  // Reads every persisted field from Supabase and pushes into state
+  // ═══════════════════════════════════════════════════════════════
+  const hydrateProfile = useCallback(async (userId) => {
+    if (!userId) return null;
+
+    try {
+      const profile = await getProfile(userId);
+      if (!profile) return null;
+
+      // ── 1. Push ALL profile fields into currentUser ──────────
+      setCurrentUser({
+        id:              userId,
+        username:        profile.username,
+        displayName:     profile.display_name,
+        name:            profile.display_name,
+        showDisplayName: profile.show_display_name,
+        avatar:          profile.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}&backgroundColor=b6e3f4`,
+        bio:             profile.bio || '',
+        groups:          profile.groups || [],
+        subs:            profile.subs || [],
+        gridStatus:      profile.grid_status || 'online',
+        accountType:     profile.account_type || 'resident',
+        adminRole:       profile.admin_role || null,
+        wallet:          profile.wallet || 0,
+        maturity:        profile.maturity || 'general',
+        activated:       profile.activated,
+        createdAt:       profile.created_at,
+        // Founding brand & dates
+        foundingBrandNumber: profile.founding_brand_number || null,
+        brandJoinedAt:       profile.brand_joined_at || null,
+        activatedAt:         profile.activated_at || null,
+      });
+
+      // ── 2. Push parallel AppContext flags (separate state) ───
+      // These exist outside currentUser but must hydrate from DB too
+      setDiscoverable(profile.discoverable !== false); // Default to true if undefined
+      setGridStatus(profile.grid_status || 'online');
+      if (Array.isArray(profile.groups)) setMyGroups(profile.groups);
+      if (Array.isArray(profile.subs))   setMySubs(profile.subs);
+
+      // ── 3. Update linkedProfiles (for account switcher) ──────
+      setLinkedProfiles(prev => {
+        const others = prev.filter(p => p.id !== userId);
+        return [{
+          id:           userId,
+          username:     profile.username,
+          displayName:  profile.display_name,
+          avatar:       profile.avatar_url,
+          accountType:  profile.account_type || 'resident',
+          wallet:       profile.wallet || 0,
+        }, ...others];
+      });
+
+      // ── 4. Hydrate related collections (follows, saves, notifications) ──
+      // Done in parallel for speed, each fails silently if needed
+      const [follows, saves, notifs] = await Promise.allSettled([
+        import('./lib/db').then(({ getFollows }) => getFollows(userId)),
+        import('./lib/db').then(({ getSaved })   => getSaved(userId)),
+        import('./lib/db').then(({ getNotifications }) => getNotifications(userId)),
+      ]);
+
+      if (follows.status === 'fulfilled' && follows.value) {
+        const merged = new Set([...follows.value]);
+        merged.add(0); // Always follow InCynq official
+        setFollowing(merged);
+      } else if (follows.status === 'rejected') {
+        console.warn('Could not load follows:', follows.reason?.message);
+      }
+
+      if (saves.status === 'fulfilled' && saves.value) {
+        setSaved(saves.value);
+      } else if (saves.status === 'rejected') {
+        console.warn('Could not load saves:', saves.reason?.message);
+      }
+
+      if (notifs.status === 'fulfilled' && notifs.value) {
+        setNotifications(notifs.value);
+      } else if (notifs.status === 'rejected') {
+        console.warn('Could not load notifications:', notifs.reason?.message);
+      }
+
+      return profile;
+    } catch (e) {
+      console.error('hydrateProfile failed:', e.message);
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SESSION CHECK — runs on app mount (page reload, return visit)
+  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     const checkSession = async () => {
       console.log('Session check running');
@@ -30,59 +126,14 @@ function AppRoutes() {
 
       if (session?.user) {
         try {
-          console.log('Fetching profile for:', session.user.id);
-          const profile = await getProfile(session.user.id);
-          console.log('Profile:', profile);
+          console.log('Hydrating profile for:', session.user.id);
+          const profile = await hydrateProfile(session.user.id);
 
-          setCurrentUser({
-            id:              session.user.id,
-            username:        profile.username,
-            displayName:     profile.display_name,
-            name:            profile.display_name,
-            showDisplayName: profile.show_display_name,
-            avatar:          profile.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}&backgroundColor=b6e3f4`,
-            bio:             profile.bio || '',
-            groups:          profile.groups || [],
-            subs:            profile.subs || [],
-            gridStatus:      profile.grid_status || 'online',
-            accountType:     profile.account_type || 'resident',
-            adminRole:       profile.admin_role || null,
-            wallet:          profile.wallet || 0,
-            maturity:        profile.maturity || 'general',
-            activated:       profile.activated,
-            createdAt:       profile.created_at,
-          });
-
-          // Restore discoverable preference (default to true if not set)
-          setDiscoverable(profile.discoverable !== false);
-
-          // Load follows from Supabase
-          try {
-            const { getFollows } = await import('./lib/db');
-            const followSet = await getFollows(session.user.id);
-            const merged = new Set([...followSet]);
-            merged.add(0); // Always follow InCynq official
-            setFollowing(merged);
-          } catch (e) {
-            console.warn('Could not load follows:', e.message);
-          }
-
-          // Load saved posts from Supabase
-          try {
-            const { getSaved } = await import('./lib/db');
-            const savedSet = await getSaved(session.user.id);
-            setSaved(savedSet);
-          } catch (e) {
-            console.warn('Could not load saves:', e.message);
-          }
-
-          // Load notifications from Supabase
-          try {
-            const { getNotifications } = await import('./lib/db');
-            const notifs = await getNotifications(session.user.id);
-            setNotifications(notifs || []);
-          } catch (e) {
-            console.warn('Could not load notifications:', e.message);
+          if (!profile) {
+            console.log('No profile found, signing out');
+            await supabase.auth.signOut();
+            setChecking(false);
+            return;
           }
 
           setShowOnboarding(false);
@@ -109,6 +160,7 @@ function AppRoutes() {
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (checking) {
@@ -126,9 +178,24 @@ function AppRoutes() {
   if (!loggedIn) {
     return (
       <AuthScreen
-        onLogin={u => {
-          setCurrentUser(u);
-          setLinkedProfiles(prev => [{ ...prev[0], ...u, id: 1 }, ...prev.slice(1)]);
+        onLogin={async (u) => {
+          // ── FIX: Use the same hydrateProfile() as session restore ──
+          // This guarantees discoverable, gridStatus, groups, subs,
+          // follows, saves, notifications all load from DB on manual login.
+          // No more "toggle resets to default after login" bugs.
+          if (u?.id) {
+            const profile = await hydrateProfile(u.id);
+            if (!profile) {
+              // Fallback: if DB read fails, use what AuthScreen passed
+              console.warn('hydrateProfile returned null, using AuthScreen payload');
+              setCurrentUser(u);
+              setLinkedProfiles(prev => [{ ...prev[0], ...u, id: 1 }, ...prev.slice(1)]);
+            }
+          } else {
+            // No id passed — legacy fallback (shouldn't happen)
+            setCurrentUser(u);
+            setLinkedProfiles(prev => [{ ...prev[0], ...u, id: 1 }, ...prev.slice(1)]);
+          }
           setLoggedIn(true);
         }}
       />
