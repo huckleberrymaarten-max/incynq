@@ -9,6 +9,7 @@ import TCScreen from './TCScreen';
 import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import DashboardScreen from './DashboardScreen';
+import TopUpModal from '../components/TopUpModal';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats } from '../lib/db';
@@ -47,6 +48,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showFullDiscover, setShowFullDiscover] = useState(false);
   const [showGridStatus, setShowGridStatus] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
   const [showCharPicker, setShowCharPicker] = useState(null);
@@ -422,7 +424,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               <div className="sg" style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>L$ {(currentUser.wallet || 0).toLocaleString()}</div>
             </div>
           </div>
-          <button style={{ padding: '7px 16px', borderRadius: 20, background: `${C.gold}18`, border: `1px solid ${C.gold}44`, color: C.gold, fontWeight: 700, fontSize: 12 }}>
+          <button onClick={() => setShowTopUp(true)} style={{ padding: '7px 16px', borderRadius: 20, background: `${C.gold}18`, border: `1px solid ${C.gold}44`, color: C.gold, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             Top Up
           </button>
         </div>
@@ -772,6 +774,21 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       )}
 
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
+
+      {/* Top Up Wallet modal */}
+      {showTopUp && (
+        <TopUpModal
+          currentUser={currentUser}
+          onClose={() => setShowTopUp(false)}
+          onWalletUpdated={(newBalance) => {
+            // Update local user state if the parent passes setCurrentUser via context
+            // Real-time subscription elsewhere will sync the rest
+            if (setCurrentUser) {
+              setCurrentUser({ ...currentUser, wallet: newBalance });
+            }
+          }}
+        />
+      )}
 
       {/* Grid Status sheet */}
       {showGridStatus && (
