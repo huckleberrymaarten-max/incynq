@@ -1236,3 +1236,140 @@ export const getPeakViewingHours = async (brandId, daysBack = 30) => {
     return null;
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// SL INTEGRATION — Activation Codes & Wallet Top-Ups
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Generate a fresh activation code for a pending user.
+ * Returns ICQ-XXXXXX format. Codes expire after 24 hours.
+ * 
+ * If user already has an active (unexpired, unused) code, returns that one
+ * instead of generating a new one — prevents code spam.
+ */
+export const createActivationCode = async (userId) => {
+  if (!userId) throw new Error('userId required');
+
+  // Check for existing active code first
+  const { data: existing } = await supabase
+    .from('activation_codes')
+    .select('code, expires_at')
+    .eq('user_id', userId)
+    .eq('used', false)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (existing) {
+    return {
+      code: existing.code,
+      expires_at: existing.expires_at,
+      reused: true,
+    };
+  }
+
+  // No active code — generate a new one via the SQL function
+  const { data, error } = await supabase.rpc('create_activation_code', {
+    p_user_id: userId,
+  });
+
+  if (error) {
+    console.error('createActivationCode error:', error);
+    throw error;
+  }
+
+  if (!data || !data.success) {
+    throw new Error(data?.error || 'Failed to generate activation code');
+  }
+
+  return {
+    code: data.code,
+    expires_at: data.expires_at,
+    reused: false,
+  };
+};
+
+/**
+ * Subscribe to live profile updates for a specific user.
+ * Calls callback(newProfile) whenever the profile row changes.
+ * Returns an unsubscribe function.
+ * 
+ * Used by PendingScreen to detect activation in real-time when the user
+ * activates at an inworld terminal.
+ */
+export const subscribeToProfile = (userId, callback) => {
+  if (!userId) throw new Error('userId required');
+
+  const channel = supabase
+    .channel(`profile:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${userId}`,
+      },
+      (payload) => {
+        callback(payload.new);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+/**
+ * Manually fetch the latest profile state.
+ * Useful as a fallback if the real-time subscription misses an update.
+ */
+export const refreshProfile = async (userId) => {
+  if (!userId) throw new Error('userId required');
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('refreshProfile error:', error);
+    return null;
+  }
+
+  return data;
+};
+
+/**
+ * Create a payment intent for wallet top-up.
+ * Returns ICQ-XXXXXX code that the user enters at an InCynq ATM.
+ * Codes expire after 15 minutes.
+ */
+export const createPaymentIntent = async (userId, amountLinden) => {
+  if (!userId) throw new Error('userId required');
+  if (!amountLinden || amountLinden < 1) throw new Error('Invalid amount');
+
+  const { data, error } = await supabase.rpc('create_payment_intent', {
+    p_user_id: userId,
+    p_amount_linden: parseInt(amountLinden, 10),
+  });
+
+  if (error) {
+    console.error('createPaymentIntent error:', error);
+    throw error;
+  }
+
+  if (!data || !data.success) {
+    throw new Error(data?.error || 'Failed to create payment intent');
+  }
+
+  return {
+    code: data.code,
+    expires_at: data.expires_at,
+    amount: data.amount,
+  };
+};
