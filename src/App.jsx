@@ -4,14 +4,80 @@ import { ContentProvider } from './context/ContentContext';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import logo from './assets/Q_Logo_.png';
-import { getProfile } from './lib/db';
+import { getProfile, cancelAccountDeletion } from './lib/db';
 
 // Screens
-import OnboardingScreen from './screens/OnboardingScreen';
-import AuthScreen       from './screens/AuthScreen';
-import PendingScreen    from './screens/PendingScreen';
-import MainApp          from './screens/MainApp';
-import Toast            from './components/Toast';
+import OnboardingScreen    from './screens/OnboardingScreen';
+import AuthScreen          from './screens/AuthScreen';
+import PendingScreen       from './screens/PendingScreen';
+import DeactivatedScreen   from './screens/DeactivatedScreen';
+import MainApp             from './screens/MainApp';
+import Toast               from './components/Toast';
+
+// ── Deletion countdown banner ─────────────────────────────────
+// Shown inside the app while a deletion request is pending.
+// User can cancel from here during the cool-off window.
+function DeletionBanner({ requestedAt, accountType, onCancel }) {
+  const [cancelling, setCancelling] = useState(false);
+
+  const graceDays  = accountType === 'brand' || accountType === 'founding_brand' ? 30 : 14;
+  const deleteDate = new Date(requestedAt);
+  deleteDate.setDate(deleteDate.getDate() + graceDays);
+
+  const daysLeft = Math.max(
+    0,
+    Math.ceil((deleteDate - Date.now()) / (1000 * 60 * 60 * 24))
+  );
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      await onCancel();
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background:     '#7B1818',
+      borderBottom:   '1px solid #a82222',
+      padding:        '10px 16px',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'space-between',
+      gap:            12,
+      flexWrap:       'wrap',
+      zIndex:         9999,
+      position:       'sticky',
+      top:            0,
+    }}>
+      <span style={{ color: '#fff', fontSize: 13, lineHeight: 1.4 }}>
+        ⚠️ Your account is scheduled for deletion in{' '}
+        <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>
+        {' '}({deleteDate.toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })}).
+        All your data will be permanently removed.
+      </span>
+      <button
+        onClick={handleCancel}
+        disabled={cancelling}
+        style={{
+          background:   'transparent',
+          border:       '1px solid rgba(255,255,255,0.6)',
+          borderRadius: 6,
+          color:        '#fff',
+          fontSize:     13,
+          padding:      '4px 12px',
+          cursor:       'pointer',
+          whiteSpace:   'nowrap',
+          flexShrink:   0,
+        }}
+      >
+        {cancelling ? 'Cancelling…' : 'Cancel deletion'}
+      </button>
+    </div>
+  );
+}
 
 function AppRoutes() {
   const {
@@ -54,14 +120,16 @@ function AppRoutes() {
         activated:       profile.activated,
         createdAt:       profile.created_at,
         // Founding brand & dates
-        foundingBrandNumber: profile.founding_brand_number || null,
-        brandJoinedAt:       profile.brand_joined_at || null,
-        activatedAt:         profile.activated_at || null,
+        foundingBrandNumber:  profile.founding_brand_number  || null,
+        brandJoinedAt:        profile.brand_joined_at        || null,
+        activatedAt:          profile.activated_at           || null,
+        // Lifecycle fields
+        deactivatedAt:        profile.deactivated_at         || null,
+        deletionRequestedAt:  profile.deletion_requested_at  || null,
       });
 
       // ── 2. Push parallel AppContext flags (separate state) ───
-      // These exist outside currentUser but must hydrate from DB too
-      setDiscoverable(profile.discoverable !== false); // Default to true if undefined
+      setDiscoverable(profile.discoverable !== false);
       setGridStatus(profile.grid_status || 'online');
       if (Array.isArray(profile.groups)) setMyGroups(profile.groups);
       if (Array.isArray(profile.subs))   setMySubs(profile.subs);
@@ -70,20 +138,19 @@ function AppRoutes() {
       setLinkedProfiles(prev => {
         const others = prev.filter(p => p.id !== userId);
         return [{
-          id:           userId,
-          username:     profile.username,
-          displayName:  profile.display_name,
-          avatar:       profile.avatar_url,
-          accountType:  profile.account_type || 'resident',
-          wallet:       profile.wallet || 0,
+          id:          userId,
+          username:    profile.username,
+          displayName: profile.display_name,
+          avatar:      profile.avatar_url,
+          accountType: profile.account_type || 'resident',
+          wallet:      profile.wallet || 0,
         }, ...others];
       });
 
       // ── 4. Hydrate related collections (follows, saves, notifications) ──
-      // Done in parallel for speed, each fails silently if needed
       const [follows, saves, notifs] = await Promise.allSettled([
-        import('./lib/db').then(({ getFollows }) => getFollows(userId)),
-        import('./lib/db').then(({ getSaved })   => getSaved(userId)),
+        import('./lib/db').then(({ getFollows })        => getFollows(userId)),
+        import('./lib/db').then(({ getSaved })          => getSaved(userId)),
         import('./lib/db').then(({ getNotifications }) => getNotifications(userId)),
       ]);
 
@@ -163,6 +230,7 @@ function AppRoutes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Loading splash ──────────────────────────────────────────
   if (checking) {
     return (
       <div style={{ minHeight: '100vh', background: '#040f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -171,6 +239,7 @@ function AppRoutes() {
     );
   }
 
+  // ── Not logged in ───────────────────────────────────────────
   if (!loggedIn && showOnboarding) {
     return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
   }
@@ -179,20 +248,14 @@ function AppRoutes() {
     return (
       <AuthScreen
         onLogin={async (u) => {
-          // ── FIX: Use the same hydrateProfile() as session restore ──
-          // This guarantees discoverable, gridStatus, groups, subs,
-          // follows, saves, notifications all load from DB on manual login.
-          // No more "toggle resets to default after login" bugs.
           if (u?.id) {
             const profile = await hydrateProfile(u.id);
             if (!profile) {
-              // Fallback: if DB read fails, use what AuthScreen passed
               console.warn('hydrateProfile returned null, using AuthScreen payload');
               setCurrentUser(u);
               setLinkedProfiles(prev => [{ ...prev[0], ...u, id: 1 }, ...prev.slice(1)]);
             }
           } else {
-            // No id passed — legacy fallback (shouldn't happen)
             setCurrentUser(u);
             setLinkedProfiles(prev => [{ ...prev[0], ...u, id: 1 }, ...prev.slice(1)]);
           }
@@ -202,6 +265,7 @@ function AppRoutes() {
     );
   }
 
+  // ── Pending activation ──────────────────────────────────────
   if (currentUser.activated === false) {
     return (
       <PendingScreen
@@ -215,8 +279,39 @@ function AppRoutes() {
     );
   }
 
+  // ── Deactivated — show reactivation screen ──────────────────
+  if (currentUser.deactivatedAt) {
+    return (
+      <DeactivatedScreen
+        currentUser={currentUser}
+        onReactivate={() => setCurrentUser(u => ({ ...u, deactivatedAt: null }))}
+        onSignOut={async () => {
+          await supabase.auth.signOut();
+          setLoggedIn(false);
+        }}
+      />
+    );
+  }
+
+  // ── Active — main app (with optional deletion banner) ───────
+  const handleCancelDeletion = async () => {
+    try {
+      await cancelAccountDeletion(currentUser.id);
+      setCurrentUser(u => ({ ...u, deletionRequestedAt: null }));
+    } catch (e) {
+      console.error('Cancel deletion failed:', e.message);
+    }
+  };
+
   return (
     <>
+      {currentUser.deletionRequestedAt && (
+        <DeletionBanner
+          requestedAt={currentUser.deletionRequestedAt}
+          accountType={currentUser.accountType}
+          onCancel={handleCancelDeletion}
+        />
+      )}
       <MainApp />
       {notif && <Toast msg={notif.msg} type={notif.type} />}
     </>

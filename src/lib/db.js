@@ -1373,3 +1373,57 @@ export const createPaymentIntent = async (userId, amountLinden) => {
     amount: data.amount,
   };
 };
+
+// ══════════════════════════════════════════════════════════════
+// ACCOUNT LIFECYCLE — Deactivate / Reactivate / Delete / Cancel
+// ══════════════════════════════════════════════════════════════
+
+export const deactivateAccount = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ deactivated_at: new Date().toISOString() })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const reactivateAccount = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ deactivated_at: null })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const requestAccountDeletion = async (userId, reason = '') => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      deletion_requested_at: new Date().toISOString(),
+      deletion_reason:       reason.trim() || null,
+    })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const cancelAccountDeletion = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      deletion_requested_at: null,
+      deletion_reason:       null,
+    })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};

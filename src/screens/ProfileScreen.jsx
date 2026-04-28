@@ -10,9 +10,10 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import DashboardScreen from './DashboardScreen';
 import TopUpModal from '../components/TopUpModal';
+import { DeactivateModal, DeleteModal } from '../components/AccountLifecycleModals';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 const fetchSLAvatar = async (username) => {
@@ -59,6 +60,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showDeactivate, setShowDeactivate] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const fileInputRef = useRef(null);
 
   // Real stats from Supabase
@@ -766,6 +769,24 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
               🚪 Sign Out
             </button>
+            {/* Danger zone */}
+            <div style={{ padding: '16px 20px 6px', marginTop: 8, fontSize: 13, color: '#ff3333', fontWeight: 800, letterSpacing: 1 }}>⚠️ DANGER ZONE !</div>
+            <button onClick={() => { setShowSettings(false); setShowDeactivate(true); }}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div>😴 Deactivate Account</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Hide your account — reactivate any time</div>
+              </div>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
+            <button onClick={() => { setShowSettings(false); setShowDelete(true); }}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff6b6b', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div>🗑️ Delete Account</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Permanently remove your account and data</div>
+              </div>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
             <div style={{ padding: '20px 20px 10px', fontSize: 11, color: C.muted, textAlign: 'center', lineHeight: 1.6 }}>
               InCynq · incynq.app<br />Not affiliated with Linden Lab or Second Life®
             </div>
@@ -1040,6 +1061,34 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       {/* Dashboard overlay (brand + official accounts only) */}
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
+      )}
+
+      {/* Deactivate Account modal */}
+      {showDeactivate && (
+        <DeactivateModal
+          userId={currentUser.id}
+          onClose={() => setShowDeactivate(false)}
+          onConfirm={async () => {
+            // Sign out after deactivating — DeactivatedScreen shows on next login
+            const { supabase } = await import('../lib/supabase');
+            await supabase.auth.signOut();
+            setLoggedIn(false);
+          }}
+        />
+      )}
+
+      {/* Delete Account modal */}
+      {showDelete && (
+        <DeleteModal
+          userId={currentUser.id}
+          accountType={currentUser.accountType}
+          onClose={() => setShowDelete(false)}
+          onConfirm={(deletionRequestedAt) => {
+            setCurrentUser(u => ({ ...u, deletionRequestedAt }));
+            setShowDelete(false);
+            toast('Deletion scheduled. You can cancel within the cool-off period.');
+          }}
+        />
       )}
     </div>
   );
