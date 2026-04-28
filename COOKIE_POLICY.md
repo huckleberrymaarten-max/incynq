@@ -124,7 +124,7 @@ We may update this Cookie Policy. Changes will be posted with a new "Last Update
 
 For cookie-related questions:
 
-**Email:** legal@incynq.app
+**Email:** legal@incynq.net
 **Data Controller:** Maarten Huckleberry, Ireland, EU
 
 ---

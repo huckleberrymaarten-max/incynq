@@ -240,14 +240,16 @@ export function DeleteModal({ userId, accountType, onClose, onConfirm }) {
 
           <p style={body}>
             This is permanent. Once the {deleteLabel} ends, your account and
-            all its data are <span style={highlight}>gone for good</span>.
+            all its data are <span style={highlight}>gone for good</span> —
+            including any <span style={highlight}>linked brand account</span>.
           </p>
 
           <div style={infoBox('#1f1010')}>
             ✗ &nbsp;All your posts and comments are deleted<br />
             ✗ &nbsp;Your followers and following list are removed<br />
             ✗ &nbsp;Your wallet balance is forfeited (no refunds per our T&C)<br />
-            {isBrand && <>✗ &nbsp;Brand wallet funds are frozen and non-refundable<br /></>}
+            {isBrand && <>✗ &nbsp;Your brand account is permanently removed<br /></>}
+            {isBrand && <>✗ &nbsp;Brand Wallet funds are frozen and non-refundable<br /></>}
             ✓ &nbsp;You have {graceDays} days to change your mind<br />
             ✓ &nbsp;This fulfils your right to erasure under GDPR
           </div>

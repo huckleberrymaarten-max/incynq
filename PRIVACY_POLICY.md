@@ -9,7 +9,7 @@ Welcome to InCynq ("we," "our," or "us"). This Privacy Policy explains how we co
 **Data Controller:**
 Maarten Huckleberry
 Based in Ireland, EU
-Contact: legal@incynq.app
+Contact: legal@incynq.net
 
 ## 2. Information We Collect
 
@@ -62,7 +62,7 @@ To help brands understand whether their posts and profiles are reaching the comm
 - Any activity outside InCynq
 
 **Data retention:**
-Analytics data is retained for up to 365 days and then automatically deleted. You can request earlier deletion by emailing legal@incynq.app.
+Analytics data is retained for up to 365 days and then automatically deleted. You can request earlier deletion by emailing legal@incynq.net.
 
 ### 2.4 Dashboard Subscription Data (Brand Accounts Only)
 
@@ -146,7 +146,7 @@ As an EU resident, you have the right to:
 - **Object:** Opt out of certain data processing
 - **Withdraw Consent:** For consent-based processing
 
-**To exercise your rights:** Email legal@incynq.app
+**To exercise your rights:** Email legal@incynq.net
 
 ## 7. Data Retention
 
@@ -185,7 +185,7 @@ We may update this Privacy Policy. Material changes will be posted with a new "L
 
 For privacy questions or requests:
 
-**Email:** legal@incynq.app
+**Email:** legal@incynq.net
 **Data Controller:** Maarten Huckleberry, Ireland, EU
 
 ---
