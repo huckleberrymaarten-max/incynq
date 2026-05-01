@@ -23,6 +23,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   const [open, setOpen] = useState(false);
   const ref             = useRef(null);
   const isBrand         = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
+  const managedBrands   = currentUser.managedBrands || [];
   const inBrandMode     = currentUser.brandMode === true;
 
   // Close on outside click
@@ -32,8 +33,8 @@ function AccountSwitcher({ currentUser, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // If no brand, just show name — no dropdown
-  if (!isBrand) {
+  // If no brand and no managed brands, just show name — no dropdown
+  if (!isBrand && managedBrands.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Av user={currentUser} size={28} />
@@ -115,32 +116,64 @@ function AccountSwitcher({ currentUser, onSwitch }) {
             {!inBrandMode && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
           </button>
 
-          {/* Brand option */}
-          <button
-            onClick={() => { onSwitch('brand'); setOpen(false); }}
-            style={{
-              width:      '100%',
-              padding:    '10px 14px',
-              display:    'flex',
-              alignItems: 'center',
-              gap:        10,
-              background: inBrandMode ? 'rgba(0,180,200,0.08)' : 'transparent',
-              border:     'none',
-              cursor:     'pointer',
-              textAlign:  'left',
-              borderTop:  '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            {currentUser.brandLogoUrl
-              ? <img src={currentUser.brandLogoUrl} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
-              : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
-            }
-            <div>
-              <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{currentUser.brandName}</div>
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Brand account</div>
-            </div>
-            {inBrandMode && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
-          </button>
+          {/* Brand option (own brand) */}
+          {isBrand && (
+            <button
+              onClick={() => { onSwitch('brand'); setOpen(false); }}
+              style={{
+                width:      '100%',
+                padding:    '10px 14px',
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                background: (inBrandMode && !currentUser.managingBrandId) ? 'rgba(0,180,200,0.08)' : 'transparent',
+                border:     'none',
+                cursor:     'pointer',
+                textAlign:  'left',
+                borderTop:  '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {currentUser.brandLogoUrl
+                ? <img src={currentUser.brandLogoUrl} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
+              }
+              <div>
+                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{currentUser.brandName}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Your brand</div>
+              </div>
+              {(inBrandMode && !currentUser.managingBrandId) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            </button>
+          )}
+
+          {/* Managed brands */}
+          {managedBrands.map(brand => (
+            <button
+              key={brand.id}
+              onClick={() => { onSwitch('managed', brand.id); setOpen(false); }}
+              style={{
+                width:      '100%',
+                padding:    '10px 14px',
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                background: (inBrandMode && currentUser.managingBrandId === brand.id) ? 'rgba(0,180,200,0.08)' : 'transparent',
+                border:     'none',
+                cursor:     'pointer',
+                textAlign:  'left',
+                borderTop:  '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {brand.brand_logo_url
+                ? <img src={brand.brand_logo_url} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
+              }
+              <div>
+                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{brand.brand_name}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Manager</div>
+              </div>
+              {(inBrandMode && currentUser.managingBrandId === brand.id) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            </button>
+          ))}
 
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 14px', color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>
             One login · Two modes
@@ -164,8 +197,12 @@ export default function MainApp() {
   const handleOpenUserProfile = (username) => setViewingUsername(username);
   const handleCloseUserProfile = () => setViewingUsername(null);
 
-  const handleSwitchMode = (mode) => {
-    setCurrentUser(u => ({ ...u, brandMode: mode === 'brand' }));
+  const handleSwitchMode = (mode, managingBrandId = null) => {
+    if (mode === 'resident') {
+      setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null }));
+    } else {
+      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId: managingBrandId || null }));
+    }
   };
 
   // If viewing a user profile, show that instead of tabs
@@ -194,29 +231,22 @@ export default function MainApp() {
         {/* Left: account switcher */}
         <AccountSwitcher currentUser={currentUser} onSwitch={handleSwitchMode} />
 
-        {/* Right: brand mode indicator or wordmark */}
+        {/* Right: brand mode indicator only */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {inBrandMode
-            ? (
-              <div style={{
-                background:   'rgba(0,180,200,0.12)',
-                border:       '1px solid rgba(0,180,200,0.3)',
-                borderRadius: 6,
-                padding:      '3px 8px',
-                color:        '#00B4C8',
-                fontSize:     11,
-                fontWeight:   700,
-                letterSpacing: 0.5,
-              }}>
-                BRAND MODE
-              </div>
-            )
-            : (
-              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>
-                INCYNQ
-              </span>
-            )
-          }
+          {inBrandMode && (
+            <div style={{
+              background:   'rgba(0,180,200,0.12)',
+              border:       '1px solid rgba(0,180,200,0.3)',
+              borderRadius: 6,
+              padding:      '3px 8px',
+              color:        '#00B4C8',
+              fontSize:     11,
+              fontWeight:   700,
+              letterSpacing: 0.5,
+            }}>
+              BRAND MODE
+            </div>
+          )}
         </div>
       </div>
 

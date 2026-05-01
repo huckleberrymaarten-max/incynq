@@ -12,6 +12,7 @@ import DashboardScreen from './DashboardScreen';
 import TopUpModal from '../components/TopUpModal';
 import { DeactivateModal, DeleteModal } from '../components/AccountLifecycleModals';
 import AddBrandScreen from './AddBrandScreen';
+import BrandTeamScreen from './BrandTeamScreen';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
@@ -64,6 +65,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
+  const [showBrandTeam, setShowBrandTeam] = useState(false);
   const fileInputRef = useRef(null);
 
   // Real stats from Supabase
@@ -802,6 +804,21 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
               <span>🍪 Cookies</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
             </a>
+            {/* Brand Team (brand mode only) */}
+            {(currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand') && currentUser.brandMode && (
+              <>
+                <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BRAND</div>
+                <button onClick={() => { setShowSettings(false); setShowBrandTeam(true); }}
+                  style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div>👥 Brand Team</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Invite or manage your brand manager</div>
+                  </div>
+                  <span style={{ color: C.muted }}>→</span>
+                </button>
+              </>
+            )}
+
             {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={async () => {
@@ -1105,6 +1122,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       {/* Dashboard overlay (brand + official accounts only) */}
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
+      )}
+
+      {/* Brand Team Screen */}
+      {showBrandTeam && (
+        <BrandTeamScreen onClose={() => setShowBrandTeam(false)} />
       )}
 
       {/* Add Brand Screen */}

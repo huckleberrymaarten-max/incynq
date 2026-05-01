@@ -1539,3 +1539,175 @@ export const uploadBrandLogo = async (userId, file) => {
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
   return data.publicUrl;
 };
+
+// ══════════════════════════════════════════════════════════════
+// BRAND TEAM — #4c
+// ══════════════════════════════════════════════════════════════
+
+// ── Invite a manager by username ─────────────────────────────
+export const inviteManager = async (brandOwnerId, managerUsername) => {
+  // Look up user by username
+  const { data: target, error: lookupError } = await supabase
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, account_type')
+    .eq('username', managerUsername.trim().toLowerCase())
+    .single();
+
+  if (lookupError || !target) throw new Error('User not found. Check the SL username and try again.');
+  if (target.id === brandOwnerId) throw new Error('You cannot invite yourself as a manager.');
+  if (target.account_type === 'official') throw new Error('This account cannot be a manager.');
+
+  // Check if already a manager or pending
+  const { data: existing } = await supabase
+    .from('brand_managers')
+    .select('id, status')
+    .eq('brand_owner_id', brandOwnerId)
+    .eq('manager_id', target.id)
+    .single();
+
+  if (existing) {
+    if (existing.status === 'accepted') throw new Error(`${target.display_name || target.username} is already your manager.`);
+    if (existing.status === 'pending')  throw new Error(`An invite is already pending for ${target.display_name || target.username}.`);
+    // If previously declined or removed, update to pending
+    const { data, error } = await supabase
+      .from('brand_managers')
+      .update({ status: 'pending', invited_at: new Date().toISOString(), accepted_at: null, removed_at: null })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    // Fall through to notification — reuse invite = data
+    const invite = data;
+    const { data: owner } = await supabase.from('profiles').select('brand_name, brand_logo_url').eq('id', brandOwnerId).single();
+    // Remove old invite notifications before creating new one
+    await supabase.from('notifications').delete().eq('user_id', target.id).eq('type', 'manager_invite').eq('actor_id', brandOwnerId);
+    await supabase.from('notifications').insert({
+      user_id:  target.id,
+      type:     'manager_invite',
+      actor_id: brandOwnerId,
+      text:     JSON.stringify({ invite_id: invite.id, brand_name: owner?.brand_name || 'a brand', brand_logo_url: owner?.brand_logo_url || null }),
+      read:     false,
+    });
+    return { invite, manager: target };
+  }
+
+  // Create new invite
+  const { data: invite, error } = await supabase
+    .from('brand_managers')
+    .insert({ brand_owner_id: brandOwnerId, manager_id: target.id, status: 'pending' })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Get brand owner profile to include brand name in notification
+  const { data: owner } = await supabase
+    .from('profiles')
+    .select('brand_name, brand_logo_url, display_name, username')
+    .eq('id', brandOwnerId)
+    .single();
+
+  // Create notification for the invited manager (remove any old ones first)
+  await supabase.from('notifications').delete().eq('user_id', target.id).eq('type', 'manager_invite').eq('actor_id', brandOwnerId);
+  const { error: notifError } = await supabase.from('notifications').insert({
+    user_id:    target.id,
+    type:       'manager_invite',
+    actor_id:   brandOwnerId,
+    text:       JSON.stringify({
+      invite_id:      invite.id,
+      brand_name:     owner?.brand_name || 'a brand',
+      brand_logo_url: owner?.brand_logo_url || null,
+    }),
+    read: false,
+  }).select().single();
+
+  if (notifError) {
+    console.error('Manager invite notification failed:', notifError.message);
+  }
+
+  return { invite, manager: target };
+};
+
+// ── Accept a manager invite ───────────────────────────────────
+export const acceptManagerInvite = async (inviteId, managerId) => {
+  const { data, error } = await supabase
+    .from('brand_managers')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', inviteId)
+    .eq('manager_id', managerId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+// ── Decline a manager invite ──────────────────────────────────
+export const declineManagerInvite = async (inviteId, managerId) => {
+  const { data, error } = await supabase
+    .from('brand_managers')
+    .update({ status: 'declined' })
+    .eq('id', inviteId)
+    .eq('manager_id', managerId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+// ── Remove a manager (brand owner action) ─────────────────────
+export const removeManager = async (brandOwnerId, managerId) => {
+  const { error } = await supabase
+    .from('brand_managers')
+    .update({ status: 'removed', removed_at: new Date().toISOString() })
+    .eq('brand_owner_id', brandOwnerId)
+    .eq('manager_id', managerId);
+  if (error) throw error;
+};
+
+// ── Get brand team (owner view) ───────────────────────────────
+export const getBrandTeam = async (brandOwnerId) => {
+  const { data, error } = await supabase
+    .from('brand_managers')
+    .select(`
+      id, status, invited_at, accepted_at,
+      manager:manager_id(id, username, display_name, avatar_url)
+    `)
+    .eq('brand_owner_id', brandOwnerId)
+    .in('status', ['pending', 'accepted'])
+    .order('invited_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+// ── Get brands this user manages (for account switcher) ────────
+export const getManagedBrands = async (userId) => {
+  const { data, error } = await supabase
+    .from('brand_managers')
+    .select(`
+      id,
+      owner:brand_owner_id(
+        id, username, display_name, brand_name, brand_logo_url,
+        brand_wallet, brand_description
+      )
+    `)
+    .eq('manager_id', userId)
+    .eq('status', 'accepted');
+  if (error) throw error;
+  return (data || []).map(row => row.owner).filter(Boolean);
+};
+
+// ── Get pending manager invites for a user (for notifications) ─
+export const getPendingManagerInvites = async (userId) => {
+  const { data, error } = await supabase
+    .from('brand_managers')
+    .select(`
+      id, invited_at,
+      owner:brand_owner_id(id, username, display_name, brand_name, brand_logo_url)
+    `)
+    .eq('manager_id', userId)
+    .eq('status', 'pending');
+  if (error) throw error;
+  return data || [];
+};

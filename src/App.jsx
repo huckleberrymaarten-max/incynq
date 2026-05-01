@@ -4,7 +4,7 @@ import { ContentProvider } from './context/ContentContext';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import logo from './assets/Q_Logo_.png';
-import { getProfile, cancelAccountDeletion } from './lib/db';
+import { getProfile, cancelAccountDeletion, getManagedBrands } from './lib/db';
 
 // Screens
 import OnboardingScreen    from './screens/OnboardingScreen';
@@ -157,10 +157,11 @@ function AppRoutes() {
       });
 
       // ── 4. Hydrate related collections (follows, saves, notifications) ──
-      const [follows, saves, notifs] = await Promise.allSettled([
+      const [follows, saves, notifs, managedBrands] = await Promise.allSettled([
         import('./lib/db').then(({ getFollows })        => getFollows(userId)),
         import('./lib/db').then(({ getSaved })          => getSaved(userId)),
         import('./lib/db').then(({ getNotifications }) => getNotifications(userId)),
+        getManagedBrands(userId),
       ]);
 
       if (follows.status === 'fulfilled' && follows.value) {
@@ -181,6 +182,11 @@ function AppRoutes() {
         setNotifications(notifs.value);
       } else if (notifs.status === 'rejected') {
         console.warn('Could not load notifications:', notifs.reason?.message);
+      }
+
+      // Store managed brands (brands this user manages for others)
+      if (managedBrands.status === 'fulfilled' && managedBrands.value) {
+        setCurrentUser(u => ({ ...u, managedBrands: managedBrands.value }));
       }
 
       return profile;

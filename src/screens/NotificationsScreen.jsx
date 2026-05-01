@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { markAllNotificationsRead } from '../lib/db';
+import { markAllNotificationsRead, acceptManagerInvite, declineManagerInvite } from '../lib/db';
 
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
@@ -17,15 +17,50 @@ const timeAgo = (dateStr) => {
 };
 
 const NOTIF_CONFIG = {
-  like:    { icon: '❤️', color: '#ff4466', label: 'liked your post' },
-  comment: { icon: '💬', color: '#00b4c8', label: 'commented on your post' },
-  follow:  { icon: '👤', color: '#00e5a0', label: 'started following you' },
-  system:  { icon: '⚡', color: '#f0a500', label: '' },
+  like:           { icon: '❤️',  color: '#ff4466', label: 'liked your post' },
+  comment:        { icon: '💬',  color: '#00b4c8', label: 'commented on your post' },
+  follow:         { icon: '👤',  color: '#00e5a0', label: 'started following you' },
+  system:         { icon: '⚡',  color: '#f0a500', label: '' },
+  manager_invite: { icon: '🏷️', color: '#00B4C8', label: 'invited you to manage their brand' },
 };
 
 export default function NotificationsScreen({ onClose }) {
-  const { notifications, setNotifications, currentUser } = useApp();
-  const [marking, setMarking] = useState(false);
+  const { notifications, setNotifications, currentUser, setCurrentUser } = useApp();
+  const [marking,          setMarking]          = useState(false);
+  const [inviteResponding, setInviteResponding] = useState({});
+
+  const handleAcceptInvite = async (notif, inviteId) => {
+    setInviteResponding(prev => ({ ...prev, [inviteId]: 'accepting' }));
+    try {
+      await acceptManagerInvite(inviteId, currentUser.id);
+      // Mark notification as accepted in local state
+      setNotifications(prev => prev.map(n =>
+        n.id === notif.id ? { ...n, read: true, _inviteAccepted: true } : n
+      ));
+      // Reload managed brands into currentUser state
+      const { getManagedBrands } = await import('../lib/db');
+      const managed = await getManagedBrands(currentUser.id);
+      setCurrentUser(u => ({ ...u, managedBrands: managed }));
+    } catch (e) {
+      console.error('Accept invite failed:', e.message);
+    } finally {
+      setInviteResponding(prev => ({ ...prev, [inviteId]: null }));
+    }
+  };
+
+  const handleDeclineInvite = async (notif, inviteId) => {
+    setInviteResponding(prev => ({ ...prev, [inviteId]: 'declining' }));
+    try {
+      await declineManagerInvite(inviteId, currentUser.id);
+      setNotifications(prev => prev.map(n =>
+        n.id === notif.id ? { ...n, read: true, _inviteDeclined: true } : n
+      ));
+    } catch (e) {
+      console.error('Decline invite failed:', e.message);
+    } finally {
+      setInviteResponding(prev => ({ ...prev, [inviteId]: null }));
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -42,6 +77,14 @@ export default function NotificationsScreen({ onClose }) {
   };
 
   const getNotifText = (notif) => {
+    if (notif.type === 'manager_invite') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      const actor = notif.actor;
+      const name = actor?.show_display_name !== false && actor?.display_name
+        ? actor.display_name : actor?.username || 'Someone';
+      return `${name} invited you to manage ${meta.brand_name || 'their brand'}`;
+    }
     const actor = notif.actor;
     if (!actor) return notif.text || 'New notification';
     const name = actor.show_display_name !== false && actor.display_name
@@ -124,11 +167,23 @@ export default function NotificationsScreen({ onClose }) {
                     {notif.type === 'system'
                       ? (
                         <div style={{ width: 44, height: 44, borderRadius: '18%', background: `${C.gold}22`, border: `2px solid ${C.gold}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>⚡</div>
-                      ) : (
+                      ) : notif.type === 'manager_invite' ? (() => {
+                          let meta = {};
+                          try { meta = JSON.parse(notif.text || '{}'); } catch {}
+                          return (
+                            <div style={{ width: 44, height: 44, borderRadius: '18%', overflow: 'hidden', border: `2px solid ${C.border}`, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                              {meta.brand_logo_url
+                                ? <img src={meta.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : '🏷️'
+                              }
+                            </div>
+                          );
+                        })()
+                      : (
                         <img src={avatar} alt="" style={{ width: 44, height: 44, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.border}` }} />
                       )
                     }
-                    {notif.type !== 'system' && (
+                    {notif.type !== 'system' && notif.type !== 'manager_invite' && (
                       <div style={{
                         position: 'absolute', bottom: -3, right: -3,
                         width: 20, height: 20, borderRadius: '50%',
@@ -141,7 +196,7 @@ export default function NotificationsScreen({ onClose }) {
                     )}
                   </div>
 
-                  {/* Text */}
+                  {/* Text + manager invite actions */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                       fontSize: 13, lineHeight: 1.5,
@@ -150,6 +205,54 @@ export default function NotificationsScreen({ onClose }) {
                     }}>
                       {getNotifText(notif)}
                     </div>
+
+                    {/* Manager invite — Accept / Decline buttons */}
+                    {notif.type === 'manager_invite' && (() => {
+                      let meta = {};
+                      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+                      const inviteId = meta.invite_id;
+                      const responding = inviteResponding[inviteId];
+
+                      if (notif._inviteAccepted) {
+                        return <div style={{ fontSize: 11, color: '#5DCAA5', marginTop: 6 }}>✓ Accepted</div>;
+                      }
+                      if (notif._inviteDeclined) {
+                        return <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Declined</div>;
+                      }
+
+                      return (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                          <button
+                            onClick={() => handleAcceptInvite(notif, inviteId)}
+                            disabled={!!responding}
+                            style={{
+                              padding: '7px 16px', borderRadius: 8,
+                              background: '#00B4C8', border: 'none',
+                              color: '#fff', fontSize: 12, fontWeight: 700,
+                              cursor: responding ? 'not-allowed' : 'pointer',
+                              opacity: responding === 'accepting' ? 0.6 : 1,
+                            }}
+                          >
+                            {responding === 'accepting' ? 'Accepting…' : 'Accept'}
+                          </button>
+                          <button
+                            onClick={() => handleDeclineInvite(notif, inviteId)}
+                            disabled={!!responding}
+                            style={{
+                              padding: '7px 16px', borderRadius: 8,
+                              background: 'transparent',
+                              border: `1px solid rgba(255,255,255,0.15)`,
+                              color: C.muted, fontSize: 12, fontWeight: 600,
+                              cursor: responding ? 'not-allowed' : 'pointer',
+                              opacity: responding === 'declining' ? 0.6 : 1,
+                            }}
+                          >
+                            {responding === 'declining' ? 'Declining…' : 'Decline'}
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
                       {timeAgo(notif.created_at)}
                     </div>
