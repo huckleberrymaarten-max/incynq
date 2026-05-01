@@ -28,7 +28,7 @@ export default function BrandSettingsPanel({ onClose }) {
         position:      'fixed',
         inset:         0,
         background:    C.bg,
-        zIndex:        700,
+        zIndex:        150,
         display:       'flex',
         flexDirection: 'column',
         maxWidth:      480,
