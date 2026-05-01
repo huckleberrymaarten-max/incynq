@@ -134,6 +134,7 @@ function AppRoutes() {
         brandWallet:          profile.brand_wallet           || 0,
         brandPending:         profile.brand_pending          || false,
         brandActivatedAt:     profile.brand_activated_at     || null,
+        brandNameChangedAt:   profile.brand_name_changed_at  || null,
         brandMode:            false, // always start in resident mode
       });
 

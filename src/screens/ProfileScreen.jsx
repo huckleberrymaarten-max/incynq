@@ -13,6 +13,7 @@ import TopUpModal from '../components/TopUpModal';
 import { DeactivateModal, DeleteModal } from '../components/AccountLifecycleModals';
 import AddBrandScreen from './AddBrandScreen';
 import BrandTeamScreen from './BrandTeamScreen';
+import BrandProfileEditScreen from './BrandProfileEditScreen';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
@@ -66,6 +67,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showBrandTeam, setShowBrandTeam] = useState(false);
+  const [showBrandEdit, setShowBrandEdit] = useState(false);
   const fileInputRef = useRef(null);
 
   // Real stats from Supabase
@@ -515,10 +517,17 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          <button onClick={() => setShowEdit(true)}
-            style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13 }}>
-            Edit Profile
-          </button>
+          {currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand') ? (
+            <button onClick={() => setShowBrandEdit(true)}
+              style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13 }}>
+              Edit Brand Profile
+            </button>
+          ) : (
+            <button onClick={() => setShowEdit(true)}
+              style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13 }}>
+              Edit Profile
+            </button>
+          )}
           <button onClick={handleDiscoverableToggle}
             style={{ flex: 1, padding: '10px', borderRadius: 12, background: discoverable ? `${C.sky}18` : C.card2, border: `1.5px solid ${discoverable ? C.sky : C.border}`, color: discoverable ? C.sky : C.sub, fontWeight: 700, fontSize: 13 }}>
             {discoverable ? 'I am Discoverable now' : 'I am Hiding now'}
@@ -1122,6 +1131,14 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       {/* Dashboard overlay (brand + official accounts only) */}
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
+      )}
+
+      {/* Brand Profile Edit Screen */}
+      {showBrandEdit && (
+        <BrandProfileEditScreen
+          onClose={() => setShowBrandEdit(false)}
+          onSaved={() => setShowBrandEdit(false)}
+        />
       )}
 
       {/* Brand Team Screen */}
