@@ -91,7 +91,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showDashboard, setShowDashboard] = useState(false);
   const isBrand = currentUser?.accountType === 'brand';
   const isOfficialAccount = currentUser?.accountType === 'official';
-  const canAccessDashboard = isBrand || isOfficialAccount;
+  const canAccessDashboard = (isBrand && currentUser.brandMode === true) || isOfficialAccount;
 
 
   // Load stats on mount
