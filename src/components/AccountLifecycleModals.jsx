@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { deactivateAccount, requestAccountDeletion } from '../lib/db';
+import { deactivateAccount, requestAccountDeletion, requestBrandRemoval } from '../lib/db';
 
 // ══════════════════════════════════════════════════════════════
 // AccountLifecycleModals
@@ -346,7 +346,6 @@ export function RemoveBrandModal({ userId, brandName, onClose, onConfirm }) {
     setLoading(true);
     setError('');
     try {
-      const { requestBrandRemoval } = await import('../lib/db');
       const result = await requestBrandRemoval(userId);
       onConfirm(result.brand_removal_requested_at);
     } catch (e) {
@@ -370,7 +369,8 @@ export function RemoveBrandModal({ userId, brandName, onClose, onConfirm }) {
           ✗ &nbsp;Brand Wallet balance is forfeited (non-refundable)<br />
           ✗ &nbsp;Your manager will lose access<br />
           ✓ &nbsp;Your resident account is kept safe<br />
-          ✓ &nbsp;You have 30 days to change your mind
+          ✓ &nbsp;You have 30 days to change your mind<br />
+          ✓ &nbsp;This fulfils your right to erasure under GDPR
         </div>
 
         <label style={labelStyle}>

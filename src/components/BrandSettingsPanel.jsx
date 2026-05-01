@@ -99,7 +99,7 @@ export default function BrandSettingsPanel({ onClose }) {
 
           <div style={{ padding: '16px 20px 6px', marginTop: 8, fontSize: 13, color: '#ff3333', fontWeight: 800, letterSpacing: 1 }}>⚠️ DANGER ZONE !</div>
 
-          <button onClick={() => { onClose(); setShowRemoveBrand(true); }}
+          <button onClick={() => setShowRemoveBrand(true)}
             style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff6b6b', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div>🗑️ Remove Brand Account</div>
