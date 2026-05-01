@@ -380,14 +380,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {gridStatusLabel(currentUser.gridStatus || 'online')} <span style={{ color: C.sky, fontSize: 10 }}>✏️</span>
             </button>
 
-            {/* Member Since / Brand Since */}
+            {/* Member Since — always resident date in resident mode */}
             {currentUser?.activatedAt && (
               <div style={{ fontSize: 11, color: C.muted, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span>📅</span>
-                <span>{formatMemberSince(
-                  currentUser.accountType === 'brand' ? currentUser.brandJoinedAt || currentUser.createdAt : currentUser.activatedAt,
-                  currentUser.accountType
-                )}</span>
+                <span>{formatMemberSince(currentUser.activatedAt, 'resident')}</span>
               </div>
             )}
 
