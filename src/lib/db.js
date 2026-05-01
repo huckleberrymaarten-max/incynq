@@ -1427,3 +1427,115 @@ export const cancelAccountDeletion = async (userId) => {
   if (error) throw error;
   return data;
 };
+
+// ══════════════════════════════════════════════════════════════
+// BRAND SYSTEM — #4a + #4b
+// ══════════════════════════════════════════════════════════════
+
+// ── Generate a brand activation code + payment intent ─────────
+// Called when user completes the Add Brand form.
+// Creates a payment_intent with intent_type='brand_activation'.
+// User takes this code to the ATM, pays 3,500 L$.
+// The sl-webhook calls complete_brand_activation() on receipt.
+export const initBrandActivation = async (userId, brandData) => {
+  // Save brand info to profile (pending state)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      brand_name:        brandData.name.trim(),
+      brand_description: brandData.description.trim(),
+      brand_email:       brandData.email?.trim() || null,
+      brand_logo_url:    brandData.logoUrl || null,
+      brand_pending:     true,
+    })
+    .eq('id', userId);
+
+  if (profileError) throw profileError;
+
+  // Generate activation code (same format as top-up codes)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const code = 'ICQ-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+  // Create payment intent — type brand_activation, amount 3500
+  const { data, error } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id:     userId,
+      code:        code,
+      amount:      3500,
+      intent_type: 'brand_activation',
+      status:      'pending',
+      expires_at:  new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+// ── Poll for brand activation status ─────────────────────────
+// Called every 3 seconds from AddBrandScreen while waiting.
+// Returns true if brand has been activated.
+export const checkBrandActivated = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('account_type, brand_wallet, brand_activated_at, brand_name')
+    .eq('id', userId)
+    .single();
+
+  if (error) throw error;
+  return data?.account_type === 'brand' ? data : null;
+};
+
+// ── Cancel a pending brand activation ────────────────────────
+// Clears brand_pending + brand info if user cancels before paying.
+export const cancelBrandActivation = async (userId) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      brand_name:        null,
+      brand_description: null,
+      brand_email:       null,
+      brand_logo_url:    null,
+      brand_pending:     false,
+    })
+    .eq('id', userId);
+
+  if (error) throw error;
+
+  // Expire any pending brand activation intents for this user
+  await supabase
+    .from('payment_intents')
+    .update({ status: 'cancelled' })
+    .eq('user_id', userId)
+    .eq('intent_type', 'brand_activation')
+    .eq('status', 'pending');
+};
+
+// ── Get brand wallet balance ──────────────────────────────────
+export const getBrandWallet = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('brand_wallet')
+    .eq('id', userId)
+    .single();
+
+  if (error) throw error;
+  return data?.brand_wallet || 0;
+};
+
+// ── Upload brand logo to Supabase storage ─────────────────────
+export const uploadBrandLogo = async (userId, file) => {
+  const ext  = file.name.split('.').pop();
+  const path = `brand-logos/${userId}/logo.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return data.publicUrl;
+};

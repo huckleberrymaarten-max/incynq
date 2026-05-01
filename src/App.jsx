@@ -126,6 +126,15 @@ function AppRoutes() {
         // Lifecycle fields
         deactivatedAt:        profile.deactivated_at         || null,
         deletionRequestedAt:  profile.deletion_requested_at  || null,
+        // Brand fields
+        brandName:            profile.brand_name             || null,
+        brandDescription:     profile.brand_description      || null,
+        brandEmail:           profile.brand_email            || null,
+        brandLogoUrl:         profile.brand_logo_url         || null,
+        brandWallet:          profile.brand_wallet           || 0,
+        brandPending:         profile.brand_pending          || false,
+        brandActivatedAt:     profile.brand_activated_at     || null,
+        brandMode:            false, // always start in resident mode
       });
 
       // ── 2. Push parallel AppContext flags (separate state) ───

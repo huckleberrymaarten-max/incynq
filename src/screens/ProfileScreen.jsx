@@ -11,6 +11,7 @@ import InterestPicker from '../components/InterestPicker';
 import DashboardScreen from './DashboardScreen';
 import TopUpModal from '../components/TopUpModal';
 import { DeactivateModal, DeleteModal } from '../components/AccountLifecycleModals';
+import AddBrandScreen from './AddBrandScreen';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
@@ -62,6 +63,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showAddBrand, setShowAddBrand] = useState(false);
   const fileInputRef = useRef(null);
 
   // Real stats from Supabase
@@ -432,18 +434,60 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           </button>
         </div>
 
-        {/* Invite Friends (Referral Program) */}
-        <button onClick={handleOpenReferral}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`, borderRadius: 14, border: `1px solid ${C.gold}44`, marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>🎁</span>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.gold }}>Invite Friends</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>Earn 10 L$ per activation</div>
+        {/* Invite Friends + Brand — side by side ───────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+
+          {/* Invite Friends */}
+          <button onClick={handleOpenReferral}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`, borderRadius: 14, border: `1px solid ${C.gold}44`, minHeight: 72 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 18 }}>🎁</span>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>Invite Friends</div>
             </div>
-          </div>
-          <span style={{ color: C.muted }}>→</span>
-        </button>
+            <div style={{ fontSize: 11, color: C.muted }}>Earn 10 L$ per activation →</div>
+          </button>
+
+          {/* Brand card — varies by state */}
+          {(currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand') ? (
+            // Active brand — tap to switch to brand mode
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button onClick={() => setCurrentUser(u => ({ ...u, brandMode: true }))}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'linear-gradient(135deg, rgba(0,180,200,0.15), rgba(0,180,200,0.08))', borderRadius: 14, border: '1px solid rgba(0,180,200,0.35)', minHeight: 72, width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  {currentUser.brandLogoUrl
+                    ? <img src={currentUser.brandLogoUrl} alt="brand" style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 18 }}>🏷️</span>
+                  }
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#00B4C8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>{currentUser.brandName}</div>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted }}>{(currentUser.brandWallet || 0).toLocaleString()} L$ wallet →</div>
+              </button>
+              <a href="mailto:support@incynq.net?subject=Additional brand account request"
+                style={{ fontSize: 10, color: C.muted, textAlign: 'center', textDecoration: 'none', paddingTop: 2 }}>
+                Need another brand? Contact us
+              </a>
+            </div>
+          ) : currentUser.brandPending ? (
+            // Pending — waiting for ATM payment
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(244,185,66,0.07)', borderRadius: 14, border: '1px solid rgba(244,185,66,0.2)', minHeight: 72 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>⏳</span>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>Activating…</div>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted }}>Visit an ATM inworld</div>
+            </div>
+          ) : (
+            // No brand — Add Brand
+            <button onClick={() => setShowAddBrand(true)}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'linear-gradient(135deg, rgba(0,180,200,0.1), rgba(0,180,200,0.05))', borderRadius: 14, border: '1px dashed rgba(0,180,200,0.3)', minHeight: 72 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>✨</span>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#00B4C8' }}>Add Brand</div>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted }}>Advertise on InCynq →</div>
+            </button>
+          )}
+        </div>
 
         {/* Dashboard (brand + official accounts only) */}
         {canAccessDashboard && (
@@ -1061,6 +1105,25 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       {/* Dashboard overlay (brand + official accounts only) */}
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
+      )}
+
+      {/* Add Brand Screen */}
+      {showAddBrand && (
+        <AddBrandScreen
+          onClose={() => setShowAddBrand(false)}
+          onActivated={(result) => {
+            setCurrentUser(u => ({
+              ...u,
+              accountType:      'brand',
+              brandWallet:      result.brand_wallet,
+              brandActivatedAt: result.brand_activated_at,
+              brandPending:     false,
+              brandMode:        true,
+            }));
+            setShowAddBrand(false);
+            toast('🎉 Brand account activated! Welcome to brand mode.');
+          }}
+        />
       )}
 
       {/* Deactivate Account modal */}
