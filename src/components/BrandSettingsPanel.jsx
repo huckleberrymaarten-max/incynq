@@ -57,7 +57,7 @@ export default function BrandSettingsPanel({ onClose }) {
 
           <div style={{ padding: '12px 20px 4px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BRAND</div>
 
-          <button onClick={() => { onClose(); setShowBrandEdit(true); }}
+          <button onClick={() => setShowBrandEdit(true)}
             style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div>✏️ Edit Brand Profile</div>
@@ -66,7 +66,7 @@ export default function BrandSettingsPanel({ onClose }) {
             <span style={{ color: C.muted }}>→</span>
           </button>
 
-          <button onClick={() => { onClose(); setShowBrandTeam(true); }}
+          <button onClick={() => setShowBrandTeam(true)}
             style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div>👥 Brand Team</div>
