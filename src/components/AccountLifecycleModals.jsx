@@ -329,3 +329,80 @@ export function DeleteModal({ userId, accountType, onClose, onConfirm }) {
     </div>
   );
 }
+
+// ══════════════════════════════════════════════════════════════
+// REMOVE BRAND MODAL
+// ══════════════════════════════════════════════════════════════
+export function RemoveBrandModal({ userId, brandName, onClose, onConfirm }) {
+  const [typed,   setTyped]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const handleConfirm = async () => {
+    if (typed.trim().toLowerCase() !== 'remove') {
+      setError('Please type REMOVE to confirm.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { requestBrandRemoval } = await import('../lib/db');
+      const result = await requestBrandRemoval(userId);
+      onConfirm(result.brand_removal_requested_at);
+    } catch (e) {
+      setError('Something went wrong — please try again.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={card} onClick={e => e.stopPropagation()}>
+        <h3 style={{ ...heading, color: '#ff6b6b' }}>Remove brand account?</h3>
+
+        <p style={body}>
+          Your <span style={highlight}>{brandName}</span> brand will be scheduled for removal.
+          Your resident account stays untouched — only the brand is removed.
+        </p>
+
+        <div style={infoBox('#1f1010')}>
+          ✗ &nbsp;Brand profile, posts, and ads are deleted<br />
+          ✗ &nbsp;Brand Wallet balance is forfeited (non-refundable)<br />
+          ✗ &nbsp;Your manager will lose access<br />
+          ✓ &nbsp;Your resident account is kept safe<br />
+          ✓ &nbsp;You have 30 days to change your mind
+        </div>
+
+        <label style={labelStyle}>
+          Type <span style={{ color: '#ff6b6b', fontWeight: 600 }}>REMOVE</span> to confirm
+        </label>
+        <input
+          type="text"
+          style={inputStyle}
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          placeholder="REMOVE"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+
+        {error && <p style={errorStyle}>{error}</p>}
+
+        <div style={btnRow}>
+          <button style={btnCancel} onClick={onClose} disabled={loading}>Cancel</button>
+          <button
+            style={{
+              ...btnDanger,
+              opacity: (typed.trim().toLowerCase() === 'remove' && !loading) ? 1 : 0.4,
+            }}
+            onClick={handleConfirm}
+            disabled={loading || typed.trim().toLowerCase() !== 'remove'}
+          >
+            {loading ? 'Requesting…' : 'Schedule removal'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

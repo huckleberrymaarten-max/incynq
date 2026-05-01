@@ -10,10 +10,12 @@ import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
 import DashboardScreen from './DashboardScreen';
 import TopUpModal from '../components/TopUpModal';
-import { DeactivateModal, DeleteModal } from '../components/AccountLifecycleModals';
+import { DeactivateModal, DeleteModal, RemoveBrandModal } from '../components/AccountLifecycleModals';
 import AddBrandScreen from './AddBrandScreen';
 import BrandTeamScreen from './BrandTeamScreen';
 import BrandProfileEditScreen from './BrandProfileEditScreen';
+import BrandSettingsPanel from '../components/BrandSettingsPanel';
+import BrandProfileView from './BrandProfileView';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
@@ -65,9 +67,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showRemoveBrand, setShowRemoveBrand] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showBrandTeam, setShowBrandTeam] = useState(false);
   const [showBrandEdit, setShowBrandEdit] = useState(false);
+  const [showBrandSettings, setShowBrandSettings] = useState(false);
   const fileInputRef = useRef(null);
 
   // Real stats from Supabase
@@ -337,12 +341,17 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const discoverPreview = discoverAll.slice(0, 10);
 
   // ── Render ────────────────────────────────────────────────
+  // In brand mode — show brand profile view instead
+  if (currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand')) {
+    return <BrandProfileView onOpenUserProfile={onOpenUserProfile} />;
+  }
+
   return (
     <div>
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Profile</span>
-        <button onClick={() => setShowSettings(true)} style={{ fontSize: 20 }}>⚙️</button>
+        <button onClick={() => currentUser.brandMode ? setShowBrandSettings(true) : setShowSettings(true)} style={{ fontSize: 20 }}>⚙️</button>
       </div>
 
       <div style={{ padding: '20px 16px 80px' }}>
@@ -813,21 +822,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
               <span>🍪 Cookies</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
             </a>
-            {/* Brand Team (brand mode only) */}
-            {(currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand') && currentUser.brandMode && (
-              <>
-                <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BRAND</div>
-                <button onClick={() => { setShowSettings(false); setShowBrandTeam(true); }}
-                  style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div>👥 Brand Team</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Invite or manage your brand manager</div>
-                  </div>
-                  <span style={{ color: C.muted }}>→</span>
-                </button>
-              </>
-            )}
-
             {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={async () => {
@@ -1131,6 +1125,55 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       {/* Dashboard overlay (brand + official accounts only) */}
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
+      )}
+
+      {/* Brand Settings Panel */}
+      {showBrandSettings && (
+        <BrandSettingsPanel onClose={() => setShowBrandSettings(false)} />
+      )}
+
+      {/* Brand removal banner — shown during 30-day grace period */}
+      {currentUser.brandRemovalRequestedAt && (
+        <div style={{
+          background: '#7B1818', borderBottom: '1px solid #a82222',
+          padding: '10px 16px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+          position: 'sticky', top: 0, zIndex: 50,
+        }}>
+          <span style={{ color: '#fff', fontSize: 13, lineHeight: 1.4 }}>
+            ⚠️ <strong>{currentUser.brandName}</strong> is scheduled for removal in{' '}
+            <strong>{Math.max(0, Math.ceil((new Date(currentUser.brandRemovalRequestedAt).getTime() + 30 * 24 * 60 * 60 * 1000 - Date.now()) / (1000 * 60 * 60 * 24)))} days</strong>.
+          </span>
+          <button
+            onClick={async () => {
+              try {
+                const { cancelBrandRemoval } = await import('../lib/db');
+                await cancelBrandRemoval(currentUser.id);
+                setCurrentUser(u => ({ ...u, brandRemovalRequestedAt: null }));
+                toast('Brand removal cancelled ✓');
+              } catch (e) {
+                toast('Could not cancel — try again', 'error');
+              }
+            }}
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, color: '#fff', fontSize: 13, padding: '4px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Cancel removal
+          </button>
+        </div>
+      )}
+
+      {/* Remove Brand Modal */}
+      {showRemoveBrand && (
+        <RemoveBrandModal
+          userId={currentUser.id}
+          brandName={currentUser.brandName || 'your brand'}
+          onClose={() => setShowRemoveBrand(false)}
+          onConfirm={(brandRemovalRequestedAt) => {
+            setCurrentUser(u => ({ ...u, brandRemovalRequestedAt }));
+            setShowRemoveBrand(false);
+            toast('Brand removal scheduled. You have 30 days to cancel.');
+          }}
+        />
       )}
 
       {/* Brand Profile Edit Screen */}

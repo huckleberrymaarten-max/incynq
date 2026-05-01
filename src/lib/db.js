@@ -1711,3 +1711,29 @@ export const getPendingManagerInvites = async (userId) => {
   if (error) throw error;
   return data || [];
 };
+
+// ══════════════════════════════════════════════════════════════
+// BRAND REMOVAL — #4e
+// ══════════════════════════════════════════════════════════════
+
+export const requestBrandRemoval = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ brand_removal_requested_at: new Date().toISOString() })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const cancelBrandRemoval = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ brand_removal_requested_at: null })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
