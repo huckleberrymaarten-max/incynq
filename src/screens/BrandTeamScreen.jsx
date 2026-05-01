@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { getBrandTeam, inviteManager, removeManager } from '../lib/db';
-import Av from '../components/Av';
+
 
 const B = {
   bg:     '#040f14',
@@ -309,7 +309,8 @@ export default function BrandTeamScreen({ onClose }) {
                       borderRadius: 12,
                       padding:    '14px 16px',
                     }}>
-                      <Av user={t.manager} size={40} />
+                      
+                      <img src={t.manager.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(t.manager.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 40, height: 40, borderRadius: "18%", objectFit: "cover", border: `2px solid ${B.border}` }} />
                       <div style={{ flex: 1 }}>
                         <div style={{ color: B.text, fontWeight: 600, fontSize: 14 }}>
                           {t.manager.display_name || t.manager.username}
@@ -354,7 +355,8 @@ export default function BrandTeamScreen({ onClose }) {
                       borderRadius: 12,
                       padding:    '14px 16px',
                     }}>
-                      <Av user={t.manager} size={40} />
+                      
+                      <img src={t.manager.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(t.manager.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 40, height: 40, borderRadius: "18%", objectFit: "cover", border: `2px solid ${B.border}` }} />
                       <div style={{ flex: 1 }}>
                         <div style={{ color: B.text, fontWeight: 600, fontSize: 14 }}>
                           {t.manager.display_name || t.manager.username}
