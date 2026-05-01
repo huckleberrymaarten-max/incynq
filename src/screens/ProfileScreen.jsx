@@ -391,23 +391,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               </div>
             )}
 
-            {/* Founding Brand Badge (First 100 brands only) */}
-            {currentUser?.accountType === 'brand' && currentUser?.foundingBrandNumber && (
-              <div style={{ 
-                marginTop: 6, 
-                display: 'inline-block',
-                background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`,
-                border: `1px solid ${C.gold}44`,
-                borderRadius: 8,
-                padding: '4px 10px',
-                fontSize: 11,
-                fontWeight: 700,
-                color: C.gold
-              }}>
-                {getFoundingBrandBadge(currentUser.foundingBrandNumber)}
-              </div>
-            )}
-
           </div>
         </div>
 
