@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import C from '../theme';
+import { setAdultVerified } from '../lib/db';
+import { useApp } from '../context/AppContext';
 
 const LEVELS = [
   { id: 'general',  icon: '🟢', label: 'General',  desc: 'Family friendly content. Safe for all ages.',               note: 'Always on — cannot be disabled.', locked: true },
@@ -7,8 +9,9 @@ const LEVELS = [
   { id: 'adult',    icon: '🔴', label: 'Adult',    desc: 'Adult content — 18+ only. Requires SL adult verification.', note: 'Only available if your SL account is adult-verified.', locked: false },
 ];
 
-export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
-  // Normalise — support both old string format and new array format
+export default function MaturityScreen({ onClose, onUpdate }) {
+  const { currentUser, setCurrentUser } = useApp();
+
   const initial = Array.isArray(currentUser.maturity)
     ? currentUser.maturity
     : [currentUser.maturity || 'general'];
@@ -16,6 +19,8 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
   const [selected, setSelected] = useState(initial);
   const [adultChecks, setAdultChecks] = useState([false, false]);
   const [showAdultVerify, setShowAdultVerify] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
 
   const toggle = id => {
     if (id === 'general') return; // always on
@@ -33,10 +38,21 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
     );
   };
 
-  const confirmAdult = () => {
+  const confirmAdult = async () => {
     if (!adultChecks[0] || !adultChecks[1]) return;
-    setSelected(prev => [...prev, 'adult']);
-    setShowAdultVerify(false);
+    setVerifying(true);
+    setVerifyError('');
+    try {
+      await setAdultVerified(currentUser.id);
+      setCurrentUser(u => ({ ...u, adultVerified: true }));
+      setSelected(prev => [...prev, 'adult']);
+      setShowAdultVerify(false);
+    } catch (e) {
+      setVerifyError('Something went wrong — please try again.');
+      console.error('Adult verify failed:', e.message);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleSave = () => {
@@ -57,7 +73,7 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
         </div>
 
         {LEVELS.map(l => {
-          const isOn = selected.includes(l.id);
+          const isOn = l.locked ? true : selected.includes(l.id);
           const isAdult = l.id === 'adult';
           return (
             <div key={l.id} onClick={() => toggle(l.id)}
@@ -71,7 +87,7 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
                 </div>
                 {/* Checkbox */}
                 <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isOn ? (isAdult ? '#ff4444' : C.sky) : C.border}`, background: isOn ? (isAdult ? '#ff4444' : C.sky) : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .2s' }}>
-                  {isOn && <span style={{ color: l.locked ? '#060d14' : '#060d14', fontSize: 14, fontWeight: 900 }}>{l.locked ? '🔒' : '✓'}</span>}
+                  {isOn && <span style={{ color: '#060d14', fontSize: 14, fontWeight: 900 }}>✓</span>}
                 </div>
               </div>
             </div>
@@ -81,9 +97,12 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
         {/* Adult verification panel */}
         {showAdultVerify && (
           <div style={{ background: '#ff440011', border: '1px solid #ff440033', borderRadius: 14, padding: 16, marginTop: 4, marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#ff6644', marginBottom: 12 }}>🔞 Adult verification required</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#ff6644', marginBottom: 8 }}>🔞 Adult verification required</div>
+            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 12 }}>
+              InCynq uses the same adult access standard as Second Life — payment info on file with Linden Lab is required. Random checks are carried out. If we find you don't meet the requirement, your Adult access will be removed until you can show us payment info is on file.
+            </div>
             {[
-              'My Second Life account is adult-verified at secondlife.com',
+              'My Second Life account has payment info on file with Linden Lab',
               'I confirm I am 18 years of age or older'
             ].map((text, i) => (
               <div key={i} onClick={() => setAdultChecks(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
@@ -94,19 +113,20 @@ export default function MaturityScreen({ currentUser, onClose, onUpdate }) {
                 <span style={{ fontSize: 13, color: C.sub, lineHeight: 1.5 }}>{text}</span>
               </div>
             ))}
-            <button onClick={() => window.open('https://secondlife.com/my/account/verify', '_blank')}
+            <button onClick={() => window.open('https://cashier.secondlife.com/addpm', '_blank')}
               style={{ width: '100%', padding: '10px', borderRadius: 10, background: 'transparent', border: '1px solid #ff444444', color: '#ff8866', fontWeight: 700, fontSize: 12, marginBottom: 10 }}>
-              Verify on Second Life →
+              Add payment info on Second Life →
             </button>
+            {verifyError && <div style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 10 }}>{verifyError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowAdultVerify(false)}
+              <button onClick={() => { setShowAdultVerify(false); setAdultChecks([false, false]); }}
                 style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13 }}>
                 Cancel
               </button>
               <button onClick={confirmAdult}
-                disabled={!adultChecks[0] || !adultChecks[1]}
-                style={{ flex: 1, padding: '10px', borderRadius: 12, background: !adultChecks[0] || !adultChecks[1] ? C.border : '#ff4444', color: !adultChecks[0] || !adultChecks[1] ? C.muted : '#fff', fontWeight: 700, fontSize: 13 }}>
-                Confirm Adult ✓
+                disabled={!adultChecks[0] || !adultChecks[1] || verifying}
+                style={{ flex: 1, padding: '10px', borderRadius: 12, background: !adultChecks[0] || !adultChecks[1] ? C.border : '#ff4444', color: !adultChecks[0] || !adultChecks[1] ? C.muted : '#fff', fontWeight: 700, fontSize: 13, opacity: verifying ? 0.6 : 1 }}>
+                {verifying ? 'Verifying…' : 'Confirm Adult ✓'}
               </button>
             </div>
           </div>

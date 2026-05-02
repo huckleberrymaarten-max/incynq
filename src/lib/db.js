@@ -1737,3 +1737,50 @@ export const cancelBrandRemoval = async (userId) => {
   if (error) throw error;
   return data;
 };
+
+// ══════════════════════════════════════════════════════════════
+// ADULT VERIFICATION — #5
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Set adult_verified = true for a user.
+ * Called when user confirms adult status in MaturityScreen.
+ * User self-declares they have payment info on file with LL —
+ * same standard as Second Life.
+ */
+export const setAdultVerified = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ adult_verified: true })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Revoke adult verification (e.g. if manager loses access).
+ * Also removes 'adult' from maturity array.
+ */
+export const revokeAdultVerified = async (userId) => {
+  // First get current maturity
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('maturity')
+    .eq('id', userId)
+    .single();
+
+  const maturity = Array.isArray(profile?.maturity)
+    ? profile.maturity.filter(m => m !== 'adult')
+    : ['general'];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ adult_verified: false, maturity })
+    .eq('id', userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};

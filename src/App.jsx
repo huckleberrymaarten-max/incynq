@@ -136,6 +136,7 @@ function AppRoutes() {
         brandActivatedAt:     profile.brand_activated_at     || null,
         brandNameChangedAt:         profile.brand_name_changed_at          || null,
         brandRemovalRequestedAt:    profile.brand_removal_requested_at     || null,
+        adultVerified:              profile.adult_verified                  || false,
         brandMode:            false, // always start in resident mode
       });
 

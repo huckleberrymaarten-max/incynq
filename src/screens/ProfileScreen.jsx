@@ -886,7 +886,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
       {showMaturity && (
         <MaturityScreen
-          currentUser={currentUser}
           onClose={() => setShowMaturity(false)}
           onUpdate={async updates => {
             updateUser(updates);

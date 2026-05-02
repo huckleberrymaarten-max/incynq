@@ -4,7 +4,37 @@ import { useState, useEffect, useRef } from 'react';
 const likeDebounce = new Map();
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { userOf, locOf, adMatchesUser, visibleName, USERS } from '../data';
+import { userOf, locOf, visibleName, USERS } from '../data';
+
+// ── adMatchesUser — maturity filter ──────────────────────────
+// LOCKED MODEL:
+//   General  → sees General only
+//   Moderate → sees General + Moderate
+//   Adult    → sees General + Moderate + Adult (requires adult_verified)
+//
+// user sees ad IF ad maturity level ≤ user's highest enabled level
+const MATURITY_RANK = { general: 0, moderate: 1, adult: 2 };
+
+const adMatchesUser = (ad, user) => {
+  const userMaturity = Array.isArray(user.maturity) ? user.maturity : [user.maturity || 'general'];
+  const adLevel      = ad.adMaturity || 'general';
+
+  // Adult ads require adult_verified
+  if (adLevel === 'adult' && !user.adultVerified) return false;
+
+  // Get user's highest enabled maturity rank
+  const userMaxRank = Math.max(...userMaturity.map(m => MATURITY_RANK[m] ?? 0));
+  const adRank      = MATURITY_RANK[adLevel] ?? 0;
+
+  // Ad level must be ≤ user's max level
+  if (adRank > userMaxRank) return false;
+
+  // Interest group matching
+  if (ad.isRandom) return true;
+  if (!ad.groups || ad.groups.length === 0) return true;
+  const userGroups = new Set([...(user.groups || []), ...(user.subs || [])]);
+  return ad.groups.some(g => userGroups.has(g));
+};
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
@@ -428,7 +458,7 @@ export default function FeedScreen({ onGoToProfile }) {
       if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < sponsAds.length) {
         const ad = sponsAds[qi++];
         const loc = locOf(ad.locationId);
-        const matches = adMatchesUser(ad, { groups: myGroups, subs: mySubs, maturity: currentUser.maturity });
+        const matches = adMatchesUser(ad, { groups: myGroups, subs: mySubs, maturity: currentUser.maturity, adultVerified: currentUser.adultVerified });
         if (loc) result.push({ type: 'sponsored', data: { ad, loc, matches } });
       }
     });
