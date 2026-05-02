@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import C from '../theme';
-import { EVENT_BOOST_TIERS } from '../data';
+import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
 import { getEvents, createEvent, getEventRsvps, upsertRsvp, removeRsvp } from '../lib/db';
 
 export default function EventsScreen() {
   const { currentUser, toast } = useApp();
+  const { eventBoostTiers } = useContent();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rsvped, setRsvped] = useState(new Set());      // event IDs where status = 'going'
@@ -152,7 +153,7 @@ export default function EventsScreen() {
         )}
 
         {events.map(ev => {
-          const boostColor = EVENT_BOOST_TIERS.find(t => t.id === ev.boost_tier)?.color || C.gold;
+          const boostColor = eventBoostTiers.find(t => t.id === ev.boost_tier)?.color || C.gold;
           const isRsvp     = rsvped.has(ev.id);
           const isInt      = interested.has(ev.id);
           const host       = ev.profiles?.display_name || ev.profiles?.username || 'Unknown';

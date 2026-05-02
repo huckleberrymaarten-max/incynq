@@ -39,8 +39,14 @@ export function ContentProvider({ children }) {
     { id: 'premium',  name: 'Premium',  basePrice: parseInt(appContent.ad_price_premium  || 1500), icon: '👑', color: '#f0a500', desc: 'Top story + feed + explore banner', reach: '~15,000 residents/day' },
   ];
 
+  const eventBoostTiers = [
+    { id: 'basic',    name: 'Basic',    icon: '⚡', color: '#00b4c8', pricePerDay: parseInt(appContent.boost_price_basic    || 100) },
+    { id: 'featured', name: 'Featured', icon: '⭐', color: '#a78bfa', pricePerDay: parseInt(appContent.boost_price_featured || 250) },
+    { id: 'premium',  name: 'Premium',  icon: '👑', color: '#f0a500', pricePerDay: parseInt(appContent.boost_price_premium  || 500) },
+  ]
+
   return (
-    <ContentContext.Provider value={{ interestGroups, appContent, adTiers, loading }}>
+    <ContentContext.Provider value={{ interestGroups, appContent, adTiers, eventBoostTiers, loading }}>
       {children}
     </ContentContext.Provider>
   );

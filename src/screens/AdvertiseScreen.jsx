@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { AD_TIERS, INTEREST_GROUPS, LOCS, calcAdPrice, groupMultiplier } from '../data';
+import { calcAdPrice, groupMultiplier } from '../data';
+import { useContent } from '../context/ContentContext';
 
 const STEPS = ['Location', 'Ad Plan', 'Audience', 'Confirm'];
 
@@ -16,7 +17,8 @@ export default function AdvertiseScreen() {
   const [adMaturity, setAdMaturity] = useState('general');
   const [showModal, setShowModal] = useState(false);
 
-  const tier = AD_TIERS.find(t => t.id === selTier);
+  const { adTiers, appContent } = useContent();
+  const tier = adTiers.find(t => t.id === selTier);
   const price = tier ? calcAdPrice(tier, selGroups, isRandom) : 0;
   const locName = selLoc ? selLoc.name : customLoc.trim();
   const wallet = currentUser.wallet || 0;
@@ -56,7 +58,7 @@ export default function AdvertiseScreen() {
           <div className="sg" style={{ fontWeight: 800, fontSize: 18, color: C.text, marginBottom: 10 }}>Advertise on InCynq</div>
           <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 24 }}>You need a brand account to run ads. Create one from Settings.</div>
           <div style={{ padding: '12px 16px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 12, fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
-            Activation is 3,500 L$ — which goes straight into your Brand Wallet as ad credit.
+            Activation is {(parseInt(appContent.brand_activation_fee) || 3500).toLocaleString()} L$ — which goes straight into your Brand Wallet as ad credit.
           </div>
         </div>
       </div>
@@ -93,7 +95,7 @@ export default function AdvertiseScreen() {
           <>
             <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>ACTIVE ADS</div>
             {activeAds.map(ad => {
-              const t = AD_TIERS.find(t => t.id === ad.tier);
+              const t = adTiers.find(t => t.id === ad.tier);
               const daysLeft = Math.ceil((ad.expiresAt - Date.now()) / 86400000);
               return (
                 <div key={ad.id} style={{ background: C.card, borderRadius: 14, padding: 14, marginBottom: 10, border: `1px solid ${t?.color}33` }}>
@@ -169,7 +171,7 @@ export default function AdvertiseScreen() {
               )}
 
               {/* Step 1: Ad Plan */}
-              {step === 1 && AD_TIERS.map(t => (
+              {step === 1 && adTiers.map(t => (
                 <div key={t.id} onClick={() => setSelTier(t.id)}
                   style={{ background: selTier === t.id ? `${t.color}11` : C.card2, border: `1.5px solid ${selTier === t.id ? t.color : t.color + '44'}`, borderRadius: 14, padding: 14, marginBottom: 10, cursor: 'pointer', transition: 'all .2s' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
