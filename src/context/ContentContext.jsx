@@ -18,14 +18,8 @@ export function ContentProvider({ children }) {
         ]);
 
         if (groups?.length) {
-          setInterestGroups(groups.map(g => ({
-            id: g.id,
-            icon: g.icon || '',
-            label: g.label.replace(/^\S+\s/, '').trim(),
-            color: g.color,
-            subs: g.interest_subs?.map(s => s.label) || [],
-            tags: g.tags || [],
-          })));
+          // Groups already mapped in getInterestGroups() — use directly
+          setInterestGroups(groups);
         }
 
         if (content) setAppContent(content);

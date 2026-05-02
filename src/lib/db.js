@@ -2,13 +2,34 @@ import { supabase } from './supabase';
 
 // ── Interest groups ──────────────────────────────────────
 export const getInterestGroups = async () => {
-  const { data, error } = await supabase
-    .from('interest_groups')
-    .select('*, interest_subs(*), icon, tags')
-    .eq('active', true)
+  const { data: categories, error } = await supabase
+    .from('interest_categories')
+    .select('id, name, slug, icon, color, sort_order')
     .order('sort_order');
   if (error) throw error;
-  return data;
+  if (!categories?.length) return [];
+
+  // Fetch subcategories for all categories in one query
+  const { data: subs } = await supabase
+    .from('interest_subcategories')
+    .select('id, category_id, name, slug, sort_order')
+    .order('sort_order');
+
+  const subsMap = {};
+  (subs || []).forEach(s => {
+    if (!subsMap[s.category_id]) subsMap[s.category_id] = [];
+    subsMap[s.category_id].push(s);
+  });
+
+  return categories.map(cat => ({
+    id: cat.slug,           // use slug as id so existing group matching still works
+    dbId: cat.id,
+    icon: cat.icon || '',
+    label: cat.name,
+    color: cat.color || '#00b4c8',
+    subs: (subsMap[cat.id] || []).map(s => s.name),
+    tags: [],
+  }));
 };
 
 // ── App content (prices, text) ───────────────────────────
