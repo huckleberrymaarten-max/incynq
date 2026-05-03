@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { calcAdPrice, groupMultiplier } from '../data';
+import { calcAdPrice, groupMultiplier, LOCS, INTEREST_GROUPS } from '../data';
 import { useContent } from '../context/ContentContext';
+import ImageCropModal from '../components/ImageCropModal';
 
-const STEPS = ['Location', 'Ad Plan', 'Audience', 'Confirm'];
+const STEPS = ['Creative', 'Ad Plan', 'Audience', 'Confirm'];
 
 export default function AdvertiseScreen() {
   const { currentUser, ads, purchaseAd, toast } = useApp();
@@ -16,17 +17,33 @@ export default function AdvertiseScreen() {
   const [isRandom, setIsRandom] = useState(false);
   const [adMaturity, setAdMaturity] = useState('general');
   const [showModal, setShowModal] = useState(false);
+  const [slurl, setSlurl] = useState('');
+  const [marketplaceUrl, setMarketplaceUrl] = useState('');
+  const [adCaption, setAdCaption] = useState('');
+  const [adImageUrl, setAdImageUrl] = useState('');
+  const [uploadingAdImage, setUploadingAdImage] = useState(false);
+  const [adCropFile, setAdCropFile] = useState(null);
 
   const { adTiers, appContent } = useContent();
   const tier = adTiers.find(t => t.id === selTier);
   const price = tier ? calcAdPrice(tier, selGroups, isRandom) : 0;
   const locName = selLoc ? selLoc.name : customLoc.trim();
-  const wallet = currentUser.wallet || 0;
-  const canSelectAdult = currentUser.maturity === 'adult';
+  const hasLink = !!(slurl.trim() || marketplaceUrl.trim());
+  // Brand owners always use brand wallet on this screen; managers use it when in managing mode
+  const isBrandMode = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || !!currentUser.managingBrandId;
+  const activeBrand = currentUser.managingBrandId
+    ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
+    : null;
+  const wallet = isBrandMode
+    ? (activeBrand ? (activeBrand.brand_wallet || 0) : (currentUser.brandWallet || 0))
+    : (currentUser.wallet || 0);
+  const canSelectAdult = Array.isArray(currentUser.maturity)
+    ? currentUser.maturity.includes('adult')
+    : currentUser.maturity === 'adult';
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const canProceed = () => {
-    if (step === 0) return !!(selLoc || customLoc.trim());
+    if (step === 0) return true; // location, SLURL and marketplace link are all optional
     if (step === 1) return !!selTier;
     if (step === 2) return selGroups.length > 0;
     return true;
@@ -39,15 +56,16 @@ export default function AdvertiseScreen() {
     setStep(0); setSelLoc(null); setCustomLoc('');
     setSelTier(null); setSelGroups([]); setIsRandom(false);
     setAdMaturity('general'); setShowModal(false);
+    setSlurl(''); setMarketplaceUrl(''); setAdCaption(''); setAdImageUrl('');
   };
 
   const handleLaunch = () => {
     if (wallet < price) { toast('Not enough L$ in wallet', 'error'); return; }
-    purchaseAd({ tier: selTier, groups: selGroups, isRandom, adMaturity, price, locationId: selLoc?.id || null, locationName: locName });
+    purchaseAd({ tier: selTier, groups: selGroups, isRandom, adMaturity, price, locationId: selLoc?.id || null, locationName: locName || null, slurl: slurl.trim() || null, marketplaceUrl: marketplaceUrl.trim() || null, adCaption: adCaption.trim() || null, adImageUrl: adImageUrl || null });
     reset();
   };
 
-  if (currentUser.accountType !== 'brand') {
+  if (currentUser.accountType !== 'brand' && currentUser.accountType !== 'founding_brand' && !currentUser.managingBrandId) {
     return (
       <div style={{ padding: 20 }}>
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card }}>
@@ -147,25 +165,64 @@ export default function AdvertiseScreen() {
             {/* Step content */}
             <div style={{ padding: 18, overflowY: 'auto', flex: 1 }}>
 
-              {/* Step 0: Location */}
+              {/* Step 0: Creative */}
               {step === 0 && (
                 <div>
-                  <div style={{ fontSize: 13, color: C.sub, marginBottom: 14, lineHeight: 1.5 }}>Pick one of your registered SL locations or enter a custom name.</div>
-                  {LOCS.slice(0, 4).map(loc => (
-                    <div key={loc.id} onClick={() => setSelLoc(loc)}
-                      style={{ display: 'flex', gap: 12, alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 8, background: selLoc?.id === loc.id ? `${C.sky}18` : C.card2, border: `1.5px solid ${selLoc?.id === loc.id ? C.sky : C.border}`, cursor: 'pointer', transition: 'all .15s' }}>
-                      {loc.image && <img src={loc.image} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{loc.name}</div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>@{loc.owner}</div>
+                  <div style={{ fontSize: 13, color: C.sub, marginBottom: 14, lineHeight: 1.5 }}>Build your ad. Add an image and caption — the rest is optional.</div>
+
+                  {/* Image upload */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>AD IMAGE (optional)</label>
+                    {adImageUrl ? (
+                      <div style={{ position: 'relative' }}>
+                        <img src={adImageUrl} alt="Ad" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+                        <button onClick={() => setAdImageUrl('')}
+                          style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: '#000000aa', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                       </div>
-                      {selLoc?.id === loc.id && <span style={{ color: C.sky, fontSize: 18 }}>✓</span>}
-                    </div>
-                  ))}
-                  <div style={{ marginTop: 12 }}>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>OR ENTER CUSTOM LOCATION</label>
+                    ) : (
+                      <label style={{ display: 'block', cursor: 'pointer' }}>
+                        <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: '28px 20px', textAlign: 'center', background: C.card2 }}>
+                          <div style={{ fontSize: 28, marginBottom: 8 }}>{uploadingAdImage ? '⏳' : '🖼️'}</div>
+                          <div style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{uploadingAdImage ? 'Uploading…' : 'Tap to upload image'}</div>
+                        </div>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          e.target.value = '';
+                          setAdCropFile(file);
+                        }} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Caption */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>AD TEXT (optional)</label>
+                    <textarea value={adCaption} onChange={e => setAdCaption(e.target.value)}
+                      placeholder="e.g. Check out our new collection at Main Store — now open!"
+                      className="inp" style={{ resize: 'none', minHeight: 80, fontFamily: 'inherit', lineHeight: 1.5 }} maxLength={280} />
+                    <div style={{ fontSize: 10, color: C.muted, textAlign: 'right', marginTop: 2 }}>{adCaption.length}/280</div>
+                  </div>
+
+                  {/* Location */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>LOCATION NAME (optional)</label>
                     <input value={customLoc} onChange={e => { setCustomLoc(e.target.value); setSelLoc(null); }}
-                      placeholder="e.g. The Neon Lounge" className="inp" />
+                      placeholder="e.g. The Neon Lounge — Main Store" className="inp" />
+                  </div>
+
+                  {/* SLURL */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>SLURL (optional)</label>
+                    <input value={slurl} onChange={e => setSlurl(e.target.value)}
+                      placeholder="secondlife://Region/128/128/22" className="inp" />
+                  </div>
+
+                  {/* Marketplace */}
+                  <div style={{ marginBottom: 4 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>MARKETPLACE LINK (optional)</label>
+                    <input value={marketplaceUrl} onChange={e => setMarketplaceUrl(e.target.value)}
+                      placeholder="https://marketplace.secondlife.com/..." className="inp" />
                   </div>
                 </div>
               )}
@@ -270,9 +327,19 @@ export default function AdvertiseScreen() {
                   <div style={{ background: C.card2, borderRadius: 14, padding: 14, marginBottom: 16 }}>
                     <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>📍 {locName}</div>
                   </div>
+                  {/* Ad preview */}
+                  {(adImageUrl || adCaption) && (
+                    <div style={{ background: C.card2, borderRadius: 14, overflow: 'hidden', marginBottom: 16, border: `1px solid ${C.border}` }}>
+                      {adImageUrl && <img src={adImageUrl} alt="Ad" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />}
+                      {adCaption && <div style={{ padding: '10px 14px', fontSize: 13, color: C.sub, lineHeight: 1.5 }}>{adCaption}</div>}
+                    </div>
+                  )}
                   {[
                     ['Ad Plan', `${tier.icon} ${tier.name}`],
                     ['Duration', '7 days'],
+                    ...(locName ? [['Location', locName]] : []),
+                    ...(slurl.trim() ? [['SLURL', slurl.trim()]] : []),
+                    ...(marketplaceUrl.trim() ? [['Marketplace', marketplaceUrl.trim()]] : []),
                     ['Groups', selGroups.join(', ')],
                     ['Rotation', isRandom ? 'Random' : 'All groups'],
                     ['Maturity', adMaturity === 'adult' ? '🔴 Adult' : adMaturity === 'moderate' ? '🟡 Moderate' : '🟢 General'],
@@ -322,6 +389,26 @@ export default function AdvertiseScreen() {
             </div>
           </div>
         </div>
+      )}
+      {adCropFile && (
+        <ImageCropModal
+          file={adCropFile}
+          onCancel={() => setAdCropFile(null)}
+          onCrop={async (previewUrl, croppedFile) => {
+            setAdCropFile(null);
+            setAdImageUrl(previewUrl);
+            setUploadingAdImage(true);
+            try {
+              const { uploadPostImage } = await import('../lib/db');
+              const url = await uploadPostImage(currentUser.id, croppedFile);
+              setAdImageUrl(url);
+            } catch (err) {
+              console.warn('Ad image upload failed:', err.message);
+            } finally {
+              setUploadingAdImage(false);
+            }
+          }}
+        />
       )}
     </div>
   );

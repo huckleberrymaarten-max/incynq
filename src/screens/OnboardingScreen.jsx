@@ -13,7 +13,7 @@ const SLIDES = [
           <span style={{ color: '#ff4466' }}>needs a break.</span>
         </h1>
         <p style={{ fontSize: 15, color: C.sub, lineHeight: 1.7 }}>
-          Hundreds of messages a day. Sales you never asked for. Events from sims you visited once. Sound familiar?
+          Hundreds of group messages and notices a day. Sales you never asked for. Events from sims you visited once. Sound familiar?
         </p>
         <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[

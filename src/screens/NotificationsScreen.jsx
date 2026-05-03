@@ -21,7 +21,12 @@ const NOTIF_CONFIG = {
   comment:        { icon: '💬',  color: '#00b4c8', label: 'commented on your post' },
   follow:         { icon: '👤',  color: '#00e5a0', label: 'started following you' },
   system:         { icon: '⚡',  color: '#f0a500', label: '' },
-  manager_invite: { icon: '🏷️', color: '#00B4C8', label: 'invited you to manage their brand' },
+  manager_invite:   { icon: '🏷️', color: '#00B4C8', label: 'invited you to manage their brand' },
+  manager_removed:  { icon: '🏷️', color: '#ff6644', label: 'removed you as a manager' },
+  manager_accepted: { icon: '✅',  color: '#5DCAA5', label: 'accepted your manager invitation' },
+  manager_declined: { icon: '❌',  color: '#ff6644', label: 'declined your manager invitation' },
+  manager_welcome:  { icon: '🏷️', color: '#00B4C8', label: '' },
+  manager_resigned: { icon: '🚪',  color: '#ff8c00', label: 'stepped down as manager' },
 };
 
 export default function NotificationsScreen({ onClose }) {
@@ -33,10 +38,10 @@ export default function NotificationsScreen({ onClose }) {
     setInviteResponding(prev => ({ ...prev, [inviteId]: 'accepting' }));
     try {
       await acceptManagerInvite(inviteId, currentUser.id);
-      // Mark notification as accepted in local state
-      setNotifications(prev => prev.map(n =>
-        n.id === notif.id ? { ...n, read: true, _inviteAccepted: true } : n
-      ));
+      // Remove invite notification from DB and local state — manager_welcome replaces it
+      const { supabase } = await import('../lib/supabase');
+      await supabase.from('notifications').delete().eq('id', notif.id);
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
       // Reload managed brands into currentUser state
       const { getManagedBrands } = await import('../lib/db');
       const managed = await getManagedBrands(currentUser.id);
@@ -52,9 +57,10 @@ export default function NotificationsScreen({ onClose }) {
     setInviteResponding(prev => ({ ...prev, [inviteId]: 'declining' }));
     try {
       await declineManagerInvite(inviteId, currentUser.id);
-      setNotifications(prev => prev.map(n =>
-        n.id === notif.id ? { ...n, read: true, _inviteDeclined: true } : n
-      ));
+      // Remove invite notification from DB and local state
+      const { supabase } = await import('../lib/supabase');
+      await supabase.from('notifications').delete().eq('id', notif.id);
+      setNotifications(prev => prev.filter(n => n.id !== notif.id));
     } catch (e) {
       console.error('Decline invite failed:', e.message);
     } finally {
@@ -77,6 +83,31 @@ export default function NotificationsScreen({ onClose }) {
   };
 
   const getNotifText = (notif) => {
+    if (notif.type === 'manager_accepted') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      return `${meta.manager_name || 'Someone'} accepted your manager invitation for ${meta.brand_name || 'your brand'}!`;
+    }
+    if (notif.type === 'manager_declined') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      return `${meta.manager_name || 'Someone'} declined your manager invitation.`;
+    }
+    if (notif.type === 'manager_welcome') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      return `Welcome as manager of ${meta.brand_name || 'the brand'}, ${meta.manager_name || ''}! You can now post and place ads as ${meta.brand_name || 'the brand'}.`;
+    }
+    if (notif.type === 'manager_resigned') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      return `${meta.manager_name || 'Someone'} has stepped down as manager of ${meta.brand_name || 'your brand'}.`;
+    }
+    if (notif.type === 'manager_removed') {
+      let meta = {};
+      try { meta = JSON.parse(notif.text || '{}'); } catch {}
+      return `We're sorry to let you go — you're no longer a manager of ${meta.brand_name || 'a brand'}.`;
+    }
     if (notif.type === 'manager_invite') {
       let meta = {};
       try { meta = JSON.parse(notif.text || '{}'); } catch {}

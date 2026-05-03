@@ -154,7 +154,7 @@ export const getPosts = async () => {
   const { data, error } = await supabase
     .from('posts')
     .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name, account_type), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type), post_comments(id)')
-    .not('is_welcome', 'eq', true)
+    .eq('is_welcome', false)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -347,7 +347,7 @@ export const getEvents = async () => {
   return data;
 };
 
-export const createEvent = async ({ userId, title, locationName, slurl, date, timeSlt, description }) => {
+export const createEvent = async ({ userId, title, locationName, slurl, date, timeSlt, description, imageUrl }) => {
   const { data, error } = await supabase
     .from('events')
     .insert({
@@ -358,6 +358,7 @@ export const createEvent = async ({ userId, title, locationName, slurl, date, ti
       date:          date         || null,
       time_slt:      timeSlt      || null,
       description:   description  || null,
+      image_url:     imageUrl     || null,
     })
     .select()
     .single();
@@ -714,7 +715,7 @@ export const getCurrentPricingTier = async () => {
 
 // Get current ad prices (everyone pays the same)
 // ── Place an ad (deducts from brand wallet in Supabase) ───────
-export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, locationId, locationName }) => {
+export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
 
   // Deduct from brand wallet
@@ -745,9 +746,13 @@ export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, pri
       is_random:     isRandom || false,
       ad_maturity:   adMaturity || 'general',
       price,
-      location_id:   locationId || null,
-      location_name: locationName || null,
-      status:        'active',
+      location_id:    locationId || null,
+      location_name:  locationName || null,
+      slurl:           slurl || null,
+      marketplace_url:  marketplaceUrl || null,
+      ad_caption:       adCaption || null,
+      ad_image_url:     adImageUrl || null,
+      status:         'active',
       expires_at:    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
@@ -1712,6 +1717,43 @@ export const acceptManagerInvite = async (inviteId, managerId) => {
     .select()
     .single();
   if (error) throw error;
+
+  try {
+    // Get manager profile and brand owner details
+    const [managerRes, ownerRes] = await Promise.all([
+      supabase.from('profiles').select('display_name, username, avatar_url, show_display_name').eq('id', managerId).single(),
+      supabase.from('brand_managers').select('brand_owner_id').eq('id', inviteId).single(),
+    ]);
+    const manager = managerRes.data;
+    const brandOwnerId = ownerRes.data?.brand_owner_id || data?.brand_owner_id;
+
+    if (brandOwnerId) {
+      const { data: owner } = await supabase.from('profiles').select('brand_name, brand_logo_url').eq('id', brandOwnerId).single();
+      const managerName = manager?.show_display_name !== false && manager?.display_name ? manager.display_name : manager?.username || 'Someone';
+
+      // Notify brand owner: manager accepted (delete any duplicate first)
+      await supabase.from('notifications').delete().eq('user_id', brandOwnerId).eq('type', 'manager_accepted').eq('actor_id', managerId);
+      await supabase.from('notifications').insert({
+        user_id:  brandOwnerId,
+        type:     'manager_accepted',
+        actor_id: managerId,
+        text:     JSON.stringify({ manager_name: managerName, brand_name: owner?.brand_name || 'your brand' }),
+        read:     false,
+      });
+
+      // Welcome notification to the new manager
+      await supabase.from('notifications').insert({
+        user_id:  managerId,
+        type:     'manager_welcome',
+        actor_id: brandOwnerId,
+        text:     JSON.stringify({ brand_name: owner?.brand_name || 'the brand', brand_logo_url: owner?.brand_logo_url || null, manager_name: managerName }),
+        read:     false,
+      });
+    }
+  } catch (e) {
+    console.warn('Could not send accept notifications:', e.message);
+  }
+
   return data;
 };
 
@@ -1726,7 +1768,59 @@ export const declineManagerInvite = async (inviteId, managerId) => {
     .select()
     .single();
   if (error) throw error;
+
+  try {
+    const [managerRes, ownerRes] = await Promise.all([
+      supabase.from('profiles').select('display_name, username, show_display_name').eq('id', managerId).single(),
+      supabase.from('brand_managers').select('brand_owner_id').eq('id', inviteId).single(),
+    ]);
+    const manager = managerRes.data;
+    const brandOwnerId = ownerRes.data?.brand_owner_id;
+    const managerName = manager?.show_display_name !== false && manager?.display_name ? manager.display_name : manager?.username || 'Someone';
+
+    if (brandOwnerId) {
+      await supabase.from('notifications').insert({
+        user_id:  brandOwnerId,
+        type:     'manager_declined',
+        actor_id: managerId,
+        text:     JSON.stringify({ manager_name: managerName }),
+        read:     false,
+      });
+    }
+  } catch (e) {
+    console.warn('Could not send decline notification:', e.message);
+  }
+
   return data;
+};
+
+// ── Resign as manager (manager's own action) ─────────────────
+export const resignAsManager = async (brandOwnerId, managerId) => {
+  const { error } = await supabase
+    .from('brand_managers')
+    .update({ status: 'resigned', removed_at: new Date().toISOString() })
+    .eq('brand_owner_id', brandOwnerId)
+    .eq('manager_id', managerId);
+  if (error) throw error;
+
+  // Notify the brand owner
+  try {
+    const [managerRes, ownerRes] = await Promise.all([
+      supabase.from('profiles').select('display_name, username, show_display_name').eq('id', managerId).single(),
+      supabase.from('profiles').select('brand_name').eq('id', brandOwnerId).single(),
+    ]);
+    const manager = managerRes.data;
+    const managerName = manager?.show_display_name !== false && manager?.display_name ? manager.display_name : manager?.username || 'Someone';
+    await supabase.from('notifications').insert({
+      user_id:  brandOwnerId,
+      type:     'manager_resigned',
+      actor_id: managerId,
+      text:     JSON.stringify({ manager_name: managerName, brand_name: ownerRes.data?.brand_name || 'your brand' }),
+      read:     false,
+    });
+  } catch (e) {
+    console.warn('Could not send resign notification:', e.message);
+  }
 };
 
 // ── Remove a manager (brand owner action) ─────────────────────
@@ -1737,6 +1831,27 @@ export const removeManager = async (brandOwnerId, managerId) => {
     .eq('brand_owner_id', brandOwnerId)
     .eq('manager_id', managerId);
   if (error) throw error;
+
+  // Notify the removed manager
+  try {
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('brand_name, brand_logo_url')
+      .eq('id', brandOwnerId)
+      .single();
+    await supabase.from('notifications').insert({
+      user_id:  managerId,
+      type:     'manager_removed',
+      actor_id: brandOwnerId,
+      text:     JSON.stringify({
+        brand_name:     owner?.brand_name || 'a brand',
+        brand_logo_url: owner?.brand_logo_url || null,
+      }),
+      read: false,
+    });
+  } catch (e) {
+    console.warn('Could not send manager removal notification:', e.message);
+  }
 };
 
 // ── Get brand team (owner view) ───────────────────────────────

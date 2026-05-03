@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useContent } from '../context/ContentContext';
 import { initBrandActivation, checkBrandActivated, cancelBrandActivation, uploadBrandLogo } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
@@ -38,8 +39,6 @@ const labelStyle = {
   marginBottom: 6,
   letterSpacing: 0.3,
 };
-
-const BRAND_ACTIVATION_FEE = 3500;
 
 // ══════════════════════════════════════════════════════════════
 // STEP 1 — Brand Info Form
@@ -174,7 +173,8 @@ function StepInfo({ onNext, onClose }) {
 // ══════════════════════════════════════════════════════════════
 // STEP 2 — Review + Confirm
 // ══════════════════════════════════════════════════════════════
-function StepReview({ brandData, onConfirm, onBack, loading }) {
+function StepReview({ brandData, activationFee, onConfirm, onBack, loading }) {
+  const BRAND_ACTIVATION_FEE = activationFee || 3500;
   return (
     <div>
       <h2 style={{ color: B.text, fontSize: 20, fontWeight: 700, margin: '0 0 6px' }}>
@@ -249,7 +249,8 @@ function StepReview({ brandData, onConfirm, onBack, loading }) {
 // ══════════════════════════════════════════════════════════════
 // STEP 3 — Payment instructions + waiting for ATM
 // ══════════════════════════════════════════════════════════════
-function StepPayment({ activationCode, onActivated, onCancel, userId }) {
+function StepPayment({ activationCode, activationFee, onActivated, onCancel, userId }) {
+  const BRAND_ACTIVATION_FEE = activationFee || 3500;
   const [copied, setCopied]   = useState(false);
   const [status, setStatus]   = useState('waiting'); // waiting | activated
   const intervalRef           = useRef(null);
@@ -372,6 +373,8 @@ function StepPayment({ activationCode, onActivated, onCancel, userId }) {
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════
 export default function AddBrandScreen({ onClose, onActivated }) {
+  const { appContent } = useContent();
+  const BRAND_ACTIVATION_FEE = parseInt(appContent?.brand_activation_fee || 3500);
   const { currentUser } = useApp();
   const [step,           setStep]           = useState(1);
   const [brandData,      setBrandData]      = useState(null);

@@ -16,6 +16,10 @@ export default function AuthScreen({ onLogin }) {
   const [showTC, setShowTC] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotSlName, setForgotSlName] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleLogin = async () => {
     setError('');
@@ -105,6 +109,29 @@ export default function AuthScreen({ onLogin }) {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!forgotSlName.trim()) { setError('Enter your SL avatar name.'); return; }
+    setForgotLoading(true);
+    setError('');
+    try {
+      const { data: emailData, error: rpcError } = await supabase
+        .rpc('get_email_by_username', { p_username: forgotSlName.trim().toLowerCase() });
+      if (rpcError || !emailData) {
+        setError('Avatar not found. Check your SL name.');
+        setForgotLoading(false);
+        return;
+      }
+      await supabase.auth.resetPasswordForEmail(emailData, {
+        redirectTo: window.location.origin,
+      });
+      setForgotSent(true);
+    } catch (e) {
+      setError('Could not send reset link. Try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <>
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
@@ -171,6 +198,12 @@ export default function AuthScreen({ onLogin }) {
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
                 <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>InCynq never asks for your SL password.</div>
+                {mode === 'login' && (
+                  <button onClick={() => { setShowForgotPassword(true); setForgotSent(false); setForgotSlName(''); setError(''); }}
+                    style={{ fontSize: 11, color: C.sky, fontWeight: 600, textAlign: 'right', display: 'block', marginTop: 4, marginLeft: 'auto' }}>
+                    Forgot password?
+                  </button>
+                )}
               </div>
 
               {/* Confirm — register only */}
@@ -250,6 +283,48 @@ export default function AuthScreen({ onLogin }) {
           </div>
         </div>
       </div>
+      {/* Forgot Password sheet */}
+      {showForgotPassword && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowForgotPassword(false)}>
+          <div style={{ background: '#0d1f2d', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: '24px 20px 40px' }}
+            onClick={e => e.stopPropagation()} className="fadeUp">
+            {forgotSent ? (
+              <>
+                <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>📬</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Check your inbox</div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
+                  We've sent a password reset link to your email. Click it to set a new password.
+                </div>
+                <button onClick={() => setShowForgotPassword(false)}
+                  style={{ width: '100%', padding: '13px', borderRadius: 14, background: 'rgba(0,180,200,0.15)', border: '1px solid rgba(0,180,200,0.3)', color: '#00B4C8', fontWeight: 800, fontSize: 14 }}>
+                  Got it
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🔑</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Reset your password</div>
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 20 }}>
+                  Enter your SL avatar name and we'll send a reset link to your email.
+                </div>
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>SL AVATAR NAME</label>
+                <input value={forgotSlName} onChange={e => setForgotSlName(e.target.value)}
+                  placeholder="firstname.lastname" className="inp" style={{ marginBottom: 12 }} />
+                {error && (
+                  <div style={{ padding: '9px 12px', background: '#ff440011', border: '1px solid #ff440044', borderRadius: 10, color: '#ff6644', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+                    {error}
+                  </div>
+                )}
+                <button onClick={handleForgotPassword} disabled={forgotLoading}
+                  style={{ width: '100%', padding: '13px', borderRadius: 14, background: forgotLoading ? 'rgba(0,180,200,0.1)' : 'linear-gradient(135deg,#00B4C8,#F4B942)', color: forgotLoading ? 'rgba(255,255,255,0.4)' : '#060d14', fontWeight: 800, fontSize: 14 }}>
+                  {forgotLoading ? '⏳ Sending…' : 'Send reset link →'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

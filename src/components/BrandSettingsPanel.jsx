@@ -83,9 +83,7 @@ export default function BrandSettingsPanel({ onClose }) {
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Current balance</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#F4B942' }}>{(currentUser.brandWallet || 0).toLocaleString()} L$</div>
               </div>
-              <div style={{ background: 'rgba(244,185,66,0.1)', border: '1px solid rgba(244,185,66,0.25)', borderRadius: 8, padding: '6px 14px', color: '#F4B942', fontSize: 12, fontWeight: 700 }}>
-                Top Up via ATM
-              </div>
+
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>Visit any InCynq ATM inworld to top up your Brand Wallet.</div>
           </div>

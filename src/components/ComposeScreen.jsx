@@ -7,9 +7,19 @@ import { createPost, uploadPostImage } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import Av from './Av';
 import SLCharPicker from './SLCharPicker';
+import ImageCropModal from './ImageCropModal';
 
 export default function ComposeScreen({ onClose }) {
   const { currentUser, posts, setPosts, toast } = useApp();
+
+  // In brand mode, post as the active brand (own or managed)
+  const activeBrandId = currentUser.brandMode
+    ? (currentUser.managingBrandId || (
+        (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand')
+          ? currentUser.id : null
+      ))
+    : null;
+  const authorId = activeBrandId || currentUser.id;
   const { interestGroups } = useContent();
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState([]);
@@ -19,9 +29,11 @@ export default function ComposeScreen({ onClose }) {
   const [showCharPicker, setShowCharPicker] = useState(false);
   const [posting, setPosting] = useState(false);
   const fileRef = useRef(null);
+  const [cropQueue, setCropQueue] = useState([]);
+  const [currentCropFile, setCurrentCropFile] = useState(null);
 
   // Max images based on account type
-  const isBrand = currentUser.accountType === 'brand';
+  const isBrand = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || !!currentUser.managingBrandId;
   const maxImages = isBrand ? 8 : 4;
 
   const toggleTag = tag => setSelTags(prev =>
@@ -31,23 +43,30 @@ export default function ComposeScreen({ onClose }) {
   const handleImage = e => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    
-    // Check if adding these files would exceed the limit
     if (images.length + files.length > maxImages) {
       toast(`Maximum ${maxImages} images per post (${isBrand ? 'brands' : 'residents'})`, 'error');
       return;
     }
+    // Queue all selected files for cropping one by one
+    setCropQueue(files.slice(1));
+    setCurrentCropFile(files[0]);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
 
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        setImages(prev => [...prev, {
-          file,
-          preview: ev.target.result
-        }]);
-      };
-      reader.readAsDataURL(file);
-    });
+  const handleCropDone = (previewUrl, croppedFile) => {
+    setImages(prev => [...prev, { file: croppedFile, preview: previewUrl }]);
+    if (cropQueue.length > 0) {
+      setCurrentCropFile(cropQueue[0]);
+      setCropQueue(prev => prev.slice(1));
+    } else {
+      setCurrentCropFile(null);
+    }
+  };
+
+  const handleCropCancel = () => {
+    setCropQueue([]);
+    setCurrentCropFile(null);
   };
 
   const removeImage = index => {
@@ -77,7 +96,7 @@ export default function ComposeScreen({ onClose }) {
       if (images.length > 0) {
         for (const img of images) {
           try {
-            const url = await uploadPostImage(currentUser.id, img.file);
+            const url = await uploadPostImage(authorId, img.file);
             imageUrls.push(url);
           } catch {
             // Fall back to base64 preview if upload fails
@@ -93,11 +112,12 @@ export default function ComposeScreen({ onClose }) {
       if (session?.user) {
         try {
           savedPost = await createPost({
-            userId: currentUser.id,
-            caption: caption.trim(),
-            imageUrl: imageUrls[0] || null, // First image for backward compatibility
-            imageUrls: imageUrls, // All images
-            tags: selTags,
+            userId:    currentUser.id,
+            brandId:   activeBrandId || null,
+            caption:   caption.trim(),
+            imageUrl:  imageUrls[0] || null,
+            imageUrls: imageUrls,
+            tags:      selTags,
           });
         } catch (e) {
           console.warn('Supabase post failed, using local:', e.message);
@@ -116,7 +136,19 @@ export default function ComposeScreen({ onClose }) {
         comments: [],
         time: 'just now',
         locationId: null,
-        _profile: {
+        _profile: activeBrandId ? {
+          username: activeBrandId === currentUser.id
+            ? currentUser.username
+            : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.username || currentUser.username,
+          display_name: activeBrandId === currentUser.id
+            ? currentUser.brandName
+            : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.brand_name || currentUser.brandName,
+          avatar_url: activeBrandId === currentUser.id
+            ? currentUser.brandLogoUrl
+            : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.brand_logo_url || currentUser.brandLogoUrl,
+          show_display_name: true,
+          account_type: 'brand',
+        } : {
           username: currentUser.username,
           display_name: currentUser.displayName,
           avatar_url: currentUser.avatar,
@@ -310,6 +342,14 @@ export default function ComposeScreen({ onClose }) {
       <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleImage} />
 
       {/* SL Char Picker — centred overlay */}
+      {currentCropFile && (
+        <ImageCropModal
+          file={currentCropFile}
+          onCrop={handleCropDone}
+          onCancel={handleCropCancel}
+        />
+      )}
+
       {showCharPicker && (
         <div style={{ position: 'absolute', inset: 0, background: '#000000aa', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
           onClick={() => setShowCharPicker(false)}>

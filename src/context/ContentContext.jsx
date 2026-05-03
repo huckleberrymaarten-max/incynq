@@ -1,28 +1,27 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getInterestGroups, getAppContent } from '../lib/db';
-import { INTEREST_GROUPS as FALLBACK_GROUPS, AD_TIERS as FALLBACK_TIERS } from '../data';
+import { getInterestGroups, getAppContent, getMemberCount } from '../lib/db';
+import { INTEREST_GROUPS as FALLBACK_GROUPS } from '../data';
 
 const ContentContext = createContext(null);
 
 export function ContentProvider({ children }) {
   const [interestGroups, setInterestGroups] = useState(FALLBACK_GROUPS);
-  const [appContent, setAppContent] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [appContent, setAppContent]         = useState({});
+  const [memberCount, setMemberCount]       = useState(0);
+  const [loading, setLoading]               = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [groups, content] = await Promise.all([
+        const [groups, content, count] = await Promise.all([
           getInterestGroups(),
           getAppContent(),
+          getMemberCount(),
         ]);
 
-        if (groups?.length) {
-          // Groups already mapped in getInterestGroups() — use directly
-          setInterestGroups(groups);
-        }
-
+        if (groups?.length) setInterestGroups(groups);
         if (content) setAppContent(content);
+        if (count) setMemberCount(count);
       } catch (err) {
         console.warn('Using fallback content:', err.message);
       } finally {
@@ -32,21 +31,34 @@ export function ContentProvider({ children }) {
     load();
   }, []);
 
-  // Ad tiers with live prices from Supabase
+  // ── Dynamic ad pricing based on member count ──────────────
+  const pricingTiers = (() => {
+    try { return JSON.parse(appContent.pricing_tiers || '[]'); }
+    catch { return []; }
+  })();
+
+  const currentTier = pricingTiers.find(t =>
+    memberCount >= t.min && (t.max === null || memberCount <= t.max)
+  ) || { tier: 1, label: 'Launch', basic: 150, featured: 400, premium: 800 };
+
   const adTiers = [
-    { id: 'basic',    name: 'Basic',    basePrice: parseInt(appContent.ad_price_basic    || 250),  icon: '⚡', color: '#00b4c8', desc: 'Highlighted in search & explore',  reach: '~2,000 residents/day' },
-    { id: 'featured', name: 'Featured', basePrice: parseInt(appContent.ad_price_featured || 750),  icon: '⭐', color: '#a78bfa', desc: 'Featured card + injected in feed',  reach: '~6,000 residents/day' },
-    { id: 'premium',  name: 'Premium',  basePrice: parseInt(appContent.ad_price_premium  || 1500), icon: '👑', color: '#f0a500', desc: 'Top story + feed + explore banner', reach: '~15,000 residents/day' },
+    { id: 'basic',    name: 'Basic',    basePrice: currentTier.basic,    icon: '⚡', color: '#00b4c8', desc: 'Highlighted in search & explore',  reach: '~2,000 residents/day' },
+    { id: 'featured', name: 'Featured', basePrice: currentTier.featured, icon: '⭐', color: '#a78bfa', desc: 'Featured card + injected in feed',  reach: '~6,000 residents/day' },
+    { id: 'premium',  name: 'Premium',  basePrice: currentTier.premium,  icon: '👑', color: '#f0a500', desc: 'Top story + feed + explore banner', reach: '~15,000 residents/day' },
   ];
 
+  // ── Event boost tiers ─────────────────────────────────────
   const eventBoostTiers = [
     { id: 'basic',    name: 'Basic',    icon: '⚡', color: '#00b4c8', pricePerDay: parseInt(appContent.boost_price_basic    || 100) },
     { id: 'featured', name: 'Featured', icon: '⭐', color: '#a78bfa', pricePerDay: parseInt(appContent.boost_price_featured || 250) },
     { id: 'premium',  name: 'Premium',  icon: '👑', color: '#f0a500', pricePerDay: parseInt(appContent.boost_price_premium  || 500) },
-  ]
+  ];
 
   return (
-    <ContentContext.Provider value={{ interestGroups, appContent, adTiers, eventBoostTiers, loading }}>
+    <ContentContext.Provider value={{
+      interestGroups, appContent, adTiers, eventBoostTiers,
+      memberCount, currentTier, pricingTiers, loading,
+    }}>
       {children}
     </ContentContext.Provider>
   );

@@ -79,16 +79,53 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Purchase ad
-  const purchaseAd = ({ tier, groups, isRandom, adMaturity, price, locationId, locationName }) => {
-    setAds(prev => [...prev, {
-      id: Date.now(), locationId: locationId || null, locationName,
-      tier, groups, isRandom, adMaturity, price,
-      purchasedAt: Date.now(), expiresAt: Date.now() + 7 * DAY,
-    }]);
-    setCurrentUser(u => ({ ...u, wallet: Math.max(0, (u.wallet || 0) - price) }));
-    setLinkedProfiles(prev => prev.map(p => p.id === currentUser.id ? { ...p, wallet: Math.max(0, (p.wallet || 0) - price) } : p));
-    toast(`Ad live! ${price.toLocaleString()} L$ charged`, 'gold');
+  // Purchase ad — deducts from correct wallet and saves to Supabase
+  const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
+    try {
+      const { placeAd } = await import('../lib/db');
+
+      // Determine which brand is active
+      const managingBrandId = currentUser.managingBrandId || null;
+      const ownBrandId = (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand')
+        ? currentUser.id
+        : null;
+      const brandId = managingBrandId || ownBrandId;
+
+      await placeAd({
+        brandId,
+        tier, groups, isRandom, adMaturity, price,
+        locationId: locationId || null,
+        locationName: locationName || null,
+        slurl: slurl || null,
+        marketplaceUrl: marketplaceUrl || null,
+        adCaption: adCaption || null,
+        adImageUrl: adImageUrl || null,
+      });
+
+      // Update local wallet state
+      if (managingBrandId) {
+        // Deduct from managed brand's wallet in state
+        setCurrentUser(u => ({
+          ...u,
+          managedBrands: (u.managedBrands || []).map(b =>
+            b.id === managingBrandId
+              ? { ...b, brand_wallet: Math.max(0, (b.brand_wallet || 0) - price) }
+              : b
+          ),
+        }));
+      } else if (ownBrandId) {
+        // Deduct from own brand wallet
+        setCurrentUser(u => ({ ...u, brandWallet: Math.max(0, (u.brandWallet || 0) - price) }));
+      } else {
+        // Resident wallet fallback
+        setCurrentUser(u => ({ ...u, wallet: Math.max(0, (u.wallet || 0) - price) }));
+      }
+
+      toast(`Ad live! ${price.toLocaleString()} L$ charged`, 'gold');
+    } catch (e) {
+      console.error('purchaseAd failed:', e);
+      toast(e.message || 'Could not place ad — try again', 'error');
+    }
   };
 
   // Suspend

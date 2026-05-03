@@ -342,7 +342,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
   // ── Render ────────────────────────────────────────────────
   // In brand mode — show brand profile view instead
-  if (currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand')) {
+  if (currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || currentUser.managingBrandId)) {
     return <BrandProfileView onOpenUserProfile={onOpenUserProfile} />;
   }
 

@@ -63,12 +63,23 @@ function AccountSwitcher({ currentUser, onSwitch }) {
         }}
       >
         {/* Avatar or brand logo */}
-        {inBrandMode && currentUser.brandLogoUrl
-          ? <img src={currentUser.brandLogoUrl} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
-          : <Av user={currentUser} size={28} />
-        }
+        {(() => {
+          const activeBrand = currentUser.managingBrandId
+            ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
+            : null;
+          const logo = activeBrand?.brand_logo_url || (inBrandMode ? currentUser.brandLogoUrl : null);
+          const name = activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
+          return logo
+            ? <img src={logo} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
+            : <Av user={currentUser} size={28} />;
+        })()}
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {inBrandMode ? currentUser.brandName : (currentUser.displayName || currentUser.username)}
+          {(() => {
+            const activeBrand = currentUser.managingBrandId
+              ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
+              : null;
+            return activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
+          })()}
         </span>
         <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginLeft: -2 }}>▼</span>
       </button>
@@ -190,6 +201,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
 export default function MainApp() {
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);
+  const [showBrandOnly,   setShowBrandOnly]   = useState(false);
   const { notifications, currentUser, setCurrentUser } = useApp();
   const unread   = notifications.filter(n => !n.read).length;
   const isBrand  = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
@@ -197,11 +209,38 @@ export default function MainApp() {
   const handleOpenUserProfile = (username) => setViewingUsername(username);
   const handleCloseUserProfile = () => setViewingUsername(null);
 
-  const handleSwitchMode = (mode, managingBrandId = null) => {
+  const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
       setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null }));
+    } else if (mode === 'managed' && managingBrandId) {
+      // Switch to managing mode immediately, then refresh wallet in background
+      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId }));
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data } = await supabase.from('profiles').select('brand_wallet').eq('id', managingBrandId).single();
+        if (data) {
+          setCurrentUser(u => ({
+            ...u,
+            managedBrands: (u.managedBrands || []).map(b =>
+              b.id === managingBrandId ? { ...b, brand_wallet: data.brand_wallet || 0 } : b
+            ),
+          }));
+        }
+      } catch (e) {
+        console.warn('Could not refresh managed brand wallet:', e.message);
+      }
     } else {
-      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId: managingBrandId || null }));
+      // Own brand mode — switch immediately, refresh own brand wallet in background
+      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId: null }));
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data } = await supabase.from('profiles').select('brand_wallet').eq('id', currentUser.id).single();
+        if (data) {
+          setCurrentUser(u => ({ ...u, brandWallet: data.brand_wallet || 0 }));
+        }
+      } catch (e) {
+        console.warn('Could not refresh brand wallet:', e.message);
+      }
     }
   };
 
@@ -210,7 +249,7 @@ export default function MainApp() {
     return <UserProfileScreen username={viewingUsername} onBack={handleCloseUserProfile} />;
   }
 
-  const inBrandMode = currentUser.brandMode === true && isBrand;
+  const inBrandMode = currentUser.brandMode === true && (isBrand || !!currentUser.managingBrandId);
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 72 }}>
@@ -244,7 +283,7 @@ export default function MainApp() {
               fontWeight:   700,
               letterSpacing: 0.5,
             }}>
-              BRAND MODE
+              {currentUser.managingBrandId ? 'MANAGING' : 'BRAND MODE'}
             </div>
           )}
         </div>
@@ -273,15 +312,18 @@ export default function MainApp() {
       }}>
         {NAV.map(n => {
           const active = tab === n.id;
-          // In brand mode, highlight Advertise
-          const brandHighlight = inBrandMode && n.id === 'advertise';
+          const isAdvertise = n.id === 'advertise';
+          const advertiseLocked = isAdvertise && !inBrandMode;
           return (
-            <button key={n.id} onClick={() => setTab(n.id)}
+            <button key={n.id} onClick={() => { if (advertiseLocked) { setShowBrandOnly(true); return; } setTab(n.id); }}
               style={{ flex: 1, padding: '12px 0 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative' }}>
-              <span style={{ fontSize: 20, filter: active ? 'none' : 'grayscale(1) opacity(.5)', transition: 'filter .2s' }}>{n.icon}</span>
+              <span style={{ fontSize: 20, filter: active ? 'none' : 'grayscale(1) opacity(.5)', transition: 'filter .2s', position: 'relative' }}>
+                {n.icon}
+                {advertiseLocked && <span style={{ position: 'absolute', top: -4, right: -6, fontSize: 10 }}>🔒</span>}
+              </span>
               <span style={{
                 fontSize: 10, fontWeight: 700,
-                color: active ? C.sky : brandHighlight ? 'rgba(0,180,200,0.5)' : C.muted,
+                color: active ? C.sky : advertiseLocked ? `${C.muted}66` : C.muted,
                 transition: 'color .2s',
               }}>{n.label}</span>
               {n.id === 'feed' && unread > 0 && (
@@ -294,6 +336,25 @@ export default function MainApp() {
           );
         })}
       </div>
+
+      {/* Brand-only popup */}
+      {showBrandOnly && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowBrandOnly(false)}>
+          <div style={{ background: '#0d1f2d', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: '24px 20px 32px' }}
+            onClick={e => e.stopPropagation()} className="fadeUp">
+            <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>📢</div>
+            <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Advertising is for brands</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
+              Switch to your brand account to create ads, or activate a brand from your profile settings.
+            </div>
+            <button onClick={() => setShowBrandOnly(false)}
+              style={{ width: '100%', padding: '13px', borderRadius: 14, background: 'rgba(0,180,200,0.15)', border: '1px solid rgba(0,180,200,0.3)', color: '#00B4C8', fontWeight: 800, fontSize: 14 }}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, getEventRsvps, upsertRsvp, removeRsvp } from '../lib/db';
+import { getEvents, createEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage } from '../lib/db';
+import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen() {
   const { currentUser, toast } = useApp();
@@ -21,6 +22,10 @@ export default function EventsScreen() {
   const [timeSlt, setTimeSlt] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [eventImageUrl, setEventImageUrl] = useState('');
+  const [eventImageFile, setEventImageFile] = useState(null);
+  const [eventCropFile, setEventCropFile] = useState(null);
+  const [uploadingEventImage, setUploadingEventImage] = useState(false);
 
   // ── Load events + user RSVPs ──────────────────────────────
   useEffect(() => {
@@ -98,6 +103,16 @@ export default function EventsScreen() {
     if (!title.trim()) { toast('Give your event a title', 'error'); return; }
     setSaving(true);
     try {
+      // Upload image if selected
+      let uploadedImageUrl = null;
+      if (eventImageFile) {
+        try {
+          uploadedImageUrl = await uploadPostImage(currentUser.id, eventImageFile);
+        } catch (e) {
+          console.warn('Event image upload failed:', e.message);
+          uploadedImageUrl = eventImageUrl; // fallback to local preview
+        }
+      }
       const newEvent = await createEvent({
         userId:       currentUser.id,
         title:        title.trim(),
@@ -106,6 +121,7 @@ export default function EventsScreen() {
         date:         date || null,
         timeSlt:      timeSlt.trim(),
         description:  description.trim(),
+        imageUrl:     uploadedImageUrl,
       });
       setEvents(prev => [newEvent, ...prev]);
       toast('Event posted! ✓');
@@ -113,6 +129,7 @@ export default function EventsScreen() {
       // Reset form
       setTitle(''); setLocationName(''); setSlurl('');
       setDate(''); setTimeSlt(''); setDescription('');
+      setEventImageUrl(''); setEventImageFile(null);
     } catch (e) {
       toast('Could not post event — please try again', 'error');
       console.warn('Create event failed:', e.message);
@@ -215,6 +232,31 @@ export default function EventsScreen() {
                 ✅ Posting events is <strong>free</strong> for everyone.
               </div>
 
+              {/* Event image */}
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>EVENT IMAGE (optional)</label>
+                {eventImageUrl ? (
+                  <div style={{ position: 'relative', marginBottom: 4 }}>
+                    <img src={eventImageUrl} alt="Event" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 12, display: 'block' }} />
+                    <button onClick={() => { setEventImageUrl(''); setEventImageFile(null); }}
+                      style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: '#000000aa', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'block', cursor: 'pointer' }}>
+                    <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: '20px', textAlign: 'center', background: C.card2 }}>
+                      <div style={{ fontSize: 24, marginBottom: 4 }}>{uploadingEventImage ? '⏳' : '🖼️'}</div>
+                      <div style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>{uploadingEventImage ? 'Uploading…' : 'Tap to add image'}</div>
+                    </div>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      e.target.value = '';
+                      setEventCropFile(file);
+                    }} />
+                  </label>
+                )}
+              </div>
+
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>EVENT TITLE *</label>
                 <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. ★ DJ Night at Neon Lounge ★" className="inp" />
@@ -255,6 +297,17 @@ export default function EventsScreen() {
             </div>
           </div>
         </div>
+      )}
+      {eventCropFile && (
+        <ImageCropModal
+          file={eventCropFile}
+          onCancel={() => setEventCropFile(null)}
+          onCrop={(previewUrl, croppedFile) => {
+            setEventCropFile(null);
+            setEventImageUrl(previewUrl);
+            setEventImageFile(croppedFile);
+          }}
+        />
       )}
     </div>
   );

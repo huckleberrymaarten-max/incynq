@@ -3,15 +3,31 @@ import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { getProfileStats, formatMemberSince, getFoundingBrandBadge } from '../lib/db';
 import DashboardScreen from './DashboardScreen';
+import TopUpModal from '../components/TopUpModal';
 import BrandSettingsPanel from '../components/BrandSettingsPanel';
 
 export default function BrandProfileView({ onOpenUserProfile }) {
   const { currentUser, setCurrentUser } = useApp();
 
+  // If managing another brand, show that brand's info
+  const activeBrand = currentUser.managingBrandId
+    ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
+    : null;
+
+  const brandName        = activeBrand?.brand_name        || currentUser.brandName;
+  const brandLogoUrl     = activeBrand?.brand_logo_url    || currentUser.brandLogoUrl;
+  const brandDescription = activeBrand?.brand_description || currentUser.brandDescription;
+  const brandWallet      = activeBrand?.brand_wallet      ?? currentUser.brandWallet ?? 0;
+  const brandActivatedAt = currentUser.brandActivatedAt;
+  const isManager        = !!currentUser.managingBrandId;
+
   const [stats,         setStats]         = useState({ posts: 0, followers: 0 });
   const [statsLoading,  setStatsLoading]  = useState(true);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showTopUp, setShowTopUp]         = useState(false);
   const [showSettings,  setShowSettings]  = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [resigning, setResigning] = useState(false);
 
   useEffect(() => {
     const loadStats = async () => {
@@ -27,14 +43,14 @@ export default function BrandProfileView({ onOpenUserProfile }) {
     loadStats();
   }, [currentUser.id]);
 
-  const isFoundingBrand = currentUser.accountType === 'brand' && currentUser.foundingBrandNumber;
+  const isFoundingBrand = currentUser.accountType === 'brand' && isManager ? null : currentUser.foundingBrandNumber;
 
   return (
     <div>
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Profile</span>
-        <button onClick={() => setShowSettings(true)} style={{ fontSize: 20 }}>⚙️</button>
+        {!isManager && <button onClick={() => setShowSettings(true)} style={{ fontSize: 20 }}>⚙️</button>}
       </div>
 
       <div style={{ padding: '20px 16px 80px' }}>
@@ -50,21 +66,21 @@ export default function BrandProfileView({ onOpenUserProfile }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 32,
             }}>
-              {currentUser.brandLogoUrl
-                ? <img src={currentUser.brandLogoUrl} alt="brand" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {brandLogoUrl
+                ? <img src={brandLogoUrl} alt="brand" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : '🏷️'
               }
             </div>
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{currentUser.brandName}</div>
+            <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{brandName}</div>
 
             {/* Brand since */}
-            {currentUser.brandActivatedAt && (
+            {brandActivatedAt && (
               <div style={{ fontSize: 11, color: C.muted, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span>📅</span>
-                <span>{formatMemberSince(currentUser.brandActivatedAt, 'brand')}</span>
+                <span>{formatMemberSince(brandActivatedAt, 'brand')}</span>
               </div>
             )}
 
@@ -81,16 +97,16 @@ export default function BrandProfileView({ onOpenUserProfile }) {
                 fontWeight: 700,
                 color: C.gold,
               }}>
-                {getFoundingBrandBadge(currentUser.foundingBrandNumber)}
+                {getFoundingBrandBadge(isManager ? null : currentUser.foundingBrandNumber)}
               </div>
             )}
           </div>
         </div>
 
         {/* Brand description */}
-        {currentUser.brandDescription && (
+        {brandDescription && (
           <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.6, marginBottom: 16 }}>
-            {currentUser.brandDescription}
+            {brandDescription}
           </div>
         )}
 
@@ -128,24 +144,85 @@ export default function BrandProfileView({ onOpenUserProfile }) {
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>BRAND WALLET</div>
             <div style={{ fontSize: 22, fontWeight: 900, color: '#F4B942' }}>
-              L$ {(currentUser.brandWallet || 0).toLocaleString()}
+              L$ {(brandWallet).toLocaleString()}
             </div>
           </div>
-          <div style={{ fontSize: 11, color: C.muted, textAlign: 'right', lineHeight: 1.5 }}>
-            Top up via<br />InCynq ATM
-          </div>
+          <button onClick={() => setShowTopUp(true)} style={{ background: 'rgba(244,185,66,0.12)', border: '1px solid rgba(244,185,66,0.3)', borderRadius: 20, padding: '7px 16px', color: '#F4B942', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            Top Up via ATM
+          </button>
         </div>
 
-        {/* Edit Brand Profile button */}
+        {/* Edit Brand Profile button (owner only) / Resign button (manager only) */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          <button onClick={() => setShowSettings(true)}
-            style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13 }}>
-            Edit Brand Profile
-          </button>
+          {isManager
+            ? (
+              <button onClick={() => setShowResignConfirm(true)}
+                style={{ flex: 1, padding: '10px', borderRadius: 12, background: '#ff446611', border: '1px solid #ff446633', color: '#ff6644', fontWeight: 700, fontSize: 13 }}>
+                🚪 Resign as manager
+              </button>
+            ) : (
+              <button onClick={() => setShowSettings(true)}
+                style={{ flex: 1, padding: '10px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13 }}>
+                Edit Brand Profile
+              </button>
+            )
+          }
         </div>
 
       </div>
 
+      {/* Resign confirmation sheet */}
+      {showResignConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          onClick={() => setShowResignConfirm(false)}>
+          <div style={{ background: '#0d1f2d', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: '24px 20px 32px' }}
+            onClick={e => e.stopPropagation()} className="fadeUp">
+            <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🚪</div>
+            <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Resign as manager?</div>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
+              You'll lose access to post and place ads as <strong style={{ color: '#fff' }}>{brandName}</strong>. The brand owner will be notified.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowResignConfirm(false)}
+                style={{ flex: 1, padding: '13px', borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', fontWeight: 700, fontSize: 14 }}>
+                Cancel
+              </button>
+              <button
+                disabled={resigning}
+                onClick={async () => {
+                  setResigning(true);
+                  try {
+                    const { resignAsManager } = await import('../lib/db');
+                    await resignAsManager(currentUser.managingBrandId, currentUser.id);
+                    // Remove from managedBrands and switch back to resident mode
+                    setCurrentUser(u => ({
+                      ...u,
+                      brandMode: false,
+                      managingBrandId: null,
+                      managedBrands: (u.managedBrands || []).filter(b => b.id !== currentUser.managingBrandId),
+                    }));
+                    setShowResignConfirm(false);
+                  } catch (e) {
+                    console.warn('Resign failed:', e.message);
+                  } finally {
+                    setResigning(false);
+                  }
+                }}
+                style={{ flex: 1, padding: '13px', borderRadius: 14, background: resigning ? '#ff446644' : '#ff4466', color: '#fff', fontWeight: 800, fontSize: 14, opacity: resigning ? 0.7 : 1 }}>
+                {resigning ? 'Resigning…' : 'Yes, resign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTopUp    && (
+        <TopUpModal
+          currentUser={{ ...currentUser, wallet: brandWallet }}
+          onClose={() => setShowTopUp(false)}
+          onWalletUpdated={(newBalance) => setCurrentUser(u => ({ ...u, brandWallet: newBalance }))}
+        />
+      )}
       {showDashboard && <DashboardScreen onClose={() => setShowDashboard(false)} />}
       {showSettings  && <BrandSettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
