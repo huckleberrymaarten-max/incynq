@@ -63,7 +63,7 @@ export const QA_DATA = [
           { q: "What can I use my wallet for as a member?", a: "Boosting your own events. That is it — members cannot place feed ads. If you want the full advertising suite you need to upgrade to a brand account." },
           { q: "How do I top up my wallet?", a: "Find an InCynq ATM inworld in Second Life and follow the instructions. Your wallet updates automatically." },
           { q: "Are wallet credits refundable?", a: "No. All L$ deposited to your InCynq wallet is non-refundable. It has no cash value and cannot be transferred to another account. Only top up what you plan to spend." },
-          { q: "Does the welcome credit expire?", a: "Yes. Your 100 L$ welcome credit expires after 90 days if unused. Use it to boost your first event before then." },
+          { q: "Does the welcome credit expire?", a: "No. Your 100 L$ welcome credit never expires. It is yours to use whenever you are ready." },
           { q: "How does the referral program work?", a: "Share your unique referral link from your profile. When a friend signs up using your link and activates their account (taps an InCynq terminal inworld), you earn 10 L$ credited directly to your wallet." },
           { q: "Where do I find my referral link?", a: "On your profile, tap the 'Invite Friends' button. Your unique referral link and stats are shown there. Tap Copy to share it." },
           { q: "How many friends can I refer?", a: "Unlimited. Share your link as much as you like. However, you can only earn rewards for the first 10 successful referrals per calendar month." },
