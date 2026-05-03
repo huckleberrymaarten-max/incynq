@@ -16,15 +16,22 @@ import { userOf, locOf, visibleName, USERS } from '../data';
 const MATURITY_RANK = { general: 0, moderate: 1, adult: 2 };
 
 const adMatchesUser = (ad, user) => {
-  const userMaturity = Array.isArray(user.maturity) ? user.maturity : [user.maturity || 'general'];
-  const adLevel      = ad.adMaturity || 'general';
+  // Parse maturity — handle both array and JSON string from Supabase
+  let maturityArr = user.maturity;
+  if (typeof maturityArr === 'string') {
+    try { maturityArr = JSON.parse(maturityArr); } catch { maturityArr = [maturityArr]; }
+  }
+  if (!Array.isArray(maturityArr)) maturityArr = ['general'];
+
+  const adLevel = ad.adMaturity || 'general';
 
   // Adult ads require adult_verified
   if (adLevel === 'adult' && !user.adultVerified) return false;
 
   // Get user's highest enabled maturity rank
-  const userMaxRank = Math.max(...userMaturity.map(m => MATURITY_RANK[m] ?? 0));
-  const adRank      = MATURITY_RANK[adLevel] ?? 0;
+  const ranks = maturityArr.map(m => MATURITY_RANK[m] ?? 0);
+  const userMaxRank = ranks.length > 0 ? Math.max(...ranks) : 0;
+  const adRank = MATURITY_RANK[adLevel] ?? 0;
 
   // Ad level must be ≤ user's max level
   if (adRank > userMaxRank) return false;
@@ -38,9 +45,67 @@ const adMatchesUser = (ad, user) => {
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
-import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView, getActiveAds } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
+
+// ── AdCard — renders a real Supabase ad in the feed ─────────
+function AdCard({ ad }) {
+  const brand = ad.brand || {};
+  const brandName = brand.brand_name || brand.username || 'Sponsored';
+  const brandLogo = brand.brand_logo_url;
+
+  return (
+    <div style={{ background: 'var(--c-card, #0d1f2d)', borderRadius: 16, overflow: 'hidden', marginBottom: 2, border: '1px solid rgba(0,180,200,0.2)' }}>
+      {/* Sponsored header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        {brandLogo
+          ? <img src={brandLogo} alt="" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(0,180,200,0.3)' }} />
+          : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🏷️</div>
+        }
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>{brandName}</div>
+          <div style={{ fontSize: 10, color: 'rgba(0,180,200,0.8)', fontWeight: 700, letterSpacing: 0.5 }}>SPONSORED</div>
+        </div>
+      </div>
+
+      {/* Ad image */}
+      {ad.ad_image_url && (
+        <img src={ad.ad_image_url} alt="Ad" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
+      )}
+
+      {/* Caption */}
+      {ad.ad_caption && (
+        <div style={{ padding: '12px 14px', fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
+          {ad.ad_caption}
+        </div>
+      )}
+
+      {/* Location + links */}
+      {(ad.location_name || ad.slurl || ad.marketplace_url) && (
+        <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ad.location_name && (
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>📍 {ad.location_name}</div>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {ad.slurl && (
+              <a href={ad.slurl} target="_blank" rel="noreferrer"
+                style={{ fontSize: 12, color: '#00B4C8', fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: 'rgba(0,180,200,0.12)', border: '1px solid rgba(0,180,200,0.3)', textDecoration: 'none' }}>
+                🌐 Visit in SL
+              </a>
+            )}
+            {ad.marketplace_url && (
+              <a href={ad.marketplace_url} target="_blank" rel="noreferrer"
+                style={{ fontSize: 12, color: '#F4B942', fontWeight: 700, padding: '6px 14px', borderRadius: 20, background: 'rgba(244,185,66,0.12)', border: '1px solid rgba(244,185,66,0.3)', textDecoration: 'none' }}>
+                🛍 Marketplace
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit, onGoToProfile }) {
   const [reported, setReported] = useState(false);
@@ -257,6 +322,25 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         </div>
       )}
 
+      {/* Caption — below image, before actions (Instagram style) */}
+      {!post.isWelcome && post.caption && (
+        <div style={{ padding: '10px 14px 4px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
+          {post._profile?.account_type !== 'brand' && (
+            <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
+          )}
+          {post.caption}
+        </div>
+      )}
+
+      {/* Tags */}
+      {!post.isWelcome && post.tags && post.tags.length > 0 && (
+        <div style={{ padding: '2px 14px 6px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {post.tags.map(tag => (
+            <span key={tag} style={{ fontSize: 11, color: C.sky, fontWeight: 600 }}>{tag}</span>
+          ))}
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ padding: '10px 14px 4px', display: 'flex', gap: 16, alignItems: 'center' }}>
         <button onClick={e => {
@@ -283,15 +367,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
         </button>
       </div>
 
-      {/* Caption */}
-      {!post.isWelcome && post.caption && (
-        <div style={{ padding: '2px 14px 8px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
-          {post._profile?.account_type !== 'brand' && (
-            <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
-          )}
-          {post.caption}
-        </div>
-      )}
+
 
       {/* Edit caption */}
       {isOwn && showEdit && (
@@ -449,6 +525,21 @@ export default function FeedScreen({ onGoToProfile }) {
     loadPosts();
   }, []);
 
+  const [liveAds, setLiveAds] = useState([]);
+
+  // Load active ads from Supabase
+  useEffect(() => {
+    const loadAds = async () => {
+      try {
+        const data = await getActiveAds();
+        setLiveAds(data);
+      } catch (e) {
+        console.warn('Could not load ads:', e.message);
+      }
+    };
+    loadAds();
+  }, []);
+
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const feed = (() => {
@@ -460,16 +551,22 @@ export default function FeedScreen({ onGoToProfile }) {
       result.push({ type: 'post', data: welcomePost });
     }
 
-    const sponsAds = activeAds.filter(a => a.tier === 'premium' || a.tier === 'featured');
+    // Use live ads from Supabase, filtered by maturity + interest groups
+    const user = { groups: myGroups, subs: mySubs, maturity: currentUser.maturity, adultVerified: currentUser.adultVerified };
+    const matchedAds = liveAds.filter(a => adMatchesUser({
+      adMaturity: a.ad_maturity || 'general',
+      isRandom:   a.is_random,
+      groups:     a.groups || [],
+    }, user));
+    const premiumAds  = matchedAds.filter(a => a.tier === 'premium');
+    const featuredAds = matchedAds.filter(a => a.tier === 'featured');
+    const allInjectable = [...premiumAds, ...featuredAds];
     let qi = 0;
     const feedPosts = posts.filter(p => !p.isWelcome);
     feedPosts.forEach((p, i) => {
       result.push({ type: 'post', data: p });
-      if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < sponsAds.length) {
-        const ad = sponsAds[qi++];
-        const loc = locOf(ad.locationId);
-        const matches = adMatchesUser(ad, { groups: myGroups, subs: mySubs, maturity: currentUser.maturity, adultVerified: currentUser.adultVerified });
-        if (loc) result.push({ type: 'sponsored', data: { ad, loc, matches } });
+      if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < allInjectable.length) {
+        result.push({ type: 'sponsored', data: allInjectable[qi++] });
       }
     });
     return result;
@@ -490,7 +587,6 @@ export default function FeedScreen({ onGoToProfile }) {
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <button onClick={() => setShowCompose(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, paddingBottom: 1 }}>+</button>
-          <button style={{ fontSize: 20 }}>🔍</button>
           {/* Bell with unread badge */}
           <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', fontSize: 20, lineHeight: 1 }}>
             🔔
@@ -507,7 +603,6 @@ export default function FeedScreen({ onGoToProfile }) {
               </span>
             )}
           </button>
-          <button style={{ fontSize: 20 }}>💬</button>
           <button
             onClick={() => setShowHelp(true)}
             style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -526,18 +621,13 @@ export default function FeedScreen({ onGoToProfile }) {
 
         {feed.map((item, idx) => {
           if (item.type === 'sponsored') {
-            const { ad, loc, matches } = item.data;
+            const ad = item.data;
             return (
-              <div key={`sp_${ad.id}`}>
-                {matches && myGroups.length > 0 && (
+              <div key={`sp_${ad.id}`} style={{ padding: '0 0 2px' }}>
+                {myGroups.length > 0 && !ad.is_random && (
                   <div style={{ padding: '4px 14px', background: `${C.sky}11`, fontSize: 11, color: C.sky, fontWeight: 700 }}>🎯 Based on your interests</div>
                 )}
-                <PostCard
-                  post={{ id: `sp_${ad.id}`, userId: USERS.find(u => u.username === loc.owner)?.id || 4, image: loc.image, caption: `✨ ${loc.desc}`, tags: loc.tags || [], likes: Math.floor(loc.visits / 30), comments: [], time: 'ad', locationId: loc.id, isSponsored: true }}
-                  onLike={toggleLike} onSave={toggleSave}
-                  liked={liked.has(`sp_${ad.id}`)} saved={saved.has(`sp_${ad.id}`)}
-                  currentUser={currentUser}
-                />
+                <AdCard ad={ad} />
               </div>
             );
           }

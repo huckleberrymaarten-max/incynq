@@ -715,6 +715,17 @@ export const getCurrentPricingTier = async () => {
 
 // Get current ad prices (everyone pays the same)
 // ── Place an ad (deducts from brand wallet in Supabase) ───────
+// ── Get active ads for feed injection ────────────────────────
+export const getActiveAds = async () => {
+  const { data, error } = await supabase
+    .from('ads')
+    .select('*, brand:profiles!ads_brand_id_fkey(id, username, brand_name, brand_logo_url)')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
 export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
 
