@@ -16,12 +16,19 @@ import { userOf, locOf, visibleName, USERS } from '../data';
 const MATURITY_RANK = { general: 0, moderate: 1, adult: 2 };
 
 const adMatchesUser = (ad, user) => {
-  // Parse maturity — handle both array and JSON string from Supabase
+  // Parse maturity — handle string, array, and double-encoded values
   let maturityArr = user.maturity;
   if (typeof maturityArr === 'string') {
     try { maturityArr = JSON.parse(maturityArr); } catch { maturityArr = [maturityArr]; }
   }
   if (!Array.isArray(maturityArr)) maturityArr = ['general'];
+  // Flatten double-encoded entries like '["general","moderate","adult"]'
+  maturityArr = maturityArr.flatMap(m => {
+    if (typeof m === 'string' && m.startsWith('[')) {
+      try { return JSON.parse(m); } catch { return [m]; }
+    }
+    return [m];
+  });
 
   const adLevel = ad.adMaturity || 'general';
 

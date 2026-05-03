@@ -12,9 +12,24 @@ const LEVELS = [
 export default function MaturityScreen({ onClose, onUpdate }) {
   const { currentUser, setCurrentUser } = useApp();
 
-  const initial = Array.isArray(currentUser.maturity)
-    ? currentUser.maturity
-    : [currentUser.maturity || 'general'];
+  const initial = (() => {
+    let m = currentUser.maturity;
+    if (!m) return ['general'];
+    if (typeof m === 'string') {
+      if (m.startsWith('[')) { try { m = JSON.parse(m); } catch { m = [m]; } }
+      else m = [m];
+    }
+    if (!Array.isArray(m)) m = ['general'];
+    // Flatten in case of double-encoding
+    const flat = m.flatMap(x => {
+      if (typeof x === 'string' && x.startsWith('[')) {
+        try { return JSON.parse(x); } catch { return [x]; }
+      }
+      return [x];
+    }).filter(x => ['general', 'moderate', 'adult'].includes(x));
+    if (!flat.includes('general')) flat.unshift('general');
+    return flat;
+  })();
 
   const [selected, setSelected] = useState(initial);
   const [adultChecks, setAdultChecks] = useState([false, false]);
@@ -56,7 +71,16 @@ export default function MaturityScreen({ onClose, onUpdate }) {
   };
 
   const handleSave = () => {
-    onUpdate({ maturity: selected });
+    // Ensure maturity is always a clean flat array of strings
+    const cleanMaturity = selected.flatMap(m => {
+      if (typeof m === 'string' && m.startsWith('[')) {
+        try { return JSON.parse(m); } catch { return [m]; }
+      }
+      return [m];
+    }).filter(m => ['general', 'moderate', 'adult'].includes(m));
+    // Always include general
+    if (!cleanMaturity.includes('general')) cleanMaturity.unshift('general');
+    onUpdate({ maturity: cleanMaturity });
     onClose();
   };
 
