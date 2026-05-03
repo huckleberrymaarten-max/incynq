@@ -117,7 +117,16 @@ export default function NotificationsScreen({ onClose }) {
       return `${name} invited you to manage ${meta.brand_name || 'their brand'}`;
     }
     const actor = notif.actor;
-    if (!actor) return notif.text || 'New notification';
+    if (!actor) {
+      // System notifications store message in JSON {message: "..."}
+      if (notif.type === 'system') {
+        try {
+          const meta = JSON.parse(notif.text || '{}');
+          return meta.message || notif.text || 'New notification';
+        } catch { return notif.text || 'New notification'; }
+      }
+      return notif.text || 'New notification';
+    }
     const name = actor.show_display_name !== false && actor.display_name
       ? actor.display_name
       : actor.username || 'Someone';

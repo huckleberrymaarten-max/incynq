@@ -199,11 +199,13 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     '⚠️ Other',
   ];
 
+  const isOfficial = user.isOfficial || user.username === 'incynq' || user.username === 'incynqofficial';
+
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}22`, paddingBottom: 8, marginBottom: 4 }}>
+    <div style={{ borderBottom: `1px solid ${C.border}22`, paddingBottom: 8, marginBottom: 4, background: isOfficial ? `linear-gradient(135deg, ${C.sky}0d, rgba(244,185,66,0.06))` : 'transparent', borderLeft: isOfficial ? `3px solid ${C.sky}` : 'none' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 8px' }}>
-        {(user.isOfficial || user.username === 'incynq')
+        {isOfficial
           ? <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', filter: `drop-shadow(0 0 8px ${C.sky}88)`, flexShrink: 0 }} />
           : <Av src={user.avatar} size={38} ring={C.sky} status={user.gridStatus} />
         }
@@ -331,7 +333,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 
       {/* Caption — below image, before actions (Instagram style) */}
       {!post.isWelcome && post.caption && (
-        <div style={{ padding: '10px 14px 4px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
+        <div style={{ padding: '10px 14px 4px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif', whiteSpace: 'pre-wrap' }}>
           {post._profile?.account_type !== 'brand' && (
             <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
           )}
