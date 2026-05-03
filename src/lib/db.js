@@ -275,7 +275,7 @@ export const unfollowUser = async (followerId, followingId) => {
 export const getComments = async (postId) => {
   const { data, error } = await supabase
     .from('post_comments')
-    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type)')
+    .select('*, profiles!post_comments_user_id_fkey(username, display_name, avatar_url, show_display_name)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -286,7 +286,7 @@ export const addComment = async (postId, userId, text) => {
   const { data, error } = await supabase
     .from('post_comments')
     .insert({ post_id: postId, user_id: userId, text })
-    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type)')
+    .select('*, profiles!post_comments_user_id_fkey(username, display_name, avatar_url, show_display_name)')
     .single();
   if (error) throw error;
   return data;
@@ -410,15 +410,12 @@ export const createNotification = async ({ userId, type, actorId, postId = null,
   if (!userId || !actorId) return null;
   if (userId === actorId) return null; // never notify yourself
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('notifications')
-      .insert({ user_id: userId, type, actor_id: actorId, post_id: postId || null, text: text || null })
-      .select()
-      .single();
+      .insert({ user_id: userId, type, actor_id: actorId, post_id: postId || null, text: text || null });
     if (error) throw error;
-    return data;
+    return true;
   } catch (e) {
-    // Silently fail — notifications should never break the main flow
     console.warn('Notification create failed:', e.message);
     return null;
   }

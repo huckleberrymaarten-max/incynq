@@ -261,7 +261,6 @@ function AppRoutes() {
         table:  'notifications',
         filter: `user_id=eq.${currentUser.id}`,
       }, (payload) => {
-        console.log('Realtime notification received:', payload.new);
         addNotification({
           id:         payload.new.id,
           type:       payload.new.type,
@@ -273,7 +272,7 @@ function AppRoutes() {
           created_at: payload.new.created_at,
         });
       })
-      .subscribe((status) => console.log('Realtime status:', status));
+      .subscribe();
     return () => supabase.removeChannel(channel);
   }, [currentUser?.id]);
 
