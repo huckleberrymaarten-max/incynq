@@ -140,7 +140,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             <span style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{visibleName(user)}</span>
             {user.isOfficial && <span style={{ fontSize: 10, background: `${C.gold}22`, color: C.gold, border: `1px solid ${C.gold}44`, padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>⚡</span>}
           </div>
-          {user.showDisplayName !== false && user.displayName && user.displayName !== user.username && (
+          {post._profile?.account_type !== 'brand' && user.showDisplayName !== false && user.displayName && user.displayName !== user.username && (
             <div style={{ fontSize: 10, color: C.muted }}>@{user.username}</div>
           )}
           <div style={{ fontSize: 11, color: C.muted }}>{post.time}</div>
@@ -286,7 +286,9 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
       {/* Caption */}
       {!post.isWelcome && post.caption && (
         <div style={{ padding: '2px 14px 8px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif' }}>
-          <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
+          {post._profile?.account_type !== 'brand' && (
+            <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
+          )}
           {post.caption}
         </div>
       )}
@@ -412,7 +414,15 @@ export default function FeedScreen({ onGoToProfile }) {
             comments: new Array(p.post_comments?.length || 0).fill(null),
             time: new Date(p.created_at).toLocaleDateString(),
             locationId: p.location_id,
-            _profile: p.profiles,
+            _profile: p.brand?.id
+              ? {
+                  username:         p.brand.username,
+                  display_name:     p.brand.brand_name,
+                  avatar_url:       p.brand.brand_logo_url,
+                  show_display_name: true,
+                  account_type:     'brand',
+                }
+              : p.profiles,
           }));
           setPosts(prev => {
             const welcomePost = prev.find(p => p.isWelcome);
@@ -423,7 +433,7 @@ export default function FeedScreen({ onGoToProfile }) {
           // Resident posts are never tracked — privacy-first
           if (currentUser?.id) {
             const brandPostIds = dbPosts
-              .filter(p => p.profiles?.account_type === 'brand')
+              .filter(p => p.brand?.id || p.profiles?.account_type === 'brand')
               .map(p => p.id);
             if (brandPostIds.length > 0) {
               trackImpressionsBatch(brandPostIds, currentUser.id, 'feed');
