@@ -133,10 +133,17 @@ export const getFollowersProfiles = async (userId) => {
 };
 
 // ── Posts ────────────────────────────────────────────────
-export const createPost = async ({ userId, caption, imageUrl, tags }) => {
+export const createPost = async ({ userId, brandId, caption, imageUrl, imageUrls, tags }) => {
   const { data, error } = await supabase
     .from('posts')
-    .insert({ user_id: userId, caption, image_url: imageUrl, tags })
+    .insert({
+      user_id:    userId,
+      brand_id:   brandId || null,
+      caption,
+      image_url:  imageUrl,
+      image_urls: imageUrls || (imageUrl ? [imageUrl] : []),
+      tags,
+    })
     .select()
     .single();
   if (error) throw error;
@@ -146,8 +153,8 @@ export const createPost = async ({ userId, caption, imageUrl, tags }) => {
 export const getPosts = async () => {
   const { data, error } = await supabase
     .from('posts')
-    .select('*, profiles(username, display_name, avatar_url, show_display_name, account_type), post_comments(id)')
-    .eq('is_welcome', false)
+    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name, account_type), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type), post_comments(id)')
+    .not('is_welcome', 'eq', true)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
@@ -268,7 +275,7 @@ export const unfollowUser = async (followerId, followingId) => {
 export const getComments = async (postId) => {
   const { data, error } = await supabase
     .from('post_comments')
-    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -279,7 +286,7 @@ export const addComment = async (postId, userId, text) => {
   const { data, error } = await supabase
     .from('post_comments')
     .insert({ post_id: postId, user_id: userId, text })
-    .select('*, profiles(username, display_name, avatar_url, show_display_name)')
+    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type)')
     .single();
   if (error) throw error;
   return data;
@@ -706,6 +713,51 @@ export const getCurrentPricingTier = async () => {
 };
 
 // Get current ad prices (everyone pays the same)
+// ── Place an ad (deducts from brand wallet in Supabase) ───────
+export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, locationId, locationName }) => {
+  if (!brandId) throw new Error('No brand ID provided');
+
+  // Deduct from brand wallet
+  const { data: profile, error: fetchError } = await supabase
+    .from('profiles')
+    .select('brand_wallet')
+    .eq('id', brandId)
+    .single();
+
+  if (fetchError) throw fetchError;
+  const currentBrandWallet = profile?.brand_wallet || 0;
+  if (currentBrandWallet < price) throw new Error('Insufficient brand wallet balance');
+
+  const { error: deductError } = await supabase
+    .from('profiles')
+    .update({ brand_wallet: currentBrandWallet - price })
+    .eq('id', brandId);
+
+  if (deductError) throw deductError;
+
+  // Save the ad record
+  const { error: adError } = await supabase
+    .from('ads')
+    .insert({
+      brand_id:      brandId,
+      tier,
+      groups:        groups || [],
+      is_random:     isRandom || false,
+      ad_maturity:   adMaturity || 'general',
+      price,
+      location_id:   locationId || null,
+      location_name: locationName || null,
+      status:        'active',
+      expires_at:    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+  if (adError) {
+    // Refund if ad insert fails
+    await supabase.from('profiles').update({ brand_wallet: currentBrandWallet }).eq('id', brandId);
+    throw adError;
+  }
+};
+
 export const getCurrentAdPrices = async () => {
   try {
     const tier = await getCurrentPricingTier();
