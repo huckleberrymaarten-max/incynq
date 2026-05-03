@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────
 
 export const TC_DATA = {
-  lastUpdated: "April 2026",
+  lastUpdated: "May 2026",
   intro: "These terms are written in plain language. No legal jargon. Read them. They matter. By using InCynq you agree to everything below.",
   sections: [
     {
@@ -32,7 +32,7 @@ export const TC_DATA = {
     },
     {
       title: "7. Advertising",
-      content: "Ads must match the maturity level selected at creation. Advertising adult content to non-adult audiences is a serious breach and will result in immediate account suspension.\n\nAd pricing is in Linden Dollars (L$). Prices are set using a tiered model based on the total size of the InCynq community. As the community grows, advertising prices adjust automatically to the next tier — this keeps pricing fair and consistent for everyone. The current tier and pricing are always visible in the Advertise section of the app.\n\nAll L$ deposited to an InCynq wallet are non-refundable. Once credited, wallet balances cannot be reversed, transferred, or cashed out. Only top up what you intend to spend.",
+      content: "Ads must match the maturity level selected at creation. Advertising adult content to non-adult audiences is a serious breach and will result in immediate account suspension.\n\nAd pricing is in Linden Dollars (L$). Prices are set using a tiered model based on the total size of the InCynq community. As the community grows, advertising prices adjust automatically to the next tier — this keeps pricing fair and consistent for everyone. The current tier and pricing are always visible in the Advertise section of the app.\n\nPricing tiers are as follows:\n\n⚡ Launch Tier — active when InCynq has fewer than 500 members. Basic from 150 L$/week · Featured from 400 L$/week · Premium from 800 L$/week.\n\n🚀 Growth Tier — active from 500 to 2,000 members. Basic from 250 L$/week · Featured from 650 L$/week · Premium from 1,300 L$/week.\n\n🏆 Established Tier — active from 2,000 to 10,000 members. Basic from 400 L$/week · Featured from 1,000 L$/week · Premium from 2,000 L$/week.\n\n👑 Premium Tier — active above 10,000 members. Basic from 600 L$/week · Featured from 1,500 L$/week · Premium from 3,000 L$/week.\n\nPrices shown are base rates for a single interest group. Targeting multiple groups applies a multiplier: 1 group = base price, 2 groups = 1.8×, 3 groups = 2.5×, 4 or more groups = 3× (capped). A 25% discount applies when Random Rotation is selected.\n\nAll L$ deposited to an InCynq wallet are non-refundable. Once credited, wallet balances cannot be reversed, transferred, or cashed out. Only top up what you intend to spend.",
     },
     {
       title: "8. InCynq wallet",
@@ -49,6 +49,10 @@ export const TC_DATA = {
     {
       title: "11. Brand activation",
       content: "Brand accounts require a one-time activation fee of 3,500 L$, paid using an InCynq ATM inworld. This fee is credited to the brand wallet and is not refundable as cash.\n\nBrand activation gives access to the full advertising suite, event boosting, the basic analytics dashboard, and Cynqified verification eligibility.",
+    },
+    {
+      title: "11a. Brand managers",
+      content: "Brand owners may invite one manager to assist with running their brand account. Managers can post content, create and boost events, place ads, and top up the brand wallet.\n\nAll spending by a manager — ads, event boosts, and any other L$ charges — is deducted from the brand owner's Brand Wallet, not the manager's personal wallet. The manager's own InCynq wallet is never charged.\n\nBrand owners are responsible for all activity carried out by their managers. Managers may be removed at any time by the brand owner. A manager may also resign from a brand at any time.",
     },
     {
       title: "12. Analytics & Dashboard",
