@@ -7,6 +7,28 @@ import ImageCropModal from '../components/ImageCropModal';
 
 const STEPS = ['Creative', 'Ad Plan', 'Audience', 'Confirm'];
 
+// Reach labels/numbers based on member count
+const getReach = (tierId, memberCount) => {
+  if (memberCount < 500) {
+    if (tierId === 'basic')    return 'Standard reach';
+    if (tierId === 'featured') return 'Extended reach';
+    if (tierId === 'premium')  return 'Maximum reach';
+  } else if (memberCount < 2000) {
+    if (tierId === 'basic')    return '~200 residents/day';
+    if (tierId === 'featured') return '~600 residents/day';
+    if (tierId === 'premium')  return '~1,200 residents/day';
+  } else if (memberCount < 10000) {
+    if (tierId === 'basic')    return '~800 residents/day';
+    if (tierId === 'featured') return '~2,400 residents/day';
+    if (tierId === 'premium')  return '~5,000 residents/day';
+  } else {
+    if (tierId === 'basic')    return '~2,000 residents/day';
+    if (tierId === 'featured') return '~6,000 residents/day';
+    if (tierId === 'premium')  return '~15,000 residents/day';
+  }
+  return '';
+};
+
 export default function AdvertiseScreen() {
   const { currentUser, ads, purchaseAd, toast } = useApp();
   const [step, setStep] = useState(0);
@@ -237,7 +259,7 @@ export default function AdvertiseScreen() {
                       <div>
                         <div style={{ fontWeight: 800, fontSize: 14, color: selTier === t.id ? t.color : C.text }}>{t.name}</div>
                         <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.desc}</div>
-                        <div style={{ color: C.sub, fontSize: 11, marginTop: 2 }}>👥 {t.reach}</div>
+                        <div style={{ color: C.sub, fontSize: 11, marginTop: 2 }}>👥 {getReach(t.id, appContent.memberCount || 0)}</div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
