@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import C from '../theme';
+import logo from '../assets/Q_Logo_.png';
 import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
@@ -204,6 +205,9 @@ export default function MainApp() {
   const [showBrandOnly,   setShowBrandOnly]   = useState(false);
   const { notifications, currentUser, setCurrentUser } = useApp();
   const unread   = notifications.filter(n => !n.read).length;
+  const [showCompose,       setShowCompose]       = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showHelp,          setShowHelp]          = useState(false);
   const isBrand  = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
 
   const handleOpenUserProfile = (username) => setViewingUsername(username);
@@ -254,11 +258,10 @@ export default function MainApp() {
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 72 }}>
 
-      {/* ── Top header (always visible) ─────────────────────── */}
+      {/* ── Top headers (sticky wrapper) ──────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+      {/* Account switcher header */}
       <div style={{
-        position:       'sticky',
-        top:            0,
-        zIndex:         100,
         background:     C.card,
         borderBottom:   `1px solid ${C.border}`,
         display:        'flex',
@@ -288,6 +291,40 @@ export default function MainApp() {
           )}
         </div>
       </div>
+
+      {/* ── Feed header — InCynq logo, compose, bell, help ── */}
+      {tab === 'feed' && (
+        <div style={{
+          padding: '10px 16px',
+          borderBottom: `1px solid ${C.border}`,
+          background: C.card,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src={logo} alt="InCynq" style={{ width: 30, height: 30, objectFit: 'contain' }} />
+            <span className="sg" style={{ fontWeight: 900, fontSize: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</span>
+          </div>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <button onClick={() => setShowCompose(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', fontSize: 20, lineHeight: 1 }}>
+              🔔
+              {unread > 0 && (
+                <span style={{ position: 'absolute', top: -4, right: -4, background: '#ff3366', color: '#fff', fontSize: 9, fontWeight: 900, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${C.card}` }}>
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setShowHelp(true)} style={{ fontSize: 12, color: C.muted, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', background: C.card2, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
+          </div>
+        </div>
+      )}
+
+      </div>{/* end sticky wrapper */}
+
+      {/* Overlays from feed */}
+      {showCompose       && <ComposeScreen onClose={() => setShowCompose(false)} />}
+      {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
+      {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
 
       {/* ── Screens ─────────────────────────────────────────── */}
       {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} />}

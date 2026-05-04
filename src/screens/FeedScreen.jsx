@@ -467,7 +467,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   );
 }
 
-export default function FeedScreen({ onGoToProfile, onOpenUserProfile }) {
+export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCompose, onOpenNotifications, onOpenHelp }) {
   const [showHelp, setShowHelp] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -585,42 +585,11 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile }) {
   })();
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       {/* Overlays */}
       {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
       {showCompose       && <ComposeScreen onClose={() => setShowCompose(false)} />}
       {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
-
-      {/* Header */}
-      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={logo} alt="InCynq" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-          <span className="sg" style={{ fontWeight: 900, fontSize: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>InCynq</span>
-        </div>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <button onClick={() => setShowCompose(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, paddingBottom: 1 }}>+</button>
-          {/* Bell with unread badge */}
-          <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', fontSize: 20, lineHeight: 1 }}>
-            🔔
-            {unreadNotifs > 0 && (
-              <span style={{
-                position: 'absolute', top: -4, right: -4,
-                background: '#ff3366', color: '#fff',
-                fontSize: 9, fontWeight: 900,
-                width: 16, height: 16, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: `1.5px solid ${C.card}`,
-              }}>
-                {unreadNotifs > 9 ? '9+' : unreadNotifs}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            style={{ width: 28, height: 28, borderRadius: '50%', background: `${C.sky}22`, border: `1.5px solid ${C.sky}66`, color: C.sky, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >?</button>
-        </div>
-      </div>
 
       {/* Feed */}
       <div style={{ paddingBottom: 80 }}>

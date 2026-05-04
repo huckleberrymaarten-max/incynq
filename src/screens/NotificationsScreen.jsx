@@ -237,7 +237,7 @@ export default function NotificationsScreen({ onClose }) {
                   <div style={{
                     display: 'flex', alignItems: 'flex-start', gap: 12,
                     padding: '12px 16px',
-                    background: notif.read ? C.bg : `${cfg.color}08`,
+                    background: notif.read ? C.card : `${cfg.color}18`,
                     transform: swipedId === notif.id ? 'translateX(-80px)' : 'translateX(0)',
                     transition: 'transform 0.2s ease',
                     position: 'relative', zIndex: 2,
