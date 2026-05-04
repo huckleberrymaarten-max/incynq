@@ -190,12 +190,65 @@ export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 1
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
     .contains('groups', [groupId])
-    .eq('discoverable', true) // Only show discoverable users
-    .neq('id', currentUserId) // Exclude current user
-    .neq('account_type', 'official') // Exclude InCynq
+    .eq('discoverable', true)
+    .neq('id', currentUserId)
+    .neq('account_type', 'official')
     .limit(limit);
   if (error) throw error;
-  return data;
+
+  // Enrich with follower counts and mutual follows
+  if (!data?.length) return [];
+  const ids = data.map(u => u.id);
+
+  const [followersRes, currentFollowsRes] = await Promise.allSettled([
+    // Follower counts for each suggested user
+    supabase.from('follows').select('following_id').in('following_id', ids),
+    // Who currentUser follows (to calculate mutuals per suggested user)
+    supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
+  ]);
+
+  const followerCounts = {};
+  if (followersRes.status === 'fulfilled') {
+    followersRes.value.data?.forEach(r => {
+      followerCounts[r.following_id] = (followerCounts[r.following_id] || 0) + 1;
+    });
+  }
+
+  // Set of who currentUser follows (excluding InCynq official accounts)
+  const { data: officialAccounts } = await supabase
+    .from('profiles')
+    .select('id')
+    .in('account_type', ['official'])
+    .limit(5);
+  const officialIds = new Set((officialAccounts || []).map(a => a.id));
+
+  const currentUserFollows = new Set(
+    currentFollowsRes.status === 'fulfilled'
+      ? currentFollowsRes.value.data
+          ?.map(r => r.following_id)
+          .filter(id => !officialIds.has(id))
+      : []
+  );
+
+  // For each suggested user, count how many people they follow that currentUser also follows
+  const mutualCounts = {};
+  if (ids.length > 0) {
+    const { data: theirFollows } = await supabase
+      .from('follows')
+      .select('follower_id, following_id')
+      .in('follower_id', ids);
+    (theirFollows || []).forEach(r => {
+      if (currentUserFollows.has(r.following_id)) {
+        mutualCounts[r.follower_id] = (mutualCounts[r.follower_id] || 0) + 1;
+      }
+    });
+  }
+
+  return data.map(u => ({
+    ...u,
+    follower_count: followerCounts[u.id] || 0,
+    mutual_count: mutualCounts[u.id] || 0,
+  }));
 };
 
 // ── Likes ────────────────────────────────────────────────

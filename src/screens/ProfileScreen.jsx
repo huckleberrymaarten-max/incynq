@@ -143,9 +143,26 @@ export default function ProfileScreen({ onOpenUserProfile }) {
     }
   };
 
+  // Load discover profiles on mount (for preview row)
+  useEffect(() => {
+    const loadDiscoverPreview = async () => {
+      if (!currentUser.groups?.length) return;
+      for (const groupId of currentUser.groups) {
+        try {
+          const users = await getSuggestedUsersByGroup(groupId, currentUser.id, 10);
+          setSuggestedUsers(prev => ({ ...prev, [groupId]: users }));
+        } catch(e) {
+          console.warn(`Discover load failed for ${groupId}:`, e.message);
+        }
+      }
+    };
+    loadDiscoverPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser.id]);
+
   // Load suggested users when Discover opens
   const handleOpenDiscover = async () => {
-    handleOpenDiscover();
+    setShowFullDiscover(true);
     // Load suggested users for each interest group
     if (currentUser.groups?.length > 0) {
       for (const groupId of currentUser.groups) {
@@ -324,17 +341,22 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   };
 
   // ── Discover ─────────────────────────────────────────────
+  // discoverAll built from real Supabase profiles (loaded on mount)
   const discoverAll = (() => {
     if (!currentUser.groups?.length) return [];
+    const seen = new Set();
     const all = [];
     currentUser.groups.forEach(groupId => {
       const group = INTEREST_GROUPS.find(g => g.id === groupId);
-      if (!group) return;
-      USERS.filter(u => u.id !== 0 && u.id !== currentUser.id && u.groups?.includes(groupId))
-        .forEach(u => { if (!all.find(x => x.id === u.id)) all.push({ ...u, _group: group }); });
-      LOCS.filter(l => l.groups?.includes(groupId))
-        .forEach(l => { const id = `b_${l.id}`; if (!all.find(x => x.id === id)) all.push({ id, username: l.owner, name: l.name, avatar: l.image, isBrand: true, followers: l.visits, _group: group }); });
+      const users = suggestedUsers[groupId] || [];
+      users.forEach(u => {
+        if (!seen.has(u.id)) {
+          seen.add(u.id);
+          all.push({ ...u, _group: group });
+        }
+      });
     });
+    // Shuffle with stable hash
     return [...all].sort((a, b) => stableHash(a.id) - stableHash(b.id));
   })();
 
@@ -537,17 +559,19 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 return (
                   <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card2, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${u._group?.color || C.border}22` }}>
                     <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto 7px' }}>
-                      <img src={u.avatar} alt="" style={{ width: 52, height: 52, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
+                      <img src={u.avatar_url || u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 52, height: 52, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
                       {u.isBrand && <div style={{ position: 'absolute', bottom: 0, right: 0, background: `${C.gold}ee`, fontSize: 8, fontWeight: 900, color: '#000', width: 15, height: 15, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${C.card2}` }}>🏢</div>}
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                      {u.isBrand ? u.name : u.username}
+                      {u.display_name || u.username}
                     </div>
-                    {mutuals > 0 && <div style={{ fontSize: 10, color: C.muted, marginBottom: 2, fontWeight: 600 }}>👥 {mutuals} mutual{mutuals !== 1 ? 's' : ''}</div>}
+                    {u.mutual_count > 0 && (
+                      <div style={{ fontSize: 10, color: C.sky, marginBottom: 2, fontWeight: 600 }}>👥 {u.mutual_count} mutual{u.mutual_count !== 1 ? 's' : ''}</div>
+                    )}
                     <div style={{ fontSize: 10, color: C.muted, marginBottom: 7 }}>
-                      {u.isBrand ? `${(u.followers / 1000).toFixed(1)}k visits` : `${(u.followers || 0).toLocaleString()} followers`}
+                      {(u.follower_count || 0).toLocaleString()} follower{u.follower_count !== 1 ? 's' : ''}
                     </div>
-                    <button onClick={() => toggleFollow(u.id)}
+                    <button onClick={() => u.id && toggleFollow(u.id)}
                       style={{ width: '100%', fontSize: 10, fontWeight: 800, padding: '5px 0', borderRadius: 20,
                         background: isFollowing ? C.card : `linear-gradient(135deg,${C.sky},${C.peach})`,
                         color: isFollowing ? C.sky : '#060d14',

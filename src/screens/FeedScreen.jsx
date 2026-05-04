@@ -114,7 +114,7 @@ function AdCard({ ad }) {
   );
 }
 
-function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit, onGoToProfile }) {
+function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, onDelete, onLikeDb, onEdit, onGoToProfile, onOpenProfile }) {
   const [reported, setReported] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editCaption, setEditCaption] = useState(post.caption);
@@ -205,13 +205,15 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     <div style={{ borderBottom: `1px solid ${C.border}22`, paddingBottom: 8, marginBottom: 4, background: isOfficial ? `linear-gradient(135deg, ${C.sky}0d, rgba(244,185,66,0.06))` : 'transparent', borderLeft: isOfficial ? `3px solid ${C.sky}` : 'none' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 8px' }}>
-        {isOfficial
-          ? <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', filter: `drop-shadow(0 0 8px ${C.sky}88)`, flexShrink: 0 }} />
-          : <Av src={user.avatar} size={38} ring={C.sky} status={user.gridStatus} />
-        }
+        <div onClick={() => !isOwn && !isOfficial && user.username && onOpenProfile?.(user.username)} style={{ cursor: !isOwn && !isOfficial ? 'pointer' : 'default', flexShrink: 0 }}>
+          {isOfficial
+            ? <img src={logo} alt="InCynq" style={{ width: 38, height: 38, objectFit: 'contain', filter: `drop-shadow(0 0 8px ${C.sky}88)` }} />
+            : <Av src={user.avatar} size={38} ring={C.sky} status={user.gridStatus} />
+          }
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{visibleName(user)}</span>
+            <span onClick={() => !isOwn && !isOfficial && user.username && onOpenProfile?.(user.username)} style={{ fontWeight: 800, fontSize: 13, color: C.text, cursor: !isOwn && !isOfficial ? 'pointer' : 'default' }}>{visibleName(user)}</span>
             {user.isOfficial && <span style={{ fontSize: 10, background: `${C.gold}22`, color: C.gold, border: `1px solid ${C.gold}44`, padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>⚡</span>}
           </div>
           {post._profile?.account_type !== 'brand' && user.showDisplayName !== false && user.displayName && user.displayName !== user.username && (
@@ -414,9 +416,10 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             return (
               <div key={c.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: `1px solid ${C.border}11` }}>
                 <img src={cUser?.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${cUser?.username}`} alt=""
-                  style={{ width: 28, height: 28, borderRadius: '18%', objectFit: 'cover', flexShrink: 0 }} />
+                  onClick={() => cUser?.username && onOpenProfile?.(cUser.username)}
+                  style={{ width: 28, height: 28, borderRadius: '18%', objectFit: 'cover', flexShrink: 0, cursor: cUser?.username ? 'pointer' : 'default' }} />
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: 700, fontSize: 12, color: C.text, marginRight: 6 }}>{cName}</span>
+                  <span onClick={() => cUser?.username && onOpenProfile?.(cUser.username)} style={{ fontWeight: 700, fontSize: 12, color: C.text, marginRight: 6, cursor: cUser?.username ? 'pointer' : 'default' }}>{cName}</span>
                   <span style={{ fontSize: 12, color: C.sub }}>{c.text}</span>
                 </div>
                 {c.user_id === currentUser?.id && (
@@ -464,7 +467,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   );
 }
 
-export default function FeedScreen({ onGoToProfile }) {
+export default function FeedScreen({ onGoToProfile, onOpenUserProfile }) {
   const [showHelp, setShowHelp] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -664,6 +667,7 @@ export default function FeedScreen({ onGoToProfile }) {
                 setPosts(prev => prev.map(p => p.id === id ? { ...p, caption: newCaption } : p));
               }}
               onGoToProfile={onGoToProfile}
+              onOpenProfile={onOpenUserProfile}
               onLikeDb={async (id, isLiked) => {
                 if (typeof id === 'number') return;
                 try {

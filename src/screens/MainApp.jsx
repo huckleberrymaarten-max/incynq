@@ -290,7 +290,7 @@ export default function MainApp() {
       </div>
 
       {/* ── Screens ─────────────────────────────────────────── */}
-      {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} />}
+      {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} />}
       {tab === 'search'    && <SearchScreen    onOpenUserProfile={handleOpenUserProfile} />}
       {tab === 'events'    && <EventsScreen    />}
       {tab === 'advertise' && <AdvertiseScreen />}
