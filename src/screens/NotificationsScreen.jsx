@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { supabase } from '../lib/supabase';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { markAllNotificationsRead, acceptManagerInvite, declineManagerInvite } from '../lib/db';
@@ -33,6 +34,32 @@ export default function NotificationsScreen({ onClose }) {
   const { notifications, setNotifications, currentUser, setCurrentUser } = useApp();
   const [marking,          setMarking]          = useState(false);
   const [inviteResponding, setInviteResponding] = useState({});
+  const [swipedId, setSwipedId]           = useState(null);
+  const touchStartX                        = useRef(null);
+
+  const handleSwipeStart = (e) => {
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    touchStartX.current = x;
+  };
+
+  const handleSwipeEnd = (e, id) => {
+    if (touchStartX.current === null) return;
+    const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const dx = touchStartX.current - x;
+    if (dx > 60) setSwipedId(id);
+    else if (dx < -20) setSwipedId(null);
+    touchStartX.current = null;
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await supabase.from('notifications').delete().eq('id', id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setSwipedId(null);
+    } catch (e) {
+      console.warn('Delete notification failed:', e.message);
+    }
+  };
 
   const handleAcceptInvite = async (notif, inviteId) => {
     setInviteResponding(prev => ({ ...prev, [inviteId]: 'accepting' }));
@@ -196,12 +223,25 @@ export default function NotificationsScreen({ onClose }) {
                 || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(actor?.username || 'user')}&backgroundColor=b6e3f4`;
 
               return (
-                <div key={notif.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  padding: '12px 16px', borderBottom: `1px solid ${C.border}22`,
-                  background: notif.read ? 'transparent' : `${cfg.color}08`,
-                  transition: 'background .2s',
-                }}>
+                <div key={notif.id} style={{ position: 'relative', overflow: 'hidden', borderBottom: `1px solid ${C.border}22` }}
+                  onTouchStart={handleSwipeStart}
+                  onTouchEnd={e => handleSwipeEnd(e, notif.id)}
+                  onMouseDown={handleSwipeStart}
+                  onMouseUp={e => handleSwipeEnd(e, notif.id)}>
+                  {/* Delete button revealed on swipe */}
+                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: '#ff4466', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
+                    onClick={() => handleDelete(notif.id)}>
+                    <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>Delete</span>
+                  </div>
+                  {/* Notification content — slides left on swipe */}
+                  <div style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 12,
+                    padding: '12px 16px',
+                    background: notif.read ? C.bg : `${cfg.color}08`,
+                    transform: swipedId === notif.id ? 'translateX(-80px)' : 'translateX(0)',
+                    transition: 'transform 0.2s ease',
+                    position: 'relative', zIndex: 2,
+                  }}>
                   {/* Avatar + icon badge */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     {notif.type === 'system'
@@ -298,10 +338,18 @@ export default function NotificationsScreen({ onClose }) {
                     </div>
                   </div>
 
-                  {/* Unread dot */}
-                  {!notif.read && (
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.color, flexShrink: 0, marginTop: 5 }} />
-                  )}
+                  {/* Unread dot + delete icon */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {!notif.read && (
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.color }} />
+                    )}
+                    <button onClick={() => handleDelete(notif.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'rgba(255,255,255,0.2)', padding: 2, lineHeight: 1 }}
+                      title="Delete">
+                      🗑️
+                    </button>
+                  </div>
+                  </div>{/* end slide div */}
                 </div>
               );
             })}
