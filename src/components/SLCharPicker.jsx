@@ -34,7 +34,7 @@ export default function SLCharPicker({ onInsert, onClose }) {
           <button key={i} onClick={() => onInsert(c)} style={{
             width: 36, height: 36, borderRadius: 8,
             background: C.card2, border: `1px solid ${C.border}`,
-            fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
             onMouseEnter={e => e.currentTarget.style.background = `${C.sky}22`}
             onMouseLeave={e => e.currentTarget.style.background = C.card2}
