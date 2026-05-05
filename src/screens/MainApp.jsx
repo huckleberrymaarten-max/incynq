@@ -10,6 +10,9 @@ import EventsScreen      from './EventsScreen';
 import AdvertiseScreen   from './AdvertiseScreen';
 import ProfileScreen     from './ProfileScreen';
 import UserProfileScreen from './UserProfileScreen';
+import NotificationsScreen from './NotificationsScreen';
+import ComposeScreen      from '../components/ComposeScreen';
+import HelpScreen         from './HelpScreen';
 
 const NAV = [
   { id: 'feed',      icon: '🏠', label: 'Home'      },
