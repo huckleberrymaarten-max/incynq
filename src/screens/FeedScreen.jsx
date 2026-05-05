@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 // Module-level like debounce to prevent double-fire
 const likeDebounce = new Map();
 import C from '../theme';
+import SLCharPicker from '../components/SLCharPicker';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, visibleName, USERS } from '../data';
 
@@ -121,6 +122,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
+  const [showCommentEmoji, setShowCommentEmoji] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.comments?.length || 0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -433,11 +435,20 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             );
           })}
           {typeof post.id !== 'number' && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input value={commentText} onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleComment()}
-                placeholder="Add a comment…"
-                style={{ flex: 1, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontSize: 12, padding: '7px 12px', borderRadius: 20, outline: 'none', fontFamily: 'inherit' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, position: 'relative' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input value={commentText} onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleComment()}
+                  placeholder="Add a comment…"
+                  style={{ width: '100%', boxSizing: 'border-box', background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontSize: 12, padding: '7px 32px 7px 12px', borderRadius: 20, outline: 'none', fontFamily: 'inherit' }} />
+                <button onClick={() => setShowCommentEmoji(p => !p)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6 }}>😊</button>
+                {showCommentEmoji && (
+                  <div style={{ position: 'absolute', bottom: 36, right: 0, zIndex: 200, width: 300 }}>
+                    <SLCharPicker onInsert={c => { setCommentText(p => p + c); setShowCommentEmoji(false); }} onClose={() => setShowCommentEmoji(false)} />
+                  </div>
+                )}
+              </div>
               <button onClick={handleComment}
                 style={{ padding: '7px 14px', borderRadius: 20, background: commentText.trim() ? `linear-gradient(135deg,${C.sky},${C.peach})` : C.card2, color: commentText.trim() ? '#060d14' : C.muted, fontWeight: 700, fontSize: 12 }}>
                 Post

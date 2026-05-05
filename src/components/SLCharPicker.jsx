@@ -3,9 +3,11 @@ import C from '../theme';
 import { SL_CHARS } from '../data';
 
 const TAB_LABELS = {
-  Popular: '⭐ Popular', Borders: '꧁ Borders', 'Name deco': '★ Name deco',
-  Symbols: '♠ Symbols', Japanese: '〜 Japanese', Misc: '· Misc', Emoji: '😊 Emoji',
+  Popular: '⭐ Popular', Emoji: '😊 Emoji', Symbols: '♠ Symbols',
+  'Name deco': '★ Name deco', Borders: '꧁ Borders', Japanese: '〜 Japanese', Misc: '· Misc',
 };
+
+const TAB_ORDER = ['Popular', 'Emoji', 'Symbols', 'Name deco', 'Borders', 'Japanese', 'Misc'];
 
 export default function SLCharPicker({ onInsert, onClose }) {
   const [tab, setTab] = useState('Popular');
@@ -15,7 +17,7 @@ export default function SLCharPicker({ onInsert, onClose }) {
       borderRadius: 16, overflow: 'hidden', boxShadow: '0 8px 30px #00000066',
     }}>
       <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${C.border}`, background: C.card2 }}>
-        {Object.keys(SL_CHARS).map(t => (
+        {TAB_ORDER.map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 12px', fontSize: 11, fontWeight: 700,
             color: tab === t ? C.sky : C.muted,
