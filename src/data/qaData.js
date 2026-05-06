@@ -11,6 +11,7 @@ export const QA_DATA = [
         title: "Getting Started",
         items: [
           { q: "What is InCynq?", a: "InCynq is a social platform built for Second Life residents. It solves the group chat spam problem — instead of noisy SL group messages, you follow the brands and people you care about and only see content that matches your interests." },
+          { q: "Does InCynq use an algorithm?", a: "No. InCynq has no algorithm. Your feed shows content from the people and brands you follow, in chronological order. No hidden ranking, no shadowbanning, no 'we think you might like this'. What you follow is exactly what you see — nothing more, nothing less." },
           { q: "Is InCynq free for members?", a: "Yes, completely free. No subscription, no paywall, no catch. You will see sponsored posts from brands, but only if they match your chosen interests. Members never pay anything to register or use the platform." },
           { q: "Do I need a Second Life account to join?", a: "Yes. A valid SL account is required to register. This is how we confirm you are a real person and not a fake or bot account. Your SL avatar name becomes your InCynq username." },
           { q: "How do I sign in?", a: "Use your SL avatar name and your InCynq password. Your InCynq password is separate from your SL password — InCynq never asks for your SL password." },

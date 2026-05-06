@@ -138,6 +138,7 @@ function AppRoutes() {
         brandRemovalRequestedAt:    profile.brand_removal_requested_at     || null,
         adultVerified:              profile.adult_verified                  || false,
         brandMode:            false, // always start in resident mode
+        referralCode:         profile.referral_code                  || null,
       });
 
       // ── 2. Push parallel AppContext flags (separate state) ───
@@ -261,7 +262,6 @@ function AppRoutes() {
         table:  'notifications',
         filter: `user_id=eq.${currentUser.id}`,
       }, (payload) => {
-        console.log('Realtime notification received:', payload.new);
         addNotification({
           id:         payload.new.id,
           type:       payload.new.type,
@@ -273,7 +273,7 @@ function AppRoutes() {
           created_at: payload.new.created_at,
         });
       })
-      .subscribe((status) => console.log('Realtime status:', status));
+      .subscribe();
     return () => supabase.removeChannel(channel);
   }, [currentUser?.id]);
 
