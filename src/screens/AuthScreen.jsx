@@ -19,7 +19,9 @@ export default function AuthScreen({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotSlName, setForgotSlName] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotEmail, setForgotEmail]   = useState('');
+  const [forgotCode, setForgotCode]     = useState('');
+  const [forgotSent, setForgotSent]     = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
   // ── SL profile lookup (register mode only) ──────────────────────
@@ -196,9 +198,33 @@ export default function AuthScreen({ onLogin }) {
       await supabase.auth.resetPasswordForEmail(emailData, {
         redirectTo: window.location.origin,
       });
+      setForgotEmail(emailData);
       setForgotSent(true);
     } catch (e) {
-      setError('Could not send reset link. Try again.');
+      setError('Could not send code. Try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!forgotCode.trim()) { setError('Enter the code from your email.'); return; }
+    setForgotLoading(true);
+    setError('');
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: forgotEmail,
+        token: forgotCode.trim(),
+        type:  'recovery',
+      });
+      if (verifyError) throw verifyError;
+      // Logged in — close the sheet and let App.jsx hydrate the profile
+      setShowForgotPassword(false);
+      if (data?.user?.id) {
+        onLogin({ id: data.user.id });
+      }
+    } catch (e) {
+      setError('Incorrect or expired code. Check your email and try again.');
     } finally {
       setForgotLoading(false);
     }
@@ -416,12 +442,32 @@ export default function AuthScreen({ onLogin }) {
               <>
                 <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>📬</div>
                 <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Check your inbox</div>
-                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
-                  We've sent a password reset link to your email. Click it to set a new password.
+                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 20 }}>
+                  We've sent a 6-digit code to your email. Enter it below to sign in — then change your password in Settings.
                 </div>
-                <button onClick={() => setShowForgotPassword(false)}
-                  style={{ width: '100%', padding: '13px', borderRadius: 14, background: 'rgba(0,180,200,0.15)', border: '1px solid rgba(0,180,200,0.3)', color: '#00B4C8', fontWeight: 800, fontSize: 14 }}>
-                  Got it
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>YOUR CODE</label>
+                <input
+                  value={forgotCode}
+                  onChange={e => { setForgotCode(e.target.value); setError(''); }}
+                  placeholder="Enter 6-digit code"
+                  className="inp"
+                  style={{ marginBottom: 12, letterSpacing: 4, fontWeight: 800, fontSize: 18, textAlign: 'center' }}
+                  maxLength={10}
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                />
+                {error && (
+                  <div style={{ padding: '9px 12px', background: '#ff440011', border: '1px solid #ff440044', borderRadius: 10, color: '#ff6644', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+                    {error}
+                  </div>
+                )}
+                <button onClick={handleVerifyCode} disabled={forgotLoading || !forgotCode.trim()}
+                  style={{ width: '100%', padding: '13px', borderRadius: 14, background: forgotLoading || !forgotCode.trim() ? 'rgba(0,180,200,0.1)' : 'linear-gradient(135deg,#00B4C8,#F4B942)', color: forgotLoading || !forgotCode.trim() ? 'rgba(255,255,255,0.4)' : '#060d14', fontWeight: 800, fontSize: 14, marginBottom: 10 }}>
+                  {forgotLoading ? '⏳ Verifying…' : 'Sign in →'}
+                </button>
+                <button onClick={() => { setForgotSent(false); setForgotCode(''); setError(''); }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 14, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontSize: 13 }}>
+                  Resend code
                 </button>
               </>
             ) : (
@@ -429,7 +475,7 @@ export default function AuthScreen({ onLogin }) {
                 <div style={{ fontSize: 36, textAlign: 'center', marginBottom: 12 }}>🔑</div>
                 <div style={{ fontWeight: 800, fontSize: 17, color: '#fff', textAlign: 'center', marginBottom: 8 }}>Reset your password</div>
                 <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.7, marginBottom: 20 }}>
-                  Enter your SL avatar name and we'll send a reset link to your email.
+                  Enter your SL avatar name and we'll send a sign-in code to your email.
                 </div>
                 <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>SL AVATAR NAME</label>
                 <input value={forgotSlName} onChange={e => setForgotSlName(e.target.value)}
@@ -441,7 +487,7 @@ export default function AuthScreen({ onLogin }) {
                 )}
                 <button onClick={handleForgotPassword} disabled={forgotLoading}
                   style={{ width: '100%', padding: '13px', borderRadius: 14, background: forgotLoading ? 'rgba(0,180,200,0.1)' : 'linear-gradient(135deg,#00B4C8,#F4B942)', color: forgotLoading ? 'rgba(255,255,255,0.4)' : '#060d14', fontWeight: 800, fontSize: 14 }}>
-                  {forgotLoading ? '⏳ Sending…' : 'Send reset link →'}
+                  {forgotLoading ? '⏳ Sending…' : 'Send code →'}
                 </button>
               </>
             )}

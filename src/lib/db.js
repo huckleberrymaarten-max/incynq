@@ -771,13 +771,17 @@ export const getActiveAds = async () => {
     .from('ads')
     .select('*, brand:profiles!ads_brand_id_fkey(id, username, brand_name, brand_logo_url)')
     .eq('status', 'active')
+    .gt('expires_at', new Date().toISOString())   // never serve expired ads
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 };
 
-export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
+export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
+
+  // Default to 1 week if not specified
+  const weeks = durationWeeks && durationWeeks >= 1 && durationWeeks <= 4 ? durationWeeks : 1;
 
   // Deduct from brand wallet
   const { data: profile, error: fetchError } = await supabase
@@ -797,24 +801,25 @@ export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, pri
 
   if (deductError) throw deductError;
 
-  // Save the ad record
+  // Save the ad record — expires_at based on chosen duration
   const { error: adError } = await supabase
     .from('ads')
     .insert({
-      brand_id:      brandId,
+      brand_id:        brandId,
       tier,
-      groups:        groups || [],
-      is_random:     isRandom || false,
-      ad_maturity:   adMaturity || 'general',
+      groups:          groups || [],
+      is_random:       isRandom || false,
+      ad_maturity:     adMaturity || 'general',
       price,
-      location_id:    locationId || null,
-      location_name:  locationName || null,
+      duration_weeks:  weeks,
+      location_id:     locationId || null,
+      location_name:   locationName || null,
       slurl:           slurl || null,
-      marketplace_url:  marketplaceUrl || null,
-      ad_caption:       adCaption || null,
-      ad_image_url:     adImageUrl || null,
-      status:         'active',
-      expires_at:    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      marketplace_url: marketplaceUrl || null,
+      ad_caption:      adCaption || null,
+      ad_image_url:    adImageUrl || null,
+      status:          'active',
+      expires_at:      new Date(Date.now() + weeks * 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
 
   if (adError) {

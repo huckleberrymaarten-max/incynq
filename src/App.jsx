@@ -9,6 +9,7 @@ import { getProfile, cancelAccountDeletion, getManagedBrands } from './lib/db';
 // Screens
 import OnboardingScreen    from './screens/OnboardingScreen';
 import AuthScreen          from './screens/AuthScreen';
+import PasswordResetScreen from './screens/PasswordResetScreen';
 import PendingScreen       from './screens/PendingScreen';
 import DeactivatedScreen   from './screens/DeactivatedScreen';
 import MainApp             from './screens/MainApp';
@@ -88,6 +89,7 @@ function AppRoutes() {
     setMyGroups, setMySubs, setNotifications, addNotification,
   } = useApp();
   const [checking, setChecking] = useState(true);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════
   // HYDRATE PROFILE — single source of truth for ALL login paths
@@ -238,10 +240,18 @@ function AppRoutes() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change:', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        // Supabase has detected a recovery token in the URL.
+        // Stop normal login flow and show the set-new-password screen.
+        setShowPasswordReset(true);
+        setChecking(false);
+        return;
+      }
       if (event === 'SIGNED_OUT') {
         setLoggedIn(false);
         setShowOnboarding(true);
         setNotifications([]);
+        setShowPasswordReset(false);
       }
     });
 
@@ -284,6 +294,11 @@ function AppRoutes() {
         <img src={logo} alt="InCynq" style={{ width: 80, height: 80, objectFit: 'contain', opacity: .8, animation: 'float 3s ease-in-out infinite' }} />
       </div>
     );
+  }
+
+  // ── Password reset — triggered by magic link from email ────
+  if (showPasswordReset) {
+    return <PasswordResetScreen onDone={() => setShowPasswordReset(false)} />;
   }
 
   // ── Not logged in ───────────────────────────────────────────

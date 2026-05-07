@@ -7,6 +7,22 @@ import ImageCropModal from '../components/ImageCropModal';
 
 const STEPS = ['Creative', 'Ad Plan', 'Audience', 'Confirm'];
 
+// Duration options — 3 and 4 week discounts reward longer commitments
+const DURATION_OPTIONS = [
+  { weeks: 1, label: '1 week',  discount: null,   multiplier: 1       },
+  { weeks: 2, label: '2 weeks', discount: null,   multiplier: 2       },
+  { weeks: 3, label: '3 weeks', discount: '−25%', multiplier: 3 * 0.75 },
+  { weeks: 4, label: '4 weeks', discount: '−50%', multiplier: 4 * 0.5  },
+];
+
+// Calculate total price including duration multiplier
+const calcTotalPrice = (tier, groups, isRandom, weeks) => {
+  if (!tier) return 0;
+  const weeklyBase = calcAdPrice(tier, groups, isRandom);
+  const opt        = DURATION_OPTIONS.find(d => d.weeks === weeks) || DURATION_OPTIONS[0];
+  return Math.round(weeklyBase * opt.multiplier / 50) * 50;
+};
+
 // Reach labels/numbers based on member count
 const getReach = (tierId, memberCount) => {
   if (memberCount < 500) {
@@ -31,27 +47,29 @@ const getReach = (tierId, memberCount) => {
 
 export default function AdvertiseScreen() {
   const { currentUser, ads, purchaseAd, toast } = useApp();
-  const [step, setStep] = useState(0);
-  const [selLoc, setSelLoc] = useState(null);
-  const [customLoc, setCustomLoc] = useState('');
-  const [selTier, setSelTier] = useState(null);
-  const [selGroups, setSelGroups] = useState([]);
-  const [isRandom, setIsRandom] = useState(false);
-  const [adMaturity, setAdMaturity] = useState('general');
-  const [showModal, setShowModal] = useState(false);
-  const [slurl, setSlurl] = useState('');
+  const [step, setStep]                   = useState(0);
+  const [selLoc, setSelLoc]               = useState(null);
+  const [customLoc, setCustomLoc]         = useState('');
+  const [selTier, setSelTier]             = useState(null);
+  const [selDuration, setSelDuration]     = useState(1);
+  const [selGroups, setSelGroups]         = useState([]);
+  const [isRandom, setIsRandom]           = useState(false);
+  const [adMaturity, setAdMaturity]       = useState('general');
+  const [showModal, setShowModal]         = useState(false);
+  const [slurl, setSlurl]                 = useState('');
   const [marketplaceUrl, setMarketplaceUrl] = useState('');
-  const [adCaption, setAdCaption] = useState('');
-  const [adImageUrl, setAdImageUrl] = useState('');
+  const [adCaption, setAdCaption]         = useState('');
+  const [adImageUrl, setAdImageUrl]       = useState('');
   const [uploadingAdImage, setUploadingAdImage] = useState(false);
-  const [adCropFile, setAdCropFile] = useState(null);
+  const [adCropFile, setAdCropFile]       = useState(null);
 
   const { adTiers, appContent } = useContent();
-  const tier = adTiers.find(t => t.id === selTier);
-  const price = tier ? calcAdPrice(tier, selGroups, isRandom) : 0;
-  const locName = selLoc ? selLoc.name : customLoc.trim();
-  const hasLink = !!(slurl.trim() || marketplaceUrl.trim());
-  // Brand owners always use brand wallet on this screen; managers use it when in managing mode
+  const tier        = adTiers.find(t => t.id === selTier);
+  const weeklyPrice = tier ? calcAdPrice(tier, selGroups, isRandom) : 0;
+  const price       = calcTotalPrice(tier, selGroups, isRandom, selDuration);
+  const durationOpt = DURATION_OPTIONS.find(d => d.weeks === selDuration) || DURATION_OPTIONS[0];
+  const locName     = selLoc ? selLoc.name : customLoc.trim();
+
   const isBrandMode = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || !!currentUser.managingBrandId;
   const activeBrand = currentUser.managingBrandId
     ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
@@ -65,7 +83,7 @@ export default function AdvertiseScreen() {
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
   const canProceed = () => {
-    if (step === 0) return true; // location, SLURL and marketplace link are all optional
+    if (step === 0) return true;
     if (step === 1) return !!selTier;
     if (step === 2) return selGroups.length > 0;
     return true;
@@ -76,14 +94,20 @@ export default function AdvertiseScreen() {
 
   const reset = () => {
     setStep(0); setSelLoc(null); setCustomLoc('');
-    setSelTier(null); setSelGroups([]); setIsRandom(false);
+    setSelTier(null); setSelDuration(1); setSelGroups([]); setIsRandom(false);
     setAdMaturity('general'); setShowModal(false);
     setSlurl(''); setMarketplaceUrl(''); setAdCaption(''); setAdImageUrl('');
   };
 
   const handleLaunch = () => {
     if (wallet < price) { toast('Not enough L$ in wallet', 'error'); return; }
-    purchaseAd({ tier: selTier, groups: selGroups, isRandom, adMaturity, price, locationId: selLoc?.id || null, locationName: locName || null, slurl: slurl.trim() || null, marketplaceUrl: marketplaceUrl.trim() || null, adCaption: adCaption.trim() || null, adImageUrl: adImageUrl || null });
+    purchaseAd({
+      tier: selTier, groups: selGroups, isRandom, adMaturity, price,
+      durationWeeks: selDuration,
+      locationId: selLoc?.id || null, locationName: locName || null,
+      slurl: slurl.trim() || null, marketplaceUrl: marketplaceUrl.trim() || null,
+      adCaption: adCaption.trim() || null, adImageUrl: adImageUrl || null,
+    });
     reset();
   };
 
@@ -164,6 +188,7 @@ export default function AdvertiseScreen() {
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: C.card, borderRadius: 24, width: '100%', maxWidth: 460, overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} className="fadeUp">
+
             {/* Modal header */}
             <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${C.border}`, background: `linear-gradient(135deg,${C.sky}18,${C.peach}11)`, flexShrink: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -187,7 +212,7 @@ export default function AdvertiseScreen() {
             {/* Step content */}
             <div style={{ padding: 18, overflowY: 'auto', flex: 1 }}>
 
-              {/* Step 0: Creative */}
+              {/* ── Step 0: Creative ── */}
               {step === 0 && (
                 <div>
                   <div style={{ fontSize: 13, color: C.sub, marginBottom: 14, lineHeight: 1.5 }}>Build your ad. Add an image and caption — the rest is optional.</div>
@@ -249,33 +274,64 @@ export default function AdvertiseScreen() {
                 </div>
               )}
 
-              {/* Step 1: Ad Plan */}
-              {step === 1 && adTiers.map(t => (
-                <div key={t.id} onClick={() => setSelTier(t.id)}
-                  style={{ background: selTier === t.id ? `${t.color}11` : C.card2, border: `1.5px solid ${selTier === t.id ? t.color : t.color + '44'}`, borderRadius: 14, padding: 14, marginBottom: 10, cursor: 'pointer', transition: 'all .2s' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 12, background: `${t.color}22`, border: `1.5px solid ${t.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{t.icon}</div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: selTier === t.id ? t.color : C.text }}>{t.name}</div>
-                        <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.desc}</div>
-                        <div style={{ color: C.sub, fontSize: 11, marginTop: 2 }}>👥 {getReach(t.id, appContent.memberCount || 0)}</div>
+              {/* ── Step 1: Ad Plan + Duration ── */}
+              {step === 1 && (
+                <div>
+                  {adTiers.map(t => (
+                    <div key={t.id} onClick={() => setSelTier(t.id)}
+                      style={{ background: selTier === t.id ? `${t.color}11` : C.card2, border: `1.5px solid ${selTier === t.id ? t.color : t.color + '44'}`, borderRadius: 14, padding: 14, marginBottom: 10, cursor: 'pointer', transition: 'all .2s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: `${t.color}22`, border: `1.5px solid ${t.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{t.icon}</div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: selTier === t.id ? t.color : C.text }}>{t.name}</div>
+                            <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.desc}</div>
+                            <div style={{ color: C.sub, fontSize: 11, marginTop: 2 }}>👥 {getReach(t.id, appContent.memberCount || 0)}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div className="sg" style={{ color: C.gold, fontWeight: 700, fontSize: 17 }}>{t.basePrice.toLocaleString()}</div>
+                          <div style={{ color: C.muted, fontSize: 10 }}>L$ base/wk</div>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="sg" style={{ color: C.gold, fontWeight: 700, fontSize: 17 }}>{t.basePrice.toLocaleString()}</div>
-                      <div style={{ color: C.muted, fontSize: 10 }}>L$ base/wk</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  ))}
 
-              {/* Step 2: Audience */}
+                  {/* Duration picker — shown once a tier is selected */}
+                  {selTier && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 10 }}>DURATION</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                        {DURATION_OPTIONS.map(d => (
+                          <button key={d.weeks} onClick={() => setSelDuration(d.weeks)}
+                            style={{
+                              padding: '10px 4px', borderRadius: 12, textAlign: 'center',
+                              border: `1.5px solid ${selDuration === d.weeks ? C.sky : C.border}`,
+                              background: selDuration === d.weeks ? `${C.sky}18` : C.card2,
+                              transition: 'all .2s',
+                            }}>
+                            <div style={{ fontWeight: 800, fontSize: 12, color: selDuration === d.weeks ? C.sky : C.text }}>{d.label}</div>
+                            {d.discount
+                              ? <div style={{ fontSize: 10, color: C.green, fontWeight: 700, marginTop: 3 }}>{d.discount}</div>
+                              : <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>—</div>
+                            }
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 10, padding: '9px 12px', background: `${C.gold}0a`, border: `1px solid ${C.gold}22`, borderRadius: 10, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                        💡 Book longer, save more. 3 weeks saves 25%, 4 weeks saves 50%.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Step 2: Audience ── */}
               {step === 2 && tier && (
                 <div>
                   <div style={{ fontSize: 13, color: C.sub, marginBottom: 4, lineHeight: 1.5 }}>Pick interest groups. More groups = more reach = higher price.</div>
                   <div className="sg" style={{ color: C.gold, fontWeight: 700, marginBottom: 14, fontSize: 12 }}>
-                    {selGroups.length === 0 ? 'No groups selected yet' : `${selGroups.length} group${selGroups.length > 1 ? 's' : ''} · ${price.toLocaleString()} L$/week`}
+                    {selGroups.length === 0 ? 'No groups selected yet' : `${selGroups.length} group${selGroups.length > 1 ? 's' : ''} · ${price.toLocaleString()} L$ total`}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
                     {INTEREST_GROUPS.map(g => {
@@ -291,24 +347,53 @@ export default function AdvertiseScreen() {
 
                   {selGroups.length > 0 && (
                     <div style={{ background: C.card2, borderRadius: 12, padding: 14, marginBottom: 14, border: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 8 }}>PRICING</div>
+                      <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 8 }}>PRICING BREAKDOWN</div>
+
+                      {/* Base */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 12, color: C.sub }}>Base ({tier.name})</span>
                         <span className="sg" style={{ fontSize: 12, color: C.text }}>{tier.basePrice.toLocaleString()} L$</span>
                       </div>
+
+                      {/* Group multiplier */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 12, color: C.sub }}>{selGroups.length} group{selGroups.length > 1 ? 's' : ''} ×{groupMultiplier(selGroups.length)}</span>
-                        <span className="sg" style={{ fontSize: 12, color: C.text }}>{Math.round(tier.basePrice * groupMultiplier(selGroups.length)).toLocaleString()} L$</span>
+                        <span className="sg" style={{ fontSize: 12, color: C.text }}>{Math.round(tier.basePrice * groupMultiplier(selGroups.length)).toLocaleString()} L$/wk</span>
                       </div>
+
+                      {/* Random discount */}
                       {isRandom && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, color: C.green }}>Random −25%</span>
                           <span className="sg" style={{ fontSize: 12, color: C.green }}>−{Math.round(tier.basePrice * groupMultiplier(selGroups.length) * 0.25).toLocaleString()} L$</span>
                         </div>
                       )}
+
+                      {/* Weekly total */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: C.sub }}>Weekly price</span>
+                        <span className="sg" style={{ fontSize: 12, color: C.text }}>{weeklyPrice.toLocaleString()} L$/wk</span>
+                      </div>
+
+                      {/* Duration */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: C.sub }}>Duration × {selDuration} week{selDuration > 1 ? 's' : ''}</span>
+                        <span className="sg" style={{ fontSize: 12, color: C.text }}>{(weeklyPrice * selDuration).toLocaleString()} L$</span>
+                      </div>
+
+                      {/* Duration discount if applicable */}
+                      {durationOpt.discount && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: C.green }}>{selDuration}-week discount {durationOpt.discount}</span>
+                          <span className="sg" style={{ fontSize: 12, color: C.green }}>
+                            −{(weeklyPrice * selDuration - price).toLocaleString()} L$
+                          </span>
+                        </div>
+                      )}
+
                       <div style={{ height: 1, background: C.border, margin: '8px 0' }} />
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Total/week</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Total ({selDuration} week{selDuration > 1 ? 's' : ''})</span>
                         <span className="sg" style={{ fontSize: 16, fontWeight: 900, color: C.gold }}>{price.toLocaleString()} L$</span>
                       </div>
                     </div>
@@ -343,12 +428,15 @@ export default function AdvertiseScreen() {
                 </div>
               )}
 
-              {/* Step 3: Confirm */}
+              {/* ── Step 3: Confirm ── */}
               {step === 3 && tier && (
                 <div>
-                  <div style={{ background: C.card2, borderRadius: 14, padding: 14, marginBottom: 16 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>📍 {locName}</div>
-                  </div>
+                  {locName && (
+                    <div style={{ background: C.card2, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>📍 {locName}</div>
+                    </div>
+                  )}
+
                   {/* Ad preview */}
                   {(adImageUrl || adCaption) && (
                     <div style={{ background: C.card2, borderRadius: 14, overflow: 'hidden', marginBottom: 16, border: `1px solid ${C.border}` }}>
@@ -356,21 +444,23 @@ export default function AdvertiseScreen() {
                       {adCaption && <div style={{ padding: '10px 14px', fontSize: 13, color: C.sub, lineHeight: 1.5 }}>{adCaption}</div>}
                     </div>
                   )}
+
                   {[
-                    ['Ad Plan', `${tier.icon} ${tier.name}`],
-                    ['Duration', '7 days'],
+                    ['Ad Plan',  `${tier.icon} ${tier.name}`],
+                    ['Duration', `${selDuration} week${selDuration > 1 ? 's' : ''}${durationOpt.discount ? ` (${durationOpt.discount})` : ''}`],
                     ...(locName ? [['Location', locName]] : []),
                     ...(slurl.trim() ? [['SLURL', slurl.trim()]] : []),
                     ...(marketplaceUrl.trim() ? [['Marketplace', marketplaceUrl.trim()]] : []),
-                    ['Groups', selGroups.join(', ')],
+                    ['Groups',   selGroups.join(', ')],
                     ['Rotation', isRandom ? 'Random' : 'All groups'],
                     ['Maturity', adMaturity === 'adult' ? '🔴 Adult' : adMaturity === 'moderate' ? '🟡 Moderate' : '🟢 General'],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${C.border}` }}>
                       <span style={{ color: C.muted, fontSize: 13 }}>{k}</span>
-                      <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{v}</span>
+                      <span style={{ color: C.text, fontSize: 13, fontWeight: 700, maxWidth: '60%', textAlign: 'right', wordBreak: 'break-all' }}>{v}</span>
                     </div>
                   ))}
+
                   <div style={{ marginTop: 16, padding: 16, background: `linear-gradient(135deg,${C.gold}18,${C.peach}11)`, border: `1.5px solid ${C.gold}44`, borderRadius: 14, marginBottom: wallet < price ? 12 : 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <div className="sg" style={{ color: C.muted, fontSize: 11, letterSpacing: 1 }}>TOTAL COST</div>
@@ -381,12 +471,14 @@ export default function AdvertiseScreen() {
                       <div className="sg" style={{ color: wallet >= price ? C.green : '#ff6644', fontWeight: 700, fontSize: 14 }}>{wallet.toLocaleString()} L$</div>
                     </div>
                   </div>
+
                   {wallet < price && (
                     <div style={{ padding: '12px 14px', background: '#ff440011', border: '1px solid #ff440033', borderRadius: 12, marginBottom: 4 }}>
                       <div style={{ fontSize: 13, color: '#ff8866', fontWeight: 700, marginBottom: 4 }}>Not enough L$</div>
                       <div style={{ fontSize: 12, color: C.muted }}>You need {(price - wallet).toLocaleString()} L$ more.</div>
                     </div>
                   )}
+
                   <div style={{ marginTop: 10, padding: '9px 12px', background: `${C.sky}0a`, border: `1px solid ${C.sky}22`, borderRadius: 10, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
                     💡 Launch pricing — rates increase as InCynq grows. Early brands get the best deal.
                   </div>
@@ -412,6 +504,7 @@ export default function AdvertiseScreen() {
           </div>
         </div>
       )}
+
       {adCropFile && (
         <ImageCropModal
           file={adCropFile}
