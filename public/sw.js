@@ -1,0 +1,44 @@
+// ── InCynq Service Worker ─────────────────────────────────────────
+// Handles push notifications and notification click events.
+
+self.addEventListener('push', event => {
+  if (!event.data) return;
+
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch {
+    data = { title: 'InCynq', body: event.data.text() };
+  }
+
+  const options = {
+    body:  data.body  || '',
+    icon:  data.icon  || '/Q_Logo_.png',
+    badge: data.badge || '/Q_Logo_.png',
+    data:  { url: data.url || 'https://incynq.app' },
+    vibrate: [100, 50, 100],
+    requireInteraction: false,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'InCynq', options)
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || 'https://incynq.app';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Focus existing InCynq tab if open
+      for (const client of clientList) {
+        if (client.url.startsWith('https://incynq.app') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new tab
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});

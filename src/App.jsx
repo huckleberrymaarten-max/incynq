@@ -143,6 +143,7 @@ function AppRoutes() {
         adultVerified:              profile.adult_verified                  || false,
         brandMode:            false, // always start in resident mode
         referralCode:         profile.referral_code                  || null,
+        pushEnabled:          profile.push_enabled !== false,
       });
 
       // ── 2. Push parallel AppContext flags (separate state) ───

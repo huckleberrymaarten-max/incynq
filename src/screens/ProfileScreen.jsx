@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { USERS, LOCS, visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import Toggle from '../components/Toggle';
+import { subscribeToPush, unsubscribeFromPush, getPushStatus } from '../lib/pushNotifications';
 import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 import MaturityScreen from './MaturityScreen';
@@ -53,6 +54,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showMaturity, setShowMaturity] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(currentUser.pushEnabled ?? true);
+  const [pushLoading, setPushLoading] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -288,6 +291,32 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       setDiscoverable(!newVal);
       toast('Could not save — try again', 'peach');
       console.warn('Discoverable save failed:', e.message);
+    }
+  };
+
+  const handlePushToggle = async () => {
+    if (pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush(currentUser.id);
+        setPushEnabled(false);
+        setCurrentUser(u => ({ ...u, pushEnabled: false }));
+        toast('Push notifications off');
+      } else {
+        const result = await subscribeToPush(currentUser.id);
+        if (result === false) {
+          toast('Permission denied — enable notifications in your browser settings', 'error');
+        } else {
+          setPushEnabled(true);
+          setCurrentUser(u => ({ ...u, pushEnabled: true }));
+          toast('Push notifications on ✓');
+        }
+      }
+    } catch (e) {
+      toast(e.message || 'Could not update push notifications', 'error');
+    } finally {
+      setPushLoading(false);
     }
   };
 
@@ -735,6 +764,14 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Let others find you in recommendations</div>
               </div>
               <Toggle on={discoverable} onChange={handleDiscoverableToggle} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🔔</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Push Notifications</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>New events, followers and InCynq updates</div>
+              </div>
+              <Toggle on={pushEnabled && !pushLoading} onChange={handlePushToggle} />
             </div>
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT</div>
             <div style={{ padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
