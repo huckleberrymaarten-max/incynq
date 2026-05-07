@@ -54,8 +54,16 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showMaturity, setShowMaturity] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [pushEnabled, setPushEnabled] = useState(currentUser.pushEnabled ?? true);
-  const [pushLoading, setPushLoading] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+
+  // Check actual browser push subscription status on mount
+  useEffect(() => {
+    getPushStatus().then(status => {
+      setPushEnabled(status);
+      setPushLoading(false);
+    });
+  }, []);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
