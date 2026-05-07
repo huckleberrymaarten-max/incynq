@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import C from '../theme';
 
-const CROP_SIZE = 320;
+// ── Display size (what the user sees on screen) ───────────────────────
+const DISPLAY_SIZE = 320;
+
+// ── Export size (what actually gets uploaded — 1200×1200 for crisp quality) ──
+const EXPORT_SIZE = 1200;
 
 export default function ImageCropModal({ file, onCrop, onCancel }) {
   const canvasRef  = useRef(null);
@@ -27,7 +31,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
-      const minScale = Math.max(CROP_SIZE / img.width, CROP_SIZE / img.height);
+      const minScale = Math.max(DISPLAY_SIZE / img.width, DISPLAY_SIZE / img.height);
       scaleRef.current = minScale;
       setScale(minScale);
       setOffset({ x: 0, y: 0 });
@@ -37,27 +41,27 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // Draw frame on canvas whenever scale/offset change
+  // Draw preview frame on display canvas whenever scale/offset change
   useEffect(() => {
     if (!ready || !canvasRef.current || !imgRef.current) return;
     const canvas = canvasRef.current;
     const ctx    = canvas.getContext('2d');
     const img    = imgRef.current;
-    ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+    ctx.clearRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE);
     const w = img.width  * scale;
     const h = img.height * scale;
-    ctx.drawImage(img, (CROP_SIZE - w) / 2 + offset.x, (CROP_SIZE - h) / 2 + offset.y, w, h);
+    ctx.drawImage(img, (DISPLAY_SIZE - w) / 2 + offset.x, (DISPLAY_SIZE - h) / 2 + offset.y, w, h);
   }, [ready, scale, offset]);
 
   const clamp = useCallback((ox, oy, s) => {
     if (!imgRef.current) return { x: ox, y: oy };
     const img  = imgRef.current;
-    const maxX = Math.max(0, (img.width  * s - CROP_SIZE) / 2);
-    const maxY = Math.max(0, (img.height * s - CROP_SIZE) / 2);
+    const maxX = Math.max(0, (img.width  * s - DISPLAY_SIZE) / 2);
+    const maxY = Math.max(0, (img.height * s - DISPLAY_SIZE) / 2);
     return { x: Math.max(-maxX, Math.min(maxX, ox)), y: Math.max(-maxY, Math.min(maxY, oy)) };
   }, []);
 
-  // ── Mouse ────────────────────────────────────────────────
+  // ── Mouse ────────────────────────────────────────────────────────
   const onMouseDown = e => {
     setDragging(true);
     dragStart.current = { x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y };
@@ -69,7 +73,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
   };
   const onMouseUp = () => { setDragging(false); dragStart.current = null; };
 
-  // ── Touch ─────────────────────────────────────────────────
+  // ── Touch ─────────────────────────────────────────────────────────
   const onTouchStart = e => {
     if (e.touches.length === 1) {
       lastTouch.current = { x: e.touches[0].clientX - offsetRef.current.x, y: e.touches[0].clientY - offsetRef.current.y };
@@ -89,7 +93,7 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
       const dy   = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const img  = imgRef.current;
-      const min  = Math.max(CROP_SIZE / img.width, CROP_SIZE / img.height);
+      const min  = Math.max(DISPLAY_SIZE / img.width, DISPLAY_SIZE / img.height);
       const next = Math.max(min, Math.min(scaleRef.current * (dist / lastPinchDist.current), min * 4));
       scaleRef.current = next;
       setScale(next);
@@ -99,25 +103,51 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
   };
   const onTouchEnd = () => { lastTouch.current = null; lastPinchDist.current = null; };
 
-  // ── Scroll to zoom ────────────────────────────────────────
+  // ── Scroll to zoom ────────────────────────────────────────────────
   const onWheel = e => {
     e.preventDefault();
     if (!imgRef.current) return;
     const img  = imgRef.current;
-    const min  = Math.max(CROP_SIZE / img.width, CROP_SIZE / img.height);
+    const min  = Math.max(DISPLAY_SIZE / img.width, DISPLAY_SIZE / img.height);
     const next = Math.max(min, Math.min(scaleRef.current * (1 - e.deltaY * 0.001), min * 4));
     scaleRef.current = next;
     setScale(next);
     setOffset(prev => clamp(prev.x, prev.y, next));
   };
 
-  // ── Crop & return ─────────────────────────────────────────
+  // ── Crop & return — exports at EXPORT_SIZE for high quality ───────
+  // The display canvas is 320×320. We calculate the same crop region
+  // but render it onto a 1200×1200 canvas so the uploaded image is crisp.
   const handleUse = () => {
-    canvasRef.current.toBlob(blob => {
+    if (!imgRef.current) return;
+    const img    = imgRef.current;
+    const ratio  = EXPORT_SIZE / DISPLAY_SIZE;
+
+    // Create a high-res export canvas
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width  = EXPORT_SIZE;
+    exportCanvas.height = EXPORT_SIZE;
+    const ctx = exportCanvas.getContext('2d');
+
+    // Scale up the same scale/offset values by the ratio
+    const exportScale  = scaleRef.current * ratio;
+    const exportOffset = { x: offsetRef.current.x * ratio, y: offsetRef.current.y * ratio };
+
+    const w = img.width  * exportScale;
+    const h = img.height * exportScale;
+    ctx.drawImage(
+      img,
+      (EXPORT_SIZE - w) / 2 + exportOffset.x,
+      (EXPORT_SIZE - h) / 2 + exportOffset.y,
+      w, h
+    );
+
+    // Export at 0.95 quality (higher than before)
+    exportCanvas.toBlob(blob => {
       const croppedFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       onCrop(url, croppedFile);
-    }, 'image/jpeg', 0.92);
+    }, 'image/jpeg', 0.95);
   };
 
   return (
@@ -130,14 +160,14 @@ export default function ImageCropModal({ file, onCrop, onCancel }) {
         <button onClick={handleUse} style={{ color: C.sky, fontSize: 15, fontWeight: 800 }}>Use Photo</button>
       </div>
 
-      {/* Canvas crop area */}
+      {/* Display canvas — 320×320 for the UI, exports at 1200×1200 */}
       <div
-        style={{ width: CROP_SIZE, height: CROP_SIZE, position: 'relative', cursor: dragging ? 'grabbing' : 'grab', borderRadius: 2, overflow: 'hidden', touchAction: 'none' }}
+        style={{ width: DISPLAY_SIZE, height: DISPLAY_SIZE, position: 'relative', cursor: dragging ? 'grabbing' : 'grab', borderRadius: 2, overflow: 'hidden', touchAction: 'none' }}
         onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
         onWheel={onWheel}
         onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
       >
-        <canvas ref={canvasRef} width={CROP_SIZE} height={CROP_SIZE} style={{ display: 'block' }} />
+        <canvas ref={canvasRef} width={DISPLAY_SIZE} height={DISPLAY_SIZE} style={{ display: 'block' }} />
         {/* Rule-of-thirds grid overlay */}
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.4)' }}>
           {[1, 2].map(i => (

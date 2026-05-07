@@ -332,6 +332,8 @@ function AppRoutes() {
 
     checkSurvey();
   }, [currentUser?.id, currentUser?.activated, currentUser?.activatedAt]);
+
+  // ── Loading splash ──────────────────────────────────────────
   if (checking) {
     return (
       <div style={{ minHeight: '100vh', background: '#040f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
