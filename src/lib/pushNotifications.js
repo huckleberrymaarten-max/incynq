@@ -84,16 +84,18 @@ export async function unsubscribeFromPush(userId) {
   }
 
   // Deactivate in Supabase
-  await supabase
+  const { error: subError } = await supabase
     .from('push_subscriptions')
     .update({ active: false })
     .eq('user_id', userId);
+  if (subError) console.error('push_subscriptions update failed:', subError.message);
 
   // Update profile flag
-  await supabase
+  const { error: profileError } = await supabase
     .from('profiles')
     .update({ push_enabled: false })
     .eq('id', userId);
+  if (profileError) console.error('push_enabled update failed:', profileError.message);
 }
 
 /**
