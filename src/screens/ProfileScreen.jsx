@@ -19,17 +19,8 @@ import BrandProfileView from './BrandProfileView';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
+import { fetchSLProfile } from '../lib/slProfile';
 import logo from '../assets/Q_Logo_.png';
-
-const fetchSLAvatar = async (username) => {
-  try {
-    const res = await fetch(`https://corsproxy.io/?https://my-secondlife.com/agents/${encodeURIComponent(username)}/about`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const match = html.match(/profile_image[^>]+src="([^"]+)"/);
-    return match ? match[1] : null;
-  } catch { return null; }
-};
 
 const stableHash = s => { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) & 0xffffffff; return h; };
 
@@ -121,7 +112,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         setFollowingProfilesLoaded(true);
       } catch(e) {
         console.warn('Following profiles failed:', e.message);
-        // Fallback to static USERS
         setFollowingProfiles(USERS.filter(u => following.has(u.id)));
         setFollowingProfilesLoaded(true);
       }
@@ -163,7 +153,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   // Load suggested users when Discover opens
   const handleOpenDiscover = async () => {
     setShowFullDiscover(true);
-    // Load suggested users for each interest group
     if (currentUser.groups?.length > 0) {
       for (const groupId of currentUser.groups) {
         if (!suggestedUsers[groupId]) {
@@ -228,20 +217,20 @@ export default function ProfileScreen({ onOpenUserProfile }) {
     finally { setUploading(false); }
   };
 
+  // ── "Use SL picture" — calls edge function, no corsproxy ──
   const handleFetchSLAvatar = async () => {
     setUploading(true);
     toast('Fetching from Second Life…');
     try {
-      const url = await fetchSLAvatar(currentUser.username);
-      if (url) {
-        updateUser({ avatar: url });
-        await persistProfile({ avatar: url });
-        toast('SL profile picture loaded ✓');
-      } else {
-        toast('Could not find SL avatar — upload manually', 'error');
-      }
-    } catch { toast('Could not reach Second Life', 'error'); }
-    finally { setUploading(false); }
+      const slData = await fetchSLProfile(currentUser.username);
+      updateUser({ avatar: slData.pictureUrl });
+      await persistProfile({ avatar: slData.pictureUrl });
+      toast('SL profile picture loaded ✓');
+    } catch (e) {
+      toast(e.message || 'Could not find SL avatar — upload manually', 'error');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleChangeEmail = async () => {
@@ -265,7 +254,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
     const n = new Set(following);
     isFollowing ? n.delete(id) : n.add(id);
     setFollowing(n);
-    // Update local following profiles list
     if (isFollowing) {
       setFollowingProfiles(prev => prev.filter(p => p.id !== id));
     }
@@ -278,7 +266,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           await followUser(currentUser.id, id);
           createNotification({ userId: id, type: 'follow', actorId: currentUser.id });
         }
-        // Refresh following count
         const s = await getProfileStats(currentUser.id);
         setStats(s);
       } catch(e) { console.warn('Follow failed:', e.message); }
@@ -293,14 +280,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
   const handleDiscoverableToggle = async () => {
     const newVal = !discoverable;
-    // Optimistic UI update
     setDiscoverable(newVal);
     toast(newVal ? 'Visible in Discovery' : 'Hidden from Discovery');
-    // Persist via the same path as every other profile change
     try {
       await persistProfile({ discoverable: newVal });
     } catch (e) {
-      // Roll back UI on failure
       setDiscoverable(!newVal);
       toast('Could not save — try again', 'peach');
       console.warn('Discoverable save failed:', e.message);
@@ -341,7 +325,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   };
 
   // ── Discover ─────────────────────────────────────────────
-  // discoverAll built from real Supabase profiles (loaded on mount)
   const discoverAll = (() => {
     if (!currentUser.groups?.length) return [];
     const seen = new Set();
@@ -356,14 +339,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         }
       });
     });
-    // Shuffle with stable hash
     return [...all].sort((a, b) => stableHash(a.id) - stableHash(b.id));
   })();
 
   const discoverPreview = discoverAll.slice(0, 10);
 
   // ── Render ────────────────────────────────────────────────
-  // In brand mode — show brand profile view instead
   if (currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || currentUser.managingBrandId)) {
     return <BrandProfileView onOpenUserProfile={onOpenUserProfile} />;
   }
@@ -402,14 +383,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {gridStatusLabel(currentUser.gridStatus || 'online')} <span style={{ color: C.sky, fontSize: 10 }}>✏️</span>
             </button>
 
-            {/* Member Since — always resident date in resident mode */}
             {currentUser?.activatedAt && (
               <div style={{ fontSize: 11, color: C.muted, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span>📅</span>
                 <span>{formatMemberSince(currentUser.activatedAt, 'resident')}</span>
               </div>
             )}
-
           </div>
         </div>
 
@@ -418,7 +397,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           {currentUser.bio || 'No bio yet.'}
         </div>
 
-        {/* Stats — real counts from Supabase */}
+        {/* Stats */}
         <div style={{ display: 'flex', borderRadius: 14, overflow: 'hidden', border: `1px solid ${C.border}`, marginBottom: 16 }}>
           {(currentUser.isOfficial
             ? [['Posts', stats.posts]]
@@ -449,10 +428,9 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           </button>
         </div>
 
-        {/* Invite Friends + Brand — side by side ───────────── */}
+        {/* Invite Friends + Brand */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
 
-          {/* Invite Friends */}
           <button onClick={handleOpenReferral}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`, borderRadius: 14, border: `1px solid ${C.gold}44`, minHeight: 72 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -462,9 +440,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             <div style={{ fontSize: 11, color: C.muted }}>Earn 10 L$ per activation →</div>
           </button>
 
-          {/* Brand card — varies by state */}
           {(currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand') ? (
-            // Active brand — tap to switch to brand mode
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <button onClick={() => setCurrentUser(u => ({ ...u, brandMode: true }))}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'linear-gradient(135deg, rgba(0,180,200,0.15), rgba(0,180,200,0.08))', borderRadius: 14, border: '1px solid rgba(0,180,200,0.35)', minHeight: 72, width: '100%' }}>
@@ -483,7 +459,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               </a>
             </div>
           ) : currentUser.brandPending ? (
-            // Pending — waiting for ATM payment
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(244,185,66,0.07)', borderRadius: 14, border: '1px solid rgba(244,185,66,0.2)', minHeight: 72 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 18 }}>⏳</span>
@@ -492,7 +467,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               <div style={{ fontSize: 11, color: C.muted }}>Visit an ATM inworld</div>
             </div>
           ) : (
-            // No brand — Add Brand
             <button onClick={() => setShowAddBrand(true)}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'linear-gradient(135deg, rgba(0,180,200,0.1), rgba(0,180,200,0.05))', borderRadius: 14, border: '1px dashed rgba(0,180,200,0.3)', minHeight: 72 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -504,7 +478,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           )}
         </div>
 
-        {/* Dashboard (brand + official accounts only) */}
+        {/* Dashboard */}
         {canAccessDashboard && (
           <button onClick={() => setShowDashboard(true)}
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: `linear-gradient(135deg, ${C.sky}22, ${C.sky}11)`, borderRadius: 14, border: `1px solid ${C.sky}44`, marginBottom: 12 }}>
@@ -554,7 +528,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             </div>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', marginLeft: -16, paddingLeft: 16, marginRight: -16, paddingRight: 16, paddingBottom: 6 }}>
               {discoverPreview.map(u => {
-                const mutuals = stableHash(u.id) % 8;
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card2, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${u._group?.color || C.border}22` }}>
@@ -629,20 +602,15 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             {currentUser.groups?.map(groupId => {
               const group = INTEREST_GROUPS.find(g => g.id === groupId);
               if (!group) return null;
-              
-              // Use real Supabase data (discoverable users only)
               const people = suggestedUsers[groupId] || [];
-              
-              // Keep brands from static data for now (until brands are in database)
-              const brands = LOCS.filter(l => l.groups?.includes(groupId)).map(l => ({ 
-                id: `b_${l.id}`, 
-                username: l.owner, 
-                name: l.name, 
-                avatar: l.image, 
-                isBrand: true, 
-                followers: l.visits 
+              const brands = LOCS.filter(l => l.groups?.includes(groupId)).map(l => ({
+                id: `b_${l.id}`,
+                username: l.owner,
+                name: l.name,
+                avatar: l.image,
+                isBrand: true,
+                followers: l.visits
               }));
-              
               const all = [...people, ...brands].sort((a, b) => stableHash(a.id) - stableHash(b.id)).slice(0, 10);
               if (!all.length) return null;
               return (
@@ -656,13 +624,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                   </div>
                   <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', paddingBottom: 4 }}>
                     {all.map(u => {
-                      const mutuals = stableHash(u.id) % 8;
                       const isFollowing = following.has(u.id);
-                      // Handle both Supabase profiles and brand objects
                       const displayName = u.isBrand ? u.name : (u.display_name || u.username);
                       const avatar = u.isBrand ? u.avatar : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
                       const followers = u.isBrand ? u.followers : (u.followers || 0);
-                      
                       return (
                         <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${group.color}22` }}>
                           <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto 7px' }}>
@@ -672,7 +637,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                           <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                             {displayName}
                           </div>
-                          {mutuals > 0 && <div style={{ fontSize: 10, color: C.muted, marginBottom: 2, fontWeight: 600 }}>👥 {mutuals} mutual{mutuals !== 1 ? 's' : ''}</div>}
                           <div style={{ fontSize: 10, color: C.muted, marginBottom: 7 }}>
                             {u.isBrand ? `${(followers / 1000).toFixed(1)}k visits` : `${followers.toLocaleString()} followers`}
                           </div>
@@ -753,7 +717,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Settings</span>
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
-            {/* Privacy */}
             <div style={{ padding: '12px 20px 4px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PRIVACY</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🏷️</div>
@@ -773,7 +736,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               </div>
               <Toggle on={discoverable} onChange={handleDiscoverableToggle} />
             </div>
-            {/* Account */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT</div>
             <div style={{ padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>@{currentUser.username}</div>
@@ -812,7 +774,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 <button onClick={handleChangePassword} style={{ width: '100%', padding: '10px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13 }}>Update Password →</button>
               </div>
             )}
-            {/* Legal */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>LEGAL</div>
             <a href="https://incynq.net/terms" target="_blank" rel="noopener noreferrer"
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
@@ -826,7 +787,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
               <span>🍪 Cookies</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
             </a>
-            {/* Account Actions */}
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>ACCOUNT ACTIONS</div>
             <button onClick={async () => {
               const { supabase } = await import('../lib/supabase');
@@ -837,7 +797,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff4466', borderBottom: `1px solid ${C.border}22`, display: 'block' }}>
               🚪 Sign Out
             </button>
-            {/* Danger zone */}
             <div style={{ padding: '16px 20px 6px', marginTop: 8, fontSize: 13, color: '#ff3333', fontWeight: 800, letterSpacing: 1 }}>⚠️ DANGER ZONE !</div>
             <button onClick={() => { setShowSettings(false); setShowDeactivate(true); }}
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -864,14 +823,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
 
-      {/* Top Up Wallet modal */}
       {showTopUp && (
         <TopUpModal
           currentUser={currentUser}
           onClose={() => setShowTopUp(false)}
           onWalletUpdated={(newBalance) => {
-            // Update local user state if the parent passes setCurrentUser via context
-            // Real-time subscription elsewhere will sync the rest
             if (setCurrentUser) {
               setCurrentUser({ ...currentUser, wallet: newBalance });
             }
@@ -879,7 +835,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Grid Status sheet */}
       {showGridStatus && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
           onClick={() => setShowGridStatus(false)}>
@@ -919,7 +874,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Following sheet — loads real Supabase profiles */}
+      {/* Following sheet */}
       {showFollowing && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
           onClick={() => setShowFollowing(false)}>
@@ -936,14 +891,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               {followingProfilesLoaded && followingProfiles.length === 0 && (
                 <div style={{ padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Not following anyone yet.</div>
               )}
-              {/* InCynq Official always shows first (unless you ARE InCynq) */}
               {currentUser.username !== 'incynq' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                  <div 
-                    onClick={() => {
-                      setShowFollowing(false);
-                      onOpenUserProfile && onOpenUserProfile('incynq');
-                    }}
+                  <div
+                    onClick={() => { setShowFollowing(false); onOpenUserProfile && onOpenUserProfile('incynq'); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                     <img src={logo} alt="InCynq" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -960,12 +911,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                    {/* Clickable user info */}
-                    <div 
-                      onClick={() => {
-                        setShowFollowing(false);
-                        onOpenUserProfile && onOpenUserProfile(u.username);
-                      }}
+                    <div
+                      onClick={() => { setShowFollowing(false); onOpenUserProfile && onOpenUserProfile(u.username); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -973,11 +920,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
                       </div>
                     </div>
-                    {/* Unfollow button */}
-                    <button onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFollow(u.id);
-                    }}
+                    <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
                       style={{ padding: '7px 14px', borderRadius: 20, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
                       Unfollow
                     </button>
@@ -989,7 +932,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         </div>
       )}
 
-      {/* Followers modal */}
+      {/* Followers sheet */}
       {showFollowers && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
           onClick={() => setShowFollowers(false)}>
@@ -1013,12 +956,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
-                    {/* Clickable user info */}
-                    <div 
-                      onClick={() => {
-                        setShowFollowers(false);
-                        onOpenUserProfile && onOpenUserProfile(u.username);
-                      }}
+                    <div
+                      onClick={() => { setShowFollowers(false); onOpenUserProfile && onOpenUserProfile(u.username); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1026,19 +965,13 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
                       </div>
                     </div>
-                    {/* Follow button */}
-                    <button onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFollow(u.id);
-                    }}
-                      style={{ 
-                        padding: '7px 14px', 
-                        borderRadius: 20, 
+                    <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
+                      style={{
+                        padding: '7px 14px', borderRadius: 20,
                         background: isFollowing ? `${C.sky}18` : `linear-gradient(135deg,${C.sky},${C.peach})`,
                         border: isFollowing ? `1px solid ${C.sky}44` : 'none',
                         color: isFollowing ? C.sky : '#060d14',
-                        fontWeight: 700, 
-                        fontSize: 12 
+                        fontWeight: 700, fontSize: 12
                       }}>
                       {isFollowing ? 'Unfollow' : 'Follow'}
                     </button>
@@ -1061,8 +994,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               <button onClick={() => setShowReferral(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px 20px' }}>
-              
-              {/* How it works */}
               <div style={{ background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 8 }}>How It Works</div>
                 <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>
@@ -1074,8 +1005,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                   • Resets monthly on the 1st
                 </div>
               </div>
-
-              {/* Your referral link */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>YOUR REFERRAL LINK</div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1088,8 +1017,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                   </button>
                 </div>
               </div>
-
-              {/* Stats */}
               {referralStatsLoading && (
                 <div style={{ padding: '20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading stats…</div>
               )}
@@ -1125,24 +1052,17 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           </div>
         </div>
       )}
-      {/* Dashboard overlay (brand + official accounts only) */}
+
       {showDashboard && canAccessDashboard && (
         <DashboardScreen onClose={() => setShowDashboard(false)} />
       )}
 
-      {/* Brand Settings Panel */}
       {showBrandSettings && (
         <BrandSettingsPanel onClose={() => setShowBrandSettings(false)} />
       )}
 
-      {/* Brand removal banner — shown during 30-day grace period */}
       {currentUser.brandRemovalRequestedAt && (
-        <div style={{
-          background: '#7B1818', borderBottom: '1px solid #a82222',
-          padding: '10px 16px', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-          position: 'sticky', top: 0, zIndex: 50,
-        }}>
+        <div style={{ background: '#7B1818', borderBottom: '1px solid #a82222', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 50 }}>
           <span style={{ color: '#fff', fontSize: 13, lineHeight: 1.4 }}>
             ⚠️ <strong>{currentUser.brandName}</strong> is scheduled for removal in{' '}
             <strong>{Math.max(0, Math.ceil((new Date(currentUser.brandRemovalRequestedAt).getTime() + 30 * 24 * 60 * 60 * 1000 - Date.now()) / (1000 * 60 * 60 * 24)))} days</strong>.
@@ -1158,14 +1078,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 toast('Could not cancel — try again', 'error');
               }
             }}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, color: '#fff', fontSize: 13, padding: '4px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
+            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, color: '#fff', fontSize: 13, padding: '4px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             Cancel removal
           </button>
         </div>
       )}
 
-      {/* Remove Brand Modal */}
       {showRemoveBrand && (
         <RemoveBrandModal
           userId={currentUser.id}
@@ -1179,7 +1097,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Brand Profile Edit Screen */}
       {showBrandEdit && (
         <BrandProfileEditScreen
           onClose={() => setShowBrandEdit(false)}
@@ -1187,12 +1104,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Brand Team Screen */}
       {showBrandTeam && (
         <BrandTeamScreen onClose={() => setShowBrandTeam(false)} />
       )}
 
-      {/* Add Brand Screen */}
       {showAddBrand && (
         <AddBrandScreen
           onClose={() => setShowAddBrand(false)}
@@ -1211,13 +1126,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Deactivate Account modal */}
       {showDeactivate && (
         <DeactivateModal
           userId={currentUser.id}
           onClose={() => setShowDeactivate(false)}
           onConfirm={async () => {
-            // Sign out after deactivating — DeactivatedScreen shows on next login
             const { supabase } = await import('../lib/supabase');
             await supabase.auth.signOut();
             setLoggedIn(false);
@@ -1225,7 +1138,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         />
       )}
 
-      {/* Delete Account modal */}
       {showDelete && (
         <DeleteModal
           userId={currentUser.id}

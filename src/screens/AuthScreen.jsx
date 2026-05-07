@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import TCScreen from './TCScreen';
 import logo from '../assets/Q_Logo_.png';
 import { registerUser, loginUser, getProfile, createReferral } from '../lib/db';
+import { fetchSLProfile } from '../lib/slProfile';
 import { supabase } from '../lib/supabase';
 
 export default function AuthScreen({ onLogin }) {
@@ -21,12 +22,58 @@ export default function AuthScreen({ onLogin }) {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
 
+  // ── SL profile lookup (register mode only) ──────────────────────
+  // Fires when the user stops typing their SL name for 800ms.
+  // Populates displayName + pictureUrl before the form is submitted.
+  const [slLookup, setSlLookup]           = useState(null);   // { uuid, username, displayName, pictureUrl } | null
+  const [slLookupLoading, setSlLookupLoading] = useState(false);
+  const [slLookupError, setSlLookupError]     = useState('');
+  const lookupTimer = useRef(null);
+
+  useEffect(() => {
+    // Only runs in register mode
+    if (mode !== 'register') return;
+
+    // Reset when name is cleared or too short
+    setSlLookup(null);
+    setSlLookupError('');
+    if (slName.trim().length < 3) return;
+
+    clearTimeout(lookupTimer.current);
+    lookupTimer.current = setTimeout(async () => {
+      setSlLookupLoading(true);
+      try {
+        const data = await fetchSLProfile(slName.trim());
+        setSlLookup(data);
+        setSlLookupError('');
+      } catch (e) {
+        setSlLookup(null);
+        setSlLookupError(e.message || 'Avatar not found — double-check your SL name.');
+      } finally {
+        setSlLookupLoading(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(lookupTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slName, mode]);
+
+  // Reset lookup when switching modes
+  const switchMode = (m) => {
+    setMode(m);
+    setError('');
+    setAgreedTC(false);
+    setSlLookup(null);
+    setSlLookupError('');
+    clearTimeout(lookupTimer.current);
+  };
+
+  // ── Login ────────────────────────────────────────────────────────
   const handleLogin = async () => {
     setError('');
     if (!slName.trim() || !password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
     try {
-      // Look up email from SL avatar name
       const { data: emailData, error: rpcError } = await supabase
         .rpc('get_email_by_username', { p_username: slName.trim().toLowerCase() });
 
@@ -63,37 +110,61 @@ export default function AuthScreen({ onLogin }) {
     }
   };
 
+  // ── Register ─────────────────────────────────────────────────────
   const handleRegister = async () => {
     setError('');
-    if (!slName.trim()) { setError('Enter your SL avatar name.'); return; }
-    if (!email.trim()) { setError('Enter your email.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirm) { setError("Passwords don't match."); return; }
-    if (!agreedTC) { setError('Please read and agree to the Terms & Conditions.'); return; }
+    if (!slName.trim())     { setError('Enter your SL avatar name.'); return; }
+    if (!email.trim())      { setError('Enter your email.'); return; }
+    if (password.length < 6){ setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirm){ setError("Passwords don't match."); return; }
+    if (!agreedTC)          { setError('Please read and agree to the Terms & Conditions.'); return; }
+
     setLoading(true);
     try {
-      const username = slName.trim().toLowerCase().replace(/ /g, '.');
-      const authData = await registerUser({ username, email, password });
-      const userId = authData.user?.id;
-      const displayName = authData.displayName;
-      
-      // Create referral if code provided
-      if (referralCode && referralCode.trim() && userId) {
+      const username  = slName.trim().toLowerCase().replace(/ /g, '.');
+      const authData  = await registerUser({ username, email, password });
+      const userId    = authData.user?.id;
+
+      // ── Override display name + avatar with real SL data ────────
+      // registerUser derives displayName from the username (capitalised words).
+      // If we successfully looked up the avatar, we overwrite with the real
+      // SL display name and profile picture.
+      const resolvedDisplayName = slLookup?.displayName ?? authData.displayName;
+      const resolvedAvatarUrl   = slLookup?.pictureUrl  ?? null;
+
+      if (userId && (slLookup?.displayName || slLookup?.pictureUrl)) {
+        try {
+          const updates = {};
+          if (slLookup.displayName) updates.display_name = slLookup.displayName;
+          if (slLookup.pictureUrl)  updates.avatar_url   = slLookup.pictureUrl;
+
+          await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId);
+        } catch (e) {
+          // Non-fatal — profile still works, just without the SL overrides
+          console.warn('Could not save SL profile data:', e.message);
+        }
+      }
+
+      // Create referral record if code provided
+      if (referralCode.trim() && userId) {
         try {
           await createReferral(referralCode.trim().toUpperCase(), userId);
         } catch (e) {
           console.warn('Referral code invalid or already used:', e.message);
-          // Don't block registration if referral fails
         }
       }
-      
+
       onLogin({
-        id: userId || Date.now(),
+        id:              userId || Date.now(),
         username,
-        displayName,
-        name: displayName,
+        displayName:     resolvedDisplayName,
+        name:            resolvedDisplayName,
         showDisplayName: true,
-        avatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(username)}&backgroundColor=b6e3f4`,
+        avatar:          resolvedAvatarUrl
+          || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(username)}&backgroundColor=b6e3f4`,
         bio: '', loc: '', groups: [], subs: [],
         gridStatus: 'online', accountType: 'resident',
         wallet: 0, maturity: 'general', activated: false,
@@ -109,6 +180,7 @@ export default function AuthScreen({ onLogin }) {
     }
   };
 
+  // ── Forgot password ───────────────────────────────────────────────
   const handleForgotPassword = async () => {
     if (!forgotSlName.trim()) { setError('Enter your SL avatar name.'); return; }
     setForgotLoading(true);
@@ -132,6 +204,9 @@ export default function AuthScreen({ onLogin }) {
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────
   return (
     <>
       {showTC && <TCScreen onClose={() => setShowTC(false)} />}
@@ -147,7 +222,6 @@ export default function AuthScreen({ onLogin }) {
           </span>
         </div>
 
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
         {/* Form */}
@@ -157,7 +231,7 @@ export default function AuthScreen({ onLogin }) {
             {/* Tabs */}
             <div style={{ display: 'flex', background: C.card2, borderRadius: 12, padding: 4, marginBottom: 20 }}>
               {['login', 'register'].map(m => (
-                <button key={m} onClick={() => { setMode(m); setError(''); setAgreedTC(false); }}
+                <button key={m} onClick={() => switchMode(m)}
                   style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13,
                     background: mode === m ? C.card : 'transparent',
                     color: mode === m ? C.text : C.muted,
@@ -170,13 +244,61 @@ export default function AuthScreen({ onLogin }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-              {/* SL Avatar Name — always shown */}
+              {/* SL Avatar Name */}
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>SL AVATAR NAME</label>
                 <input value={slName} onChange={e => setSlName(e.target.value)}
                   placeholder="firstname.lastname" className="inp"
                   onFocus={e => e.target.style.borderColor = C.sky}
                   onBlur={e => e.target.style.borderColor = C.border} />
+
+                {/* ── SL lookup feedback (register only) ── */}
+                {mode === 'register' && slName.trim().length >= 3 && (
+                  <div style={{ marginTop: 6 }}>
+                    {slLookupLoading && (
+                      <div style={{ fontSize: 12, color: C.muted, padding: '6px 10px' }}>
+                        ⏳ Looking up avatar…
+                      </div>
+                    )}
+
+                    {!slLookupLoading && slLookup && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 12px', borderRadius: 10,
+                        background: `${C.sky}0a`, border: `1px solid ${C.sky}33`,
+                      }}>
+                        <img
+                          src={slLookup.pictureUrl}
+                          alt=""
+                          style={{
+                            width: 36, height: 36, borderRadius: '18%',
+                            objectFit: 'cover', border: `1.5px solid ${C.sky}44`,
+                            flexShrink: 0,
+                          }}
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: C.sky, letterSpacing: .3 }}>
+                            ✓ AVATAR FOUND
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginTop: 1 }}>
+                            {slLookup.displayName}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!slLookupLoading && slLookupError && (
+                      <div style={{
+                        fontSize: 12, color: '#ff8866', padding: '6px 10px',
+                        background: '#ff440008', borderRadius: 8,
+                        border: '1px solid #ff440022',
+                      }}>
+                        ⚠ {slLookupError}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Email — register only */}
@@ -283,6 +405,7 @@ export default function AuthScreen({ onLogin }) {
           </div>
         </div>
       </div>
+
       {/* Forgot Password sheet */}
       {showForgotPassword && (
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
