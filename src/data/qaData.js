@@ -102,6 +102,9 @@ export const QA_DATA = [
         items: [
           { q: "What emails does InCynq send?", a: "Only what you choose. Account emails (activation, important notices) always come through. Everything else — InCynq News, Tips & Guides, Special Offers — is optional and toggleable in Settings." },
           { q: "Does InCynq show me ads from outside companies?", a: "No. The only sponsored content you see comes from Second Life brands within InCynq, matched to your own chosen interest groups. No third-party advertising. Ever." },
+          { q: "What are push notifications?", a: "Push notifications are alerts that appear on your phone or device even when you're not in the app. InCynq sends them for a small number of meaningful events only — new events from brands you follow, event reminders when you've RSVP'd, new followers, and important announcements from InCynq Official." },
+          { q: "How do I turn push notifications on or off?", a: "Settings → Push Notifications. One toggle — on or off. That's it. InCynq keeps notifications minimal by design — you'll never be spammed." },
+          { q: "Can I turn off push notifications but still see in-app notifications?", a: "Yes. Turning off push notifications only stops alerts appearing on your device. Your in-app notification bell still shows everything as normal." },
         ],
       },
     ],

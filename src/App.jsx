@@ -14,6 +14,7 @@ import PendingScreen       from './screens/PendingScreen';
 import DeactivatedScreen   from './screens/DeactivatedScreen';
 import MainApp             from './screens/MainApp';
 import Toast               from './components/Toast';
+import SurveyModal         from './components/SurveyModal';
 
 // ── Deletion countdown banner ─────────────────────────────────
 // Shown inside the app while a deletion request is pending.
@@ -90,6 +91,7 @@ function AppRoutes() {
   } = useApp();
   const [checking, setChecking] = useState(true);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════
   // HYDRATE PROFILE — single source of truth for ALL login paths
@@ -287,7 +289,49 @@ function AppRoutes() {
     return () => supabase.removeChannel(channel);
   }, [currentUser?.id]);
 
-  // ── Loading splash ──────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // SURVEY CHECK — runs when user is logged in and activated
+  // Shows survey 28 days after activation, re-shows every 28 days
+  // until completed.
+  // ═══════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!currentUser?.id || !currentUser?.activated || !currentUser?.activatedAt) return;
+
+    const checkSurvey = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('surveys')
+          .select('completed, next_show_at')
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        if (error) { console.warn('Survey check failed:', error.message); return; }
+
+        // Already completed — never show again
+        if (data?.completed) return;
+
+        const now = new Date();
+        const activatedAt = new Date(currentUser.activatedAt);
+        const daysSinceActivation = (now - activatedAt) / (1000 * 60 * 60 * 24);
+
+        // Not yet 28 days since activation
+        if (daysSinceActivation < 28) return;
+
+        // If dismissed before, check if 28 days have passed since last dismissal
+        if (data?.next_show_at) {
+          const nextShow = new Date(data.next_show_at);
+          if (now < nextShow) return;
+        }
+
+        // Show survey after a short delay so the app loads first
+        setTimeout(() => setShowSurvey(true), 2000);
+      } catch (e) {
+        console.warn('Survey check error:', e.message);
+      }
+    };
+
+    checkSurvey();
+  }, [currentUser?.id, currentUser?.activated, currentUser?.activatedAt]);
   if (checking) {
     return (
       <div style={{ minHeight: '100vh', background: '#040f14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -376,6 +420,9 @@ function AppRoutes() {
       )}
       <MainApp />
       {notif && <Toast msg={notif.msg} type={notif.type} />}
+      {showSurvey && (
+        <SurveyModal onClose={() => setShowSurvey(false)} />
+      )}
     </>
   );
 }
