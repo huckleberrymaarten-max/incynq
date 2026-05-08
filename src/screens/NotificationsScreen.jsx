@@ -228,8 +228,8 @@ export default function NotificationsScreen({ onClose }) {
                   onTouchEnd={e => handleSwipeEnd(e, notif.id)}
                   onMouseDown={handleSwipeStart}
                   onMouseUp={e => handleSwipeEnd(e, notif.id)}>
-                  {/* Delete button revealed on swipe */}
-                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: '#ff4466', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
+                  {/* Delete button — only visible when swiped */}
+                  <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, background: '#ff4466', display: swipedId === notif.id ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
                     onClick={() => handleDelete(notif.id)}>
                     <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>Delete</span>
                   </div>
@@ -241,6 +241,7 @@ export default function NotificationsScreen({ onClose }) {
                     transform: swipedId === notif.id ? 'translateX(-80px)' : 'translateX(0)',
                     transition: 'transform 0.2s ease',
                     position: 'relative', zIndex: 2,
+                    backgroundColor: notif.read ? C.card : `${cfg.color}18`,
                   }}>
                   {/* Avatar + icon badge */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
