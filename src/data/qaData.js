@@ -105,6 +105,8 @@ export const QA_DATA = [
           { q: "What are push notifications?", a: "Push notifications are alerts that appear on your phone or device even when you're not in the app. InCynq sends them for a small number of meaningful events only — new events from brands you follow, event reminders when you've RSVP'd, new followers, and important announcements from InCynq Official." },
           { q: "How do I turn push notifications on or off?", a: "Settings → Push Notifications. One toggle — on or off. That's it. InCynq keeps notifications minimal by design — you'll never be spammed." },
           { q: "Can I turn off push notifications but still see in-app notifications?", a: "Yes. Turning off push notifications only stops alerts appearing on your device. Your in-app notification bell still shows everything as normal." },
+          { q: "Can I install InCynq on my phone like a real app?", a: "Yes! InCynq is a Progressive Web App (PWA) — you can add it to your home screen and it launches fullscreen just like a native app. On Android, open incynq.app in Chrome, tap the three-dot menu and select 'Add to Home Screen'. For the best experience — including full-screen mode with no browser bar — we recommend using Chrome. Firefox works too but may show a small URL bar at the bottom." },
+          { q: "Does InCynq work on iPhone?", a: "Yes. Open incynq.app in Safari on your iPhone, tap the Share button, then 'Add to Home Screen'. It will install as a PWA and launch fullscreen from your home screen." },
         ],
       },
     ],
