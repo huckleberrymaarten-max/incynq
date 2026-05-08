@@ -237,11 +237,11 @@ export default function NotificationsScreen({ onClose }) {
                   <div style={{
                     display: 'flex', alignItems: 'flex-start', gap: 12,
                     padding: '12px 16px',
-                    background: notif.read ? C.card : `${cfg.color}18`,
+                    background: notif.read ? C.card : C.bg,
                     transform: swipedId === notif.id ? 'translateX(-80px)' : 'translateX(0)',
                     transition: 'transform 0.2s ease',
                     position: 'relative', zIndex: 2,
-                    backgroundColor: notif.read ? C.card : `${cfg.color}18`,
+                    backgroundColor: notif.read ? C.card : C.bg,
                   }}>
                   {/* Avatar + icon badge */}
                   <div style={{ position: 'relative', flexShrink: 0 }}>
