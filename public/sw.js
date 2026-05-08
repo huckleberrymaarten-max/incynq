@@ -12,12 +12,15 @@ self.addEventListener('push', event => {
   }
 
   const options = {
-    body:  data.body  || '',
-    icon:  data.icon  || '/Q_Logo_.png',
-    badge: data.badge || '/Q_Logo_.png',
-    data:  { url: data.url || 'https://incynq.app' },
-    vibrate: [100, 50, 100],
+    body:               data.body  || '',
+    icon:               data.icon  || '/Q_Logo_.png',
+    badge:              data.badge || '/Q_Logo_.png',
+    data:               { url: data.url || 'https://incynq.app' },
+    vibrate:            [200, 100, 200],
     requireInteraction: false,
+    silent:             false,
+    tag:                'incynq-notification',
+    renotify:           true,
   };
 
   event.waitUntil(
@@ -31,13 +34,11 @@ self.addEventListener('notificationclick', event => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Focus existing InCynq tab if open
       for (const client of clientList) {
         if (client.url.startsWith('https://incynq.app') && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new tab
       if (clients.openWindow) return clients.openWindow(url);
     })
   );
