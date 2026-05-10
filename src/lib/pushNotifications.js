@@ -7,7 +7,7 @@
 
 import { supabase } from './supabase';
 
-const VAPID_PUBLIC_KEY = 'BAVEgRvQAjJSmzM3L79bb-8Bzt5nFUeyxOcyOCGtAYZzNhXBe-V39XNf5cEBiuWDg6KpY0qHu8mjk3Pnfa9JiCM';
+const VAPID_PUBLIC_KEY = 'BAFUY9rrTwtN_vKpI0Ekzwlvljmh8fvijO831ERhCt-Y2GUAuSl_OxW0JHVOquuW4YvYRag0trGCrVh27NxW87E';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -110,4 +110,26 @@ export async function getPushStatus() {
   } catch {
     return false;
   }
+}
+
+/**
+ * Send a push notification to a specific user via the edge function.
+ * Called server-side or from admin — not from client directly.
+ */
+export async function sendPushToUser({ userId, title, body, url = 'https://incynq.app' }) {
+  const { error } = await supabase.functions.invoke('send-push', {
+    body: { userId, title, body, url }
+  });
+  if (error) throw error;
+}
+
+/**
+ * Send a push notification to ALL users (InCynq Official broadcasts).
+ * Admin only.
+ */
+export async function sendPushToAll({ title, body, url = 'https://incynq.app' }) {
+  const { error } = await supabase.functions.invoke('send-push', {
+    body: { all: true, title, body, url }
+  });
+  if (error) throw error;
 }
