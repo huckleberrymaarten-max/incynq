@@ -1,6 +1,12 @@
 // ── InCynq Service Worker ─────────────────────────────────────────
-// Handles push notifications and notification click events.
+// Handles push notifications, notification clicks, and PWA caching.
 
+import { precacheAndRoute } from 'workbox-precaching';
+
+// Injected by VitePWA at build time
+precacheAndRoute(self.__WB_MANIFEST);
+
+// ── Push notifications ────────────────────────────────────────────
 self.addEventListener('push', event => {
   if (!event.data) return;
 
@@ -13,8 +19,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body:               data.body  || '',
-    icon:               data.icon  || '/Q_Logo_.png',
-    badge:              data.badge || '/Q_Logo_.png',
+    icon:               data.icon  || '/icons/icon-192x192.png',
+    badge:              data.badge || '/icons/icon-72x72.png',
     data:               { url: data.url || 'https://incynq.app' },
     vibrate:            [200, 100, 200],
     requireInteraction: false,
@@ -28,6 +34,7 @@ self.addEventListener('push', event => {
   );
 });
 
+// ── Notification click ────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const url = event.notification.data?.url || 'https://incynq.app';
