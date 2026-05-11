@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import SLCharPicker from './SLCharPicker';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
@@ -7,7 +6,6 @@ import { visibleName } from '../data';
 import { createPost, uploadPostImage } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import Av from './Av';
-import SLCharPicker from './SLCharPicker';
 import ImageCropModal from './ImageCropModal';
 
 export default function ComposeScreen({ onClose }) {
@@ -29,7 +27,7 @@ export default function ComposeScreen({ onClose }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selTags, setSelTags] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
-  const [showCharPicker, setShowCharPicker] = useState(false);
+
   const [posting, setPosting] = useState(false);
   const fileRef = useRef(null);
   const [cropQueue, setCropQueue] = useState([]);
@@ -213,11 +211,6 @@ export default function ComposeScreen({ onClose }) {
                 style={{ width: '100%', background: 'transparent', border: 'none', color: C.text, fontSize: 15, lineHeight: 1.6, resize: 'none', minHeight: 100, outline: 'none', fontFamily: 'inherit', paddingRight: 32 }}
                 autoFocus
               />
-              <button
-                onClick={() => setShowCharPicker(!showCharPicker)}
-                style={{ position: 'absolute', right: 0, top: 0, fontSize: 16, color: showCharPicker ? C.sky : C.muted }}>
-                ★
-              </button>
             </div>
 
           </div>
@@ -364,15 +357,6 @@ export default function ComposeScreen({ onClose }) {
           onCrop={handleCropDone}
           onCancel={handleCropCancel}
         />
-      )}
-
-      {showCharPicker && (
-        <div style={{ position: 'absolute', inset: 0, background: '#000000aa', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-          onClick={() => setShowCharPicker(false)}>
-          <div style={{ width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <SLCharPicker onInsert={c => setCaption(p => p + c)} onClose={() => setShowCharPicker(false)} />
-          </div>
-        </div>
       )}
     </div>
   );
