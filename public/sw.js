@@ -14,7 +14,7 @@ self.addEventListener('push', event => {
   const options = {
     body:               data.body  || '',
     icon:               data.icon  || '/icons/icon-192x192.png',
-    badge:              data.badge || '/icons/icon-72x72.png',
+    badge:              data.badge || '/icons/badge-icon.png',
     data:               { url: data.url || 'https://incynq.app' },
     vibrate:            [200, 100, 200],
     requireInteraction: false,
