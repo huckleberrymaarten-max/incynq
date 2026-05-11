@@ -17,7 +17,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
@@ -38,15 +38,15 @@ button {
   cursor: pointer;
   border: none;
   background: none;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 
 input, textarea, select {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   outline: none;
 }
 
-.sg { font-family: 'Space Grotesk', sans-serif; }
+.sg { font-family: 'Manrope', sans-serif; }
 
 /* Animations */
 @keyframes fadeUp {
