@@ -5,7 +5,6 @@ import { USERS, LOCS, visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import Toggle from '../components/Toggle';
 import { subscribeToPush, unsubscribeFromPush, getPushStatus } from '../lib/pushNotifications';
-import SLCharPicker from '../components/SLCharPicker';
 import TCScreen from './TCScreen';
 import MaturityScreen from './MaturityScreen';
 import InterestPicker from '../components/InterestPicker';
@@ -49,7 +48,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showTopUp, setShowTopUp] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(currentUser.displayName || '');
   const [editBio, setEditBio] = useState(currentUser.bio || '');
-  const [showCharPicker, setShowCharPicker] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showMaturity, setShowMaturity] = useState(false);
@@ -725,19 +723,15 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>DISPLAY NAME</label>
               <div style={{ position: 'relative' }}>
-                <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} className="inp" style={{ paddingRight: 40 }} />
-                <button onClick={() => setShowCharPicker(showCharPicker === 'name' ? null : 'name')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: showCharPicker === 'name' ? C.sky : C.muted }}>★</button>
+                <input value={editDisplayName} onChange={e => setEditDisplayName(e.target.value)} className="inp" />
               </div>
-              {showCharPicker === 'name' && <div style={{ marginTop: 6 }}><SLCharPicker onInsert={c => setEditDisplayName(n => n + c)} onClose={() => setShowCharPicker(null)} /></div>}
             </div>
             {/* Bio */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, letterSpacing: .5 }}>BIO</label>
               <div style={{ position: 'relative' }}>
-                <textarea value={editBio} onChange={e => setEditBio(e.target.value)} className="inp" style={{ height: 80, paddingRight: 40 }} />
-                <button onClick={() => setShowCharPicker(showCharPicker === 'bio' ? null : 'bio')} style={{ position: 'absolute', right: 10, top: 10, fontSize: 16, color: showCharPicker === 'bio' ? C.sky : C.muted }}>★</button>
+                <textarea value={editBio} onChange={e => setEditBio(e.target.value)} className="inp" style={{ height: 80 }} />
               </div>
-              {showCharPicker === 'bio' && <div style={{ marginTop: 6 }}><SLCharPicker onInsert={c => setEditBio(n => n + c)} onClose={() => setShowCharPicker(null)} /></div>}
             </div>
             <button onClick={saveProfile} style={{ width: '100%', padding: '13px', borderRadius: 14, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 900, fontSize: 14 }}>
               Save →
