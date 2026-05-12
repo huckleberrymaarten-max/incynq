@@ -46,12 +46,8 @@ export default function MaintenancePage({ message }) {
             <span style={{ fontSize: 12, fontWeight: 700, color: '#f0a500' }}>Maintenance in progress</span>
           </div>
 
-          <p style={{ fontSize: 14, color: '#8cc4d0', lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ fontSize: 14, color: '#f0f9ff', fontWeight: 700, lineHeight: 1.7, marginBottom: 16 }}>
             {message || "We're making improvements behind the scenes. The site will be back up as soon as possible."}
-          </p>
-
-          <p style={{ fontSize: 13, color: '#4a8090', lineHeight: 1.7, marginBottom: 8 }}>
-            The InCynq app at <strong style={{ color: '#00b4c8' }}>incynq.app</strong> may still be accessible during this time.
           </p>
 
           <p style={{ fontSize: 13, color: '#4a8090', lineHeight: 1.7 }}>
