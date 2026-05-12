@@ -98,12 +98,25 @@ export default function ComposeScreen({ onClose }) {
         // Get first image as base64 if present
         let imageBase64 = null;
         let imageMimeType = 'image/jpeg';
-        if (images.length > 0 && images[0].preview) {
-          const dataUrl = images[0].preview;
-          const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-          if (match) {
-            imageMimeType = match[1];
-            imageBase64   = match[2];
+        if (images.length > 0 && images[0].file) {
+          try {
+            imageBase64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const dataUrl = reader.result;
+                const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+                if (match) {
+                  imageMimeType = match[1];
+                  resolve(match[2]);
+                } else {
+                  resolve(null);
+                }
+              };
+              reader.onerror = () => resolve(null);
+              reader.readAsDataURL(images[0].file);
+            });
+          } catch {
+            imageBase64 = null;
           }
         }
 
