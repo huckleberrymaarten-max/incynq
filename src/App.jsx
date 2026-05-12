@@ -15,6 +15,7 @@ import DeactivatedScreen   from './screens/DeactivatedScreen';
 import MainApp             from './screens/MainApp';
 import Toast               from './components/Toast';
 import SurveyModal         from './components/SurveyModal';
+import MaintenancePage     from './screens/MaintenancePage';
 
 // ── Deletion countdown banner ─────────────────────────────────
 // Shown inside the app while a deletion request is pending.
@@ -92,6 +93,7 @@ function AppRoutes() {
   const [checking, setChecking] = useState(true);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
+  const [maintenance, setMaintenance] = useState(null); // null = not checked yet
 
   // ═══════════════════════════════════════════════════════════════
   // HYDRATE PROFILE — single source of truth for ALL login paths
@@ -212,6 +214,24 @@ function AppRoutes() {
   useEffect(() => {
     const checkSession = async () => {
       console.log('Session check running');
+
+      // ── Check maintenance mode first ──────────────────────
+      try {
+        const { data: statusData } = await supabase
+          .from('app_status')
+          .select('status, message')
+          .eq('id', 1)
+          .single();
+        if (statusData?.status === 'maintenance') {
+          setMaintenance(statusData.message || null);
+          setChecking(false);
+          return;
+        }
+      } catch (e) {
+        // If check fails, continue normally — don't block the app
+        console.warn('App status check failed:', e.message);
+      }
+      setMaintenance(false);
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Session:', session);
 
@@ -333,6 +353,11 @@ function AppRoutes() {
 
     checkSurvey();
   }, [currentUser?.id, currentUser?.activated, currentUser?.activatedAt]);
+
+  // ── Maintenance mode ───────────────────────────────────────
+  if (maintenance) {
+    return <MaintenancePage message={maintenance} />;
+  }
 
   // ── Loading splash ──────────────────────────────────────────
   if (checking) {
