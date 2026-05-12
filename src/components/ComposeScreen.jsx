@@ -6,7 +6,6 @@ import { visibleName } from '../data';
 import { createPost, uploadPostImage } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import Av from './Av';
-import SLCharPicker from './SLCharPicker';
 import ImageCropModal from './ImageCropModal';
 
 export default function ComposeScreen({ onClose }) {
@@ -22,12 +21,15 @@ export default function ComposeScreen({ onClose }) {
   const authorId = activeBrandId || currentUser.id;
   const { interestGroups } = useContent();
   const [caption, setCaption] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
+  const captionRef = useRef(null);
   const [images, setImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selTags, setSelTags] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
-  const [showCharPicker, setShowCharPicker] = useState(false);
+
   const [posting, setPosting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const fileRef = useRef(null);
   const [cropQueue, setCropQueue] = useState([]);
   const [currentCropFile, setCurrentCropFile] = useState(null);
@@ -88,6 +90,53 @@ export default function ComposeScreen({ onClose }) {
       toast('Links and SLurls are not allowed in posts. Use a paid ad to include a teleport link.', 'error');
       return;
     }
+
+    // ── AI moderation check ───────────────────────────────────
+    if (caption.trim() || images.length > 0) {
+      setChecking(true);
+      try {
+        // Get first image as base64 if present
+        let imageBase64 = null;
+        let imageMimeType = 'image/jpeg';
+        if (images.length > 0 && images[0].preview) {
+          const dataUrl = images[0].preview;
+          const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (match) {
+            imageMimeType = match[1];
+            imageBase64   = match[2];
+          }
+        }
+
+        const modRes = await fetch(
+          'https://muzzjvegynsemlsbwggf.supabase.co/functions/v1/moderate-post',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text:          caption.trim() || null,
+              imageBase64,
+              imageMimeType,
+              userId:        currentUser.id,
+            }),
+          }
+        );
+        const modData = await modRes.json();
+        if (modData.result === 'block') {
+          if (modData.reason?.startsWith('CHILD_SAFETY:')) {
+            toast('This post cannot be published. It has been reported to the InCynq safety team.', 'error');
+          } else {
+            toast('This post violates InCynq Community Standards and cannot be published.', 'error');
+          }
+          setChecking(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Moderation check failed (non-fatal):', e.message);
+      } finally {
+        setChecking(false);
+      }
+    }
+
     setPosting(true);
     try {
       let imageUrls = [];
@@ -167,6 +216,17 @@ export default function ComposeScreen({ onClose }) {
 
   const selectedGroupData = interestGroups.find(g => g.id === selGroup);
 
+  const insertEmoji = (emoji) => {
+    const el = captionRef.current;
+    if (!el) { setCaption(prev => prev + emoji); return; }
+    const start = el.selectionStart;
+    const end   = el.selectionEnd;
+    const newVal = caption.slice(0, start) + emoji + caption.slice(end);
+    setCaption(newVal);
+    setTimeout(() => { el.focus(); el.setSelectionRange(start + emoji.length, start + emoji.length); }, 0);
+    setShowEmoji(false);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', overflow: 'hidden' }} className="fadeUp">
 
@@ -176,9 +236,9 @@ export default function ComposeScreen({ onClose }) {
         <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text, flex: 1 }}>New Post</span>
         <button
           onClick={handlePost}
-          disabled={posting || (!caption.trim() && images.length === 0)}
+          disabled={posting || checking || (!caption.trim() && images.length === 0)}
           style={{ padding: '8px 20px', borderRadius: 20, background: (!caption.trim() && images.length === 0) ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: (!caption.trim() && images.length === 0) ? C.muted : '#060d14', fontWeight: 900, fontSize: 13, transition: 'all .2s' }}>
-          {posting ? '⏳' : 'Post'}
+          {checking ? '🔍 Checking…' : posting ? '⏳' : 'Post'}
         </button>
       </div>
 
@@ -190,18 +250,15 @@ export default function ComposeScreen({ onClose }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 6 }}>{visibleName(currentUser)}</div>
             <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }}>
               <textarea
+                ref={captionRef}
                 value={caption}
                 onChange={e => setCaption(e.target.value)}
                 placeholder="What's happening on the grid?"
                 style={{ width: '100%', background: 'transparent', border: 'none', color: C.text, fontSize: 15, lineHeight: 1.6, resize: 'none', minHeight: 100, outline: 'none', fontFamily: 'inherit', paddingRight: 32 }}
                 autoFocus
               />
-              <button
-                onClick={() => setShowCharPicker(!showCharPicker)}
-                style={{ position: 'absolute', right: 0, top: 0, fontSize: 16, color: showCharPicker ? C.sky : C.muted }}>
-                ★
-              </button>
             </div>
 
           </div>
@@ -220,10 +277,23 @@ export default function ComposeScreen({ onClose }) {
                 }}>
                 {images.map((img, i) => (
                   <div key={i} style={{ minWidth: '100%', position: 'relative' }}>
-                    <img src={img.preview} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover' }} />
+                    <img src={img.preview} alt="" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', filter: checking ? 'blur(6px)' : 'none', transition: 'filter 0.3s ease' }} />
+                    {/* Moderation checking overlay */}
+                    {checking && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', zIndex: 3 }}>
+                        <div style={{ position: 'relative', width: 72, height: 72, marginBottom: 10 }}>
+                          {/* Red circle with diagonal bar */}
+                          <svg viewBox="0 0 72 72" style={{ width: 72, height: 72 }}>
+                            <circle cx="36" cy="36" r="32" fill="none" stroke="#ff2244" strokeWidth="6" />
+                            <line x1="16" y1="16" x2="56" y2="56" stroke="#ff2244" strokeWidth="6" strokeLinecap="round" />
+                          </svg>
+                        </div>
+                        <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textAlign: 'center', textShadow: '0 1px 4px #000' }}>Checking content…</span>
+                      </div>
+                    )}
                     <button
                       onClick={() => removeImage(i)}
-                      style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: '#000000aa', color: 'white', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                      style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: '#000000aa', color: 'white', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, opacity: checking ? 0 : 1 }}>
                       ✕
                     </button>
                   </div>
@@ -348,15 +418,6 @@ export default function ComposeScreen({ onClose }) {
           onCrop={handleCropDone}
           onCancel={handleCropCancel}
         />
-      )}
-
-      {showCharPicker && (
-        <div style={{ position: 'absolute', inset: 0, background: '#000000aa', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-          onClick={() => setShowCharPicker(false)}>
-          <div style={{ width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <SLCharPicker onInsert={c => setCaption(p => p + c)} onClose={() => setShowCharPicker(false)} />
-          </div>
-        </div>
       )}
     </div>
   );
