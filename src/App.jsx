@@ -323,7 +323,7 @@ function AppRoutes() {
         schema: 'public',
         table:  'app_status',
         filter: 'id=eq.1',
-      }, (payload) => {
+      }, async (payload) => {
         if (payload.new.status === 'maintenance') {
           setMaintenance(payload.new.message || true);
         } else {
