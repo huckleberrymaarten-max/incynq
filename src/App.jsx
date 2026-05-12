@@ -311,6 +311,29 @@ function AppRoutes() {
   }, [currentUser?.id]);
 
   // ═══════════════════════════════════════════════════════════════
+  // REALTIME APP STATUS — listens for maintenance mode changes
+  // When admin flips to maintenance, all open sessions see it instantly
+  // ═══════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const channel = supabase
+      .channel('app_status')
+      .on('postgres_changes', {
+        event:  'UPDATE',
+        schema: 'public',
+        table:  'app_status',
+        filter: 'id=eq.1',
+      }, (payload) => {
+        if (payload.new.status === 'maintenance') {
+          setMaintenance(payload.new.message || true);
+        } else {
+          setMaintenance(false);
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [currentUser?.id]);
+
+  // ═══════════════════════════════════════════════════════════════
   // SURVEY CHECK — runs when user is logged in and activated
   // Shows survey 28 days after activation, re-shows every 28 days
   // until completed.
