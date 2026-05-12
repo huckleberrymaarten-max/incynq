@@ -328,6 +328,16 @@ function AppRoutes() {
           setMaintenance(payload.new.message || true);
         } else {
           setMaintenance(false);
+          // Re-check session when coming back from maintenance
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user && !loggedIn) {
+            hydrateProfile(session.user.id).then(profile => {
+              if (profile) {
+                setShowOnboarding(false);
+                setLoggedIn(true);
+              }
+            });
+          }
         }
       })
       .subscribe();
