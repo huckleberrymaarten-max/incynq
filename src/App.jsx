@@ -223,15 +223,16 @@ function AppRoutes() {
           .eq('id', 1)
           .single();
         if (statusData?.status === 'maintenance') {
-          setMaintenance(statusData.message || null);
+          setMaintenance(statusData.message || true);
           setChecking(false);
           return;
+        } else {
+          setMaintenance(false);
         }
       } catch (e) {
-        // If check fails, continue normally — don't block the app
         console.warn('App status check failed:', e.message);
+        setMaintenance(false);
       }
-      setMaintenance(false);
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Session:', session);
 
