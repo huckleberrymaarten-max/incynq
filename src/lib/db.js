@@ -354,10 +354,10 @@ export const deleteComment = async (commentId) => {
 };
 
 // ── Reports ──────────────────────────────────────────────
-export const createReport = async ({ postId, reporterId, reason }) => {
+export const createReport = async ({ postId, eventId, reporterId, reason }) => {
   const { data, error } = await supabase
     .from('reports')
-    .insert({ post_id: postId, reporter_id: reporterId, reason })
+    .insert({ post_id: postId || null, event_id: eventId || null, reporter_id: reporterId, reason })
     .select()
     .single();
   if (error) throw error;
@@ -417,6 +417,33 @@ export const createEvent = async ({ userId, title, locationName, slurl, date, ti
     .single();
   if (error) throw error;
   return data;
+};
+
+export const updateEvent = async (eventId, { title, locationName, slurl, date, timeSlt, description, imageUrl }) => {
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      title,
+      location_name: locationName || null,
+      slurl:         slurl        || null,
+      date:          date         || null,
+      time_slt:      timeSlt      || null,
+      description:   description  || null,
+      image_url:     imageUrl     || null,
+    })
+    .eq('id', eventId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const deleteEvent = async (eventId) => {
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
+  if (error) throw error;
 };
 
 export const getEventRsvps = async (userId) => {

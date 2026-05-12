@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport } from '../lib/db';
 import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen() {
@@ -13,6 +13,8 @@ export default function EventsScreen() {
   const [rsvped, setRsvped] = useState(new Set());      // event IDs where status = 'going'
   const [interested, setInterested] = useState(new Set()); // event IDs where status = 'interested'
   const [showCreate, setShowCreate] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);  // event being edited
+  const [menuOpenId, setMenuOpenId] = useState(null);       // ⋯ menu open for which event
 
   // Create form state
   const [title, setTitle] = useState('');
@@ -98,41 +100,86 @@ export default function EventsScreen() {
     }
   };
 
-  // ── Create event ─────────────────────────────────────────
+  // ── Edit event ────────────────────────────────────────────
+  const handleEdit = (ev) => {
+    setMenuOpenId(null);
+    setTitle(ev.title || '');
+    setLocationName(ev.location_name || '');
+    setSlurl(ev.slurl || '');
+    setDate(ev.date || '');
+    setTimeSlt(ev.time_slt || '');
+    setDescription(ev.description || '');
+    setEventImageUrl(ev.image_url || '');
+    setEventImageFile(null);
+    setEditingEvent(ev);
+    setShowCreate(true);
+  };
+
+  // ── Delete event ──────────────────────────────────────────
+  const handleDelete = async (ev) => {
+    setMenuOpenId(null);
+    if (!window.confirm('Delete this event? This cannot be undone.')) return;
+    try {
+      await deleteEvent(ev.id);
+      setEvents(prev => prev.filter(e => e.id !== ev.id));
+      toast('Event deleted');
+    } catch (e) {
+      toast('Could not delete event', 'error');
+    }
+  };
+
+  // ── Flag event ────────────────────────────────────────────
+  const handleFlag = async (ev) => {
+    try {
+      await createReport({ reporterId: currentUser.id, eventId: ev.id, reason: 'Flagged by user' });
+      toast('Event reported — thank you');
+    } catch (e) {
+      toast('Could not report event', 'error');
+    }
+  };
+
+  // ── Create OR update event ────────────────────────────────
   const handleCreate = async () => {
     if (!title.trim()) { toast('Give your event a title', 'error'); return; }
     setSaving(true);
     try {
-      // Upload image if selected
       let uploadedImageUrl = null;
       if (eventImageFile) {
-        try {
-          uploadedImageUrl = await uploadPostImage(currentUser.id, eventImageFile);
-        } catch (e) {
-          console.warn('Event image upload failed:', e.message);
-          uploadedImageUrl = eventImageUrl; // fallback to local preview
-        }
+        try { uploadedImageUrl = await uploadPostImage(currentUser.id, eventImageFile); }
+        catch (e) { uploadedImageUrl = eventImageUrl; }
       }
-      const newEvent = await createEvent({
-        userId:       currentUser.id,
-        title:        title.trim(),
+
+      const payload = {
+        userId: currentUser.id,
+        title: title.trim(),
         locationName: locationName.trim(),
-        slurl:        slurl.trim(),
-        date:         date || null,
-        timeSlt:      timeSlt.trim(),
-        description:  description.trim(),
-        imageUrl:     uploadedImageUrl,
-      });
-      setEvents(prev => [newEvent, ...prev]);
-      toast('Event posted! ✓');
+        slurl: slurl.trim(),
+        date: date || null,
+        timeSlt: timeSlt.trim(),
+        description: description.trim(),
+        imageUrl: uploadedImageUrl || eventImageUrl || null,
+      };
+
+      if (editingEvent) {
+        // Update existing event
+        const updated = await updateEvent(editingEvent.id, payload);
+        setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...updated } : e));
+        toast('Event updated ✓');
+      } else {
+        // Create new event
+        const newEvent = await createEvent(payload);
+        setEvents(prev => [newEvent, ...prev]);
+        toast('Event posted! ✓');
+      }
+
       setShowCreate(false);
-      // Reset form
+      setEditingEvent(null);
       setTitle(''); setLocationName(''); setSlurl('');
       setDate(''); setTimeSlt(''); setDescription('');
       setEventImageUrl(''); setEventImageFile(null);
     } catch (e) {
-      toast('Could not post event — please try again', 'error');
-      console.warn('Create event failed:', e.message);
+      toast('Could not save event — please try again', 'error');
+      console.warn('Save event failed:', e.message);
     } finally {
       setSaving(false);
     }
@@ -175,6 +222,23 @@ export default function EventsScreen() {
           const isInt      = interested.has(ev.id);
           const host       = ev.profiles?.display_name || ev.profiles?.username || 'Unknown';
           const dateStr    = ev.date ? new Date(ev.date + 'T00:00:00').toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' }) : null;
+          
+          // Format SLT time and convert to user's local time
+          const sltTime    = ev.time_slt ? ev.time_slt.replace('.', ':') : null;
+          let localTimeStr = null;
+          if (ev.date && sltTime) {
+            try {
+              // SLT = America/Los_Angeles
+              const sltDate = new Date(`${ev.date}T${sltTime.padStart(5, '0')}:00`);
+              const sltMs   = sltDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', hour12: false });
+              // Get user's local time
+              const localMs = sltDate.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
+              const tzAbbr  = new Intl.DateTimeFormat('en', { timeZoneName: 'short', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }).formatToParts(sltDate).find(p => p.type === 'timeZoneName')?.value || '';
+              if (localMs !== sltMs) localTimeStr = `${localMs} ${tzAbbr}`;
+            } catch {}
+          }
+
+          const isOwner = currentUser?.id && (ev.user_id === currentUser.id || ev.profiles?.id === currentUser.id);
 
           return (
             <div key={ev.id} style={{ background: C.card, borderRadius: 16, overflow: 'hidden', marginBottom: 12, border: `1px solid ${ev.boost_tier ? boostColor + '44' : C.border}` }}>
@@ -183,11 +247,42 @@ export default function EventsScreen() {
                 {ev.boost_tier && (
                   <div style={{ fontSize: 10, color: boostColor, fontWeight: 700, marginBottom: 6 }}>⚡ FEATURED EVENT</div>
                 )}
-                <div style={{ fontWeight: 800, fontSize: 15, color: C.text, marginBottom: 4 }}>{ev.title}</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>
-                  {dateStr && <span>📅 {dateStr}{ev.time_slt ? ` · ${ev.time_slt} SLT` : ''} · </span>}
-                  <span>@{host}</span>
+
+                {/* Title row with action button */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: C.text, flex: 1, paddingRight: 8 }}>{ev.title}</div>
+                  {isOwner ? (
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <button onClick={() => setMenuOpenId(menuOpenId === ev.id ? null : ev.id)}
+                        style={{ color: C.muted, fontSize: 18, padding: '0 4px', lineHeight: 1 }}>⋯</button>
+                      {menuOpenId === ev.id && (
+                        <div style={{ position: 'absolute', right: 0, top: 24, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 10, zIndex: 100, minWidth: 130, boxShadow: '0 4px 20px #00000066' }}>
+                          <button onClick={() => handleEdit(ev)}
+                            style={{ display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left', fontSize: 13, color: C.text, fontWeight: 600 }}>✏️ Edit</button>
+                          <button onClick={() => handleDelete(ev)}
+                            style={{ display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left', fontSize: 13, color: '#ff6644', fontWeight: 600 }}>🗑️ Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button onClick={() => handleFlag(ev)}
+                      style={{ color: C.muted, fontSize: 14, padding: '0 4px', flexShrink: 0 }}>🚩</button>
+                  )}
                 </div>
+
+                {/* By line */}
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>by @{host}</div>
+
+                {/* Date + time */}
+                {dateStr && (
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>
+                    📅 {dateStr}{sltTime ? ` · ${sltTime} SLT` : ''}
+                  </div>
+                )}
+                {localTimeStr && (
+                  <div style={{ fontSize: 11, color: C.sky, marginBottom: 4 }}>🕐 {localTimeStr} your time</div>
+                )}
+
                 {ev.location_name && (
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>📍 {ev.location_name}</div>
                 )}
@@ -224,8 +319,8 @@ export default function EventsScreen() {
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: C.card, borderRadius: 20, width: '100%', maxWidth: 440, overflow: 'hidden', maxHeight: '88vh', overflowY: 'auto' }} className="fadeUp">
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
-              <span className="sg" style={{ fontWeight: 700, fontSize: 15, color: C.text }}>Create Event</span>
-              <button onClick={() => setShowCreate(false)} style={{ color: C.muted, fontSize: 18 }}>✕</button>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 15, color: C.text }}>{editingEvent ? 'Edit Event' : 'Create Event'}</span>
+              <button onClick={() => { setShowCreate(false); setEditingEvent(null); }} style={{ color: C.muted, fontSize: 18 }}>✕</button>
             </div>
             <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ padding: '8px 12px', background: `${C.sky}11`, border: `1px solid ${C.sky}33`, borderRadius: 10, fontSize: 11, color: C.sky, lineHeight: 1.5 }}>
@@ -292,7 +387,7 @@ export default function EventsScreen() {
                 onClick={handleCreate}
                 disabled={saving || !title.trim()}
                 style={{ width: '100%', background: saving || !title.trim() ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: saving || !title.trim() ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, padding: '13px', borderRadius: 14 }}>
-                {saving ? '⏳ Posting…' : 'Post Event →'}
+                {saving ? '⏳ Saving…' : editingEvent ? 'Save Changes →' : 'Post Event →'}
               </button>
             </div>
           </div>
