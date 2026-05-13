@@ -232,9 +232,14 @@ export default function ProfileScreen({ onOpenUserProfile }) {
     toast('Fetching from Second Life…');
     try {
       const slData = await fetchSLProfile(currentUser.username);
-      updateUser({ avatar: slData.pictureUrl });
-      await persistProfile({ avatar: slData.pictureUrl });
-      toast('SL profile picture loaded ✓');
+      const updates = { avatar: slData.pictureUrl };
+      if (slData.displayName) {
+        updates.displayName = slData.displayName;
+        setEditDisplayName(slData.displayName);
+      }
+      updateUser(updates);
+      await persistProfile(updates);
+      toast('SL profile synced ✓');
     } catch (e) {
       toast(e.message || 'Could not find SL avatar — upload manually', 'error');
     } finally {
