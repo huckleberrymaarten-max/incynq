@@ -232,14 +232,9 @@ export default function ProfileScreen({ onOpenUserProfile }) {
     toast('Fetching from Second Life…');
     try {
       const slData = await fetchSLProfile(currentUser.username);
-      const updates = { avatar: slData.pictureUrl };
-      if (slData.displayName) {
-        updates.displayName = slData.displayName;
-        setEditDisplayName(slData.displayName);
-      }
-      updateUser(updates);
-      await persistProfile(updates);
-      toast('SL profile synced ✓');
+      updateUser({ avatar: slData.pictureUrl });
+      await persistProfile({ avatar: slData.pictureUrl });
+      toast('SL profile picture loaded ✓');
     } catch (e) {
       toast(e.message || 'Could not find SL avatar — upload manually', 'error');
     } finally {
@@ -818,6 +813,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 <button onClick={handleChangePassword} style={{ width: '100%', padding: '10px', borderRadius: 12, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 700, fontSize: 13 }}>Update Password →</button>
               </div>
             )}
+            <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>SUPPORT</div>
+            <a href="https://incynq.net/contact.html" target="_blank" rel="noopener noreferrer"
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
+              <span>💬 Contact Us</span><span style={{ color: C.muted, fontSize: 15 }}>↗</span>
+            </a>
             <div style={{ padding: '12px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>LEGAL</div>
             <a href="https://incynq.net/terms" target="_blank" rel="noopener noreferrer"
               style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textDecoration: 'none' }}>
