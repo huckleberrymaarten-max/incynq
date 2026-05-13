@@ -15,21 +15,40 @@ export const getInterestGroups = async () => {
     .select('id, category_id, name, slug, sort_order')
     .order('sort_order');
 
+  // Fetch tags for all subcategories in one query
+  const { data: tags } = await supabase
+    .from('interest_tags')
+    .select('id, subcategory_id, name, slug, sort_order')
+    .order('sort_order');
+
+  // Map subs by category
   const subsMap = {};
   (subs || []).forEach(s => {
     if (!subsMap[s.category_id]) subsMap[s.category_id] = [];
     subsMap[s.category_id].push(s);
   });
 
-  return categories.map(cat => ({
-    id: cat.slug,           // use slug as id so existing group matching still works
-    dbId: cat.id,
-    icon: cat.icon || '',
-    label: cat.name,
-    color: cat.color || '#00b4c8',
-    subs: (subsMap[cat.id] || []).map(s => s.name),
-    tags: [],
-  }));
+  // Map tags by subcategory
+  const tagsMap = {};
+  (tags || []).forEach(t => {
+    if (!tagsMap[t.subcategory_id]) tagsMap[t.subcategory_id] = [];
+    tagsMap[t.subcategory_id].push(t.name);
+  });
+
+  return categories.map(cat => {
+    const catSubs = subsMap[cat.id] || [];
+    // Flatten all tags from all subcategories of this category
+    const flatTags = catSubs.flatMap(s => tagsMap[s.id] || []);
+    return {
+      id: cat.slug,           // use slug as id so existing group matching still works
+      dbId: cat.id,
+      icon: cat.icon || '',
+      label: cat.name,
+      color: cat.color || '#00b4c8',
+      subs: catSubs.map(s => s.name),
+      tags: flatTags,
+    };
+  });
 };
 
 // ── App content (prices, text) ───────────────────────────
@@ -1826,6 +1845,7 @@ export const acceptManagerInvite = async (inviteId, managerId) => {
 
       // Notify brand owner: manager accepted (delete any duplicate first)
       await supabase.from('notifications').delete().eq('user_id', brandOwnerId).eq('type', 'manager_accepted').eq('actor_id', managerId);
+
       await supabase.from('notifications').insert({
         user_id:  brandOwnerId,
         type:     'manager_accepted',
