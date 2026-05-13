@@ -28,6 +28,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   const ref             = useRef(null);
   const isBrand         = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
   const managedBrands   = currentUser.managedBrands || [];
+  const ownedBrands     = currentUser.ownedBrands || [];
   const inBrandMode     = currentUser.brandMode === true;
 
   // Close on outside click
@@ -37,8 +38,8 @@ function AccountSwitcher({ currentUser, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // If no brand and no managed brands, just show name — no dropdown
-  if (!isBrand && managedBrands.length === 0) {
+  // If no brand and no managed brands and no owned brands, just show name — no dropdown
+  if (!isBrand && managedBrands.length === 0 && ownedBrands.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Av user={currentUser} size={28} />
@@ -160,6 +161,36 @@ function AccountSwitcher({ currentUser, onSwitch }) {
             </button>
           )}
 
+          {/* Owned sub-brands (2nd brand onwards) */}
+          {ownedBrands.filter(b => b.brand_activated_at).map(brand => (
+            <button
+              key={brand.id}
+              onClick={() => { onSwitch('owned', brand.id); setOpen(false); }}
+              style={{
+                width:      '100%',
+                padding:    '10px 14px',
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                background: (inBrandMode && currentUser.managingBrandId === brand.id) ? 'rgba(0,180,200,0.08)' : 'transparent',
+                border:     'none',
+                cursor:     'pointer',
+                textAlign:  'left',
+                borderTop:  '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {brand.brand_logo_url
+                ? <img src={brand.brand_logo_url} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
+              }
+              <div>
+                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{brand.brand_name}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Your brand</div>
+              </div>
+              {(inBrandMode && currentUser.managingBrandId === brand.id) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            </button>
+          ))}
+
           {/* Managed brands */}
           {managedBrands.map(brand => (
             <button
@@ -219,8 +250,8 @@ export default function MainApp() {
   const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
       setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null }));
-    } else if (mode === 'managed' && managingBrandId) {
-      // Switch to managing mode immediately, then refresh wallet in background
+    } else if ((mode === 'managed' || mode === 'owned') && managingBrandId) {
+      // Switch to brand mode immediately, then refresh wallet in background
       setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId }));
       try {
         const { supabase } = await import('../lib/supabase');

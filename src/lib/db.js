@@ -2085,3 +2085,109 @@ export const revokeAdultVerified = async (userId) => {
   if (error) throw error;
   return data;
 };
+
+// ══════════════════════════════════════════════════════════════
+// MULTI-BRAND SUPPORT
+// ══════════════════════════════════════════════════════════════
+
+// ── Get all sub-brand profiles owned by a resident ────────────
+export const getOwnedBrands = async (userId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, brand_name, brand_logo_url, brand_wallet, brand_activated_at, account_type, brand_pending, brand_removal_requested_at')
+    .eq('brand_owner_id', userId)
+    .order('brand_activated_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+// ── Count total brands owned by a resident ────────────────────
+// Includes primary brand (if activated) + sub-brand profiles
+export const getUserBrandCount = async (userId) => {
+  // Check primary brand
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('brand_activated_at, max_brands')
+    .eq('id', userId)
+    .single();
+
+  const hasPrimary = !!profile?.brand_activated_at;
+
+  // Count sub-brands
+  const { count } = await supabase
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('brand_owner_id', userId);
+
+  return {
+    total: (hasPrimary ? 1 : 0) + (count || 0),
+    max: profile?.max_brands || 1,
+  };
+};
+
+// ── Init a sub-brand activation (for 2nd brand onwards) ───────
+// Creates a new brand profile row + payment intent
+export const initSubBrandActivation = async (ownerId, brandData) => {
+  // Create a new brand profile for the sub-brand
+  const { data: newProfile, error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      username:          `${brandData.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)}_${Date.now().toString(36)}`,
+      display_name:      brandData.name.trim(),
+      brand_name:        brandData.name.trim(),
+      brand_description: brandData.description.trim(),
+      brand_email:       brandData.email?.trim() || null,
+      brand_logo_url:    brandData.logoUrl || null,
+      brand_pending:     true,
+      brand_owner_id:    ownerId,
+      account_type:      'brand',
+      activated:         true,
+    })
+    .select()
+    .single();
+
+  if (profileError) throw profileError;
+
+  // Generate activation code
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const code = 'ICQ-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+  // Create payment intent — stores sub_brand_id so webhook knows which profile to activate
+  const { data, error } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id:       ownerId,
+      code:          code,
+      amount:        3500,
+      intent_type:   'brand_activation',
+      status:        'pending',
+      expires_at:    new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      metadata:      { sub_brand_id: newProfile.id },
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, subBrandId: newProfile.id };
+};
+
+// ── Poll for sub-brand activation ─────────────────────────────
+export const checkSubBrandActivated = async (subBrandId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('account_type, brand_wallet, brand_activated_at, brand_name')
+    .eq('id', subBrandId)
+    .single();
+  if (error) throw error;
+  return data?.brand_activated_at ? data : null;
+};
+
+// ── Admin: set max_brands for a user ──────────────────────────
+export const adminSetMaxBrands = async (userId, maxBrands, adminId) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ max_brands: maxBrands })
+    .eq('id', userId);
+  if (error) throw error;
+  await adminLogAction(adminId, 'set_max_brands', 'user', userId, { max_brands: maxBrands });
+};

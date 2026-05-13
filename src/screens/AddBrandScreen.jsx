@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
-import { initBrandActivation, checkBrandActivated, cancelBrandActivation, uploadBrandLogo } from '../lib/db';
+import { initBrandActivation, checkBrandActivated, cancelBrandActivation, uploadBrandLogo, initSubBrandActivation, checkSubBrandActivated } from '../lib/db';
 import logo from '../assets/Q_Logo_.png';
 
 // ── Brand colours (local, not from theme) ────────────────────
@@ -249,7 +249,7 @@ function StepReview({ brandData, activationFee, onConfirm, onBack, loading }) {
 // ══════════════════════════════════════════════════════════════
 // STEP 3 — Payment instructions + waiting for ATM
 // ══════════════════════════════════════════════════════════════
-function StepPayment({ activationCode, activationFee, onActivated, onCancel, userId }) {
+function StepPayment({ activationCode, activationFee, onActivated, onCancel, userId, subBrandId }) {
   const BRAND_ACTIVATION_FEE = activationFee || 3500;
   const [copied, setCopied]   = useState(false);
   const [status, setStatus]   = useState('waiting'); // waiting | activated
@@ -257,9 +257,12 @@ function StepPayment({ activationCode, activationFee, onActivated, onCancel, use
 
   useEffect(() => {
     // Poll every 4 seconds for brand activation
+    // Sub-brands poll their own profile; primary brands poll the user's profile
     intervalRef.current = setInterval(async () => {
       try {
-        const result = await checkBrandActivated(userId);
+        const result = subBrandId
+          ? await checkSubBrandActivated(subBrandId)
+          : await checkBrandActivated(userId);
         if (result) {
           clearInterval(intervalRef.current);
           setStatus('activated');
@@ -271,7 +274,7 @@ function StepPayment({ activationCode, activationFee, onActivated, onCancel, use
     }, 4000);
 
     return () => clearInterval(intervalRef.current);
-  }, [userId, onActivated]);
+  }, [userId, subBrandId, onActivated]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(activationCode);
@@ -379,8 +382,43 @@ export default function AddBrandScreen({ onClose, onActivated }) {
   const [step,           setStep]           = useState(1);
   const [brandData,      setBrandData]      = useState(null);
   const [activationCode, setActivationCode] = useState(null);
+  const [subBrandId,     setSubBrandId]     = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error,          setError]          = useState('');
+
+  // Work out if this is a primary brand or sub-brand activation
+  const hasPrimaryBrand = !!(currentUser.brandActivatedAt);
+  const ownedBrands     = currentUser.ownedBrands || [];
+  const totalBrands     = (hasPrimaryBrand ? 1 : 0) + ownedBrands.length;
+  const maxBrands       = currentUser.maxBrands || 1;
+  const atLimit         = totalBrands >= maxBrands;
+  const isSubBrand      = hasPrimaryBrand; // adding second+ brand
+
+  // If at limit, show a contact support message instead of the form
+  if (atLimit) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#040f14', zIndex: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ maxWidth: 400, textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🏷️</div>
+          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Brand slot limit reached</h2>
+          <p style={{ color: B.bright, fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
+            You currently have <strong style={{ color: B.sky }}>{totalBrands}</strong> of <strong style={{ color: B.sky }}>{maxBrands}</strong> brand {maxBrands === 1 ? 'slot' : 'slots'} active.
+          </p>
+          <p style={{ color: B.bright, fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+            To add another brand, contact support and we'll get you set up.
+          </p>
+          <a href="https://incynq.net/contact.html" target="_blank" rel="noopener noreferrer"
+            style={{ display: 'block', width: '100%', padding: '14px 0', background: B.sky, border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', textDecoration: 'none', marginBottom: 12 }}>
+            Contact support →
+          </a>
+          <button onClick={onClose}
+            style={{ display: 'block', width: '100%', padding: '12px 0', background: 'transparent', border: `1px solid ${B.border}`, borderRadius: 10, color: B.muted, fontSize: 14, cursor: 'pointer' }}>
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleInfoNext = (data) => {
     setBrandData(data);
@@ -391,18 +429,21 @@ export default function AddBrandScreen({ onClose, onActivated }) {
     setConfirmLoading(true);
     setError('');
     try {
-      // Upload logo first if provided
       let logoUrl = null;
       if (brandData.logoFile) {
         logoUrl = await uploadBrandLogo(currentUser.id, brandData.logoFile);
       }
 
-      const intent = await initBrandActivation(currentUser.id, {
-        ...brandData,
-        logoUrl,
-      });
-
-      setActivationCode(intent.code);
+      if (isSubBrand) {
+        // Second+ brand — create a new brand profile
+        const intent = await initSubBrandActivation(currentUser.id, { ...brandData, logoUrl });
+        setActivationCode(intent.code);
+        setSubBrandId(intent.subBrandId);
+      } else {
+        // First brand — existing flow
+        const intent = await initBrandActivation(currentUser.id, { ...brandData, logoUrl });
+        setActivationCode(intent.code);
+      }
       setStep(3);
     } catch (e) {
       setError('Something went wrong — please try again.');
@@ -489,6 +530,7 @@ export default function AddBrandScreen({ onClose, onActivated }) {
             <StepPayment
               activationCode={activationCode}
               userId={currentUser.id}
+              subBrandId={subBrandId}
               onActivated={handleActivated}
               onCancel={handleCancel}
             />

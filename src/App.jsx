@@ -4,7 +4,7 @@ import { ContentProvider } from './context/ContentContext';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import logo from './assets/Q_Logo_.png';
-import { getProfile, cancelAccountDeletion, getManagedBrands } from './lib/db';
+import { getProfile, cancelAccountDeletion, getManagedBrands, getOwnedBrands } from './lib/db';
 
 // Screens
 import OnboardingScreen    from './screens/OnboardingScreen';
@@ -146,6 +146,7 @@ function AppRoutes() {
         brandMode:            false, // always start in resident mode
         referralCode:         profile.referral_code                  || null,
         pushEnabled:          profile.push_enabled !== false,
+        maxBrands:            profile.max_brands || 1,
       });
 
       // ── 2. Push parallel AppContext flags (separate state) ───
@@ -168,11 +169,12 @@ function AppRoutes() {
       });
 
       // ── 4. Hydrate related collections (follows, saves, notifications) ──
-      const [follows, saves, notifs, managedBrands] = await Promise.allSettled([
+      const [follows, saves, notifs, managedBrands, ownedBrands] = await Promise.allSettled([
         import('./lib/db').then(({ getFollows })        => getFollows(userId)),
         import('./lib/db').then(({ getSaved })          => getSaved(userId)),
         import('./lib/db').then(({ getNotifications }) => getNotifications(userId)),
         getManagedBrands(userId),
+        getOwnedBrands(userId),
       ]);
 
       if (follows.status === 'fulfilled' && follows.value) {
@@ -198,6 +200,9 @@ function AppRoutes() {
       // Store managed brands (brands this user manages for others)
       if (managedBrands.status === 'fulfilled' && managedBrands.value) {
         setCurrentUser(u => ({ ...u, managedBrands: managedBrands.value }));
+      }
+      if (ownedBrands.status === 'fulfilled' && ownedBrands.value) {
+        setCurrentUser(u => ({ ...u, ownedBrands: ownedBrands.value }));
       }
 
       return profile;
