@@ -424,12 +424,6 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 <span>{formatMemberSince(currentUser.activatedAt, 'resident')}</span>
               </div>
             )}
-
-            {currentUser?.cynqified && (
-              <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: C.sky }}>
-                ✅ Cynqified
-              </div>
-            )}
           </div>
         </div>
 
@@ -573,12 +567,13 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 return (
                   <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card2, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${u._group?.color || C.border}22` }}>
                     <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto 7px' }}>
-                      <img src={u.avatar_url || u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 52, height: 52, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
-                      {u.isBrand && <div style={{ position: 'absolute', bottom: 0, right: 0, background: `${C.gold}ee`, fontSize: 8, fontWeight: 900, color: '#000', width: 15, height: 15, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${C.card2}` }}>🏢</div>}
+                      <img src={(u.account_type === 'brand' ? u.brand_logo_url : null) || u.avatar_url || u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 52, height: 52, borderRadius: u.account_type === 'brand' ? 14 : '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
+                      {u.account_type === 'brand' && <div style={{ position: 'absolute', bottom: 0, right: 0, background: `${C.gold}ee`, fontSize: 8, fontWeight: 900, color: '#000', width: 15, height: 15, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${C.card2}` }}>🏷️</div>}
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                      {u.display_name || u.username}
+                      {u.account_type === 'brand' ? (u.brand_name || u.display_name || u.username) : (u.display_name || u.username)}
                     </div>
+                    {u.cynqified && <div style={{ fontSize: 9, color: C.sky, fontWeight: 700, marginBottom: 2 }}>✅ Cynqified</div>}
                     {u.mutual_count > 0 && (
                       <div style={{ fontSize: 10, color: C.sky, marginBottom: 2, fontWeight: 600 }}>👥 {u.mutual_count} mutual{u.mutual_count !== 1 ? 's' : ''}</div>
                     )}

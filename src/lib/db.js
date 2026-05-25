@@ -207,7 +207,7 @@ export const searchProfiles = async (query, currentUserId) => {
 export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 10) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
+    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, cynqified')
     .contains('groups', [groupId])
     .eq('discoverable', true)
     .neq('id', currentUserId)
