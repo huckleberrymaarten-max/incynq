@@ -13,6 +13,7 @@ import UserProfileScreen from './UserProfileScreen';
 import NotificationsScreen from './NotificationsScreen';
 import ComposeScreen      from '../components/ComposeScreen';
 import HelpScreen         from './HelpScreen';
+import FeedbackScreen     from './FeedbackScreen';
 
 const NAV = [
   { id: 'feed',      icon: '🏠', label: 'Home'      },
@@ -242,6 +243,7 @@ export default function MainApp() {
   const [showCompose,       setShowCompose]       = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showHelp,          setShowHelp]          = useState(false);
+  const [showFeedback,      setShowFeedback]      = useState(false);
   const isBrand  = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
 
   const handleOpenUserProfile = (username) => setViewingUsername(username);
@@ -348,6 +350,7 @@ export default function MainApp() {
                 </span>
               )}
             </button>
+            <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: C.muted, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', background: C.card2, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</button>
             <button onClick={() => setShowHelp(true)} style={{ fontSize: 12, color: C.muted, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', background: C.card2, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
           </div>
         </div>
@@ -359,6 +362,7 @@ export default function MainApp() {
       {showCompose       && <ComposeScreen onClose={() => setShowCompose(false)} />}
       {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
       {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
+      {showFeedback      && <FeedbackScreen onClose={() => setShowFeedback(false)} />}
 
       {/* ── Screens ─────────────────────────────────────────── */}
       {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} />}

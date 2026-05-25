@@ -111,6 +111,15 @@ export const QA_DATA = [
           { q: "Does InCynq work on iPhone?", a: "Yes. Open incynq.app in Safari on your iPhone, tap the Share button, then 'Add to Home Screen'. It will install as a PWA and launch fullscreen from your home screen." },
         ],
       },
+      {
+        title: "Contact & Support",
+        items: [
+          { q: "How do I get in touch with InCynq?", a: "Head to incynq.net/contact.html and fill in the contact form. Choose the category that best fits your question and we'll get it to the right person. We aim to reply within 48–72 hours on working days." },
+          { q: "What can I contact InCynq about?", a: "Anything — general questions, bug reports, account help, billing queries, press and partnership enquiries, or suggestions for new interest categories. Pick the right category in the contact form and give us as much detail as you can." },
+          { q: "Is there a faster way to get help?", a: "Check the FAQ first — most common questions are answered here. If you can't find what you need, use the contact form at incynq.net/contact.html." },
+          { q: "What email address does InCynq reply from?", a: "You'll hear back from hello@incynq.net. For privacy matters it's privacy@incynq.net, and for legal or suspension appeals it's legal@incynq.net." },
+        ],
+      },
     ],
   },
   {
@@ -203,6 +212,15 @@ export const QA_DATA = [
           { q: "What emails do brand accounts receive?", a: "Account emails (suspension notices, billing confirmations) always come through. Optional emails include: Ad Performance Reports (weekly reach summary) and Billing & Wallet (top-up reminders, Dashboard renewal reminders). Both are on by default and individually toggleable in Settings." },
           { q: "Can I turn off billing emails?", a: "Yes. Settings → Email → Billing & Wallet. Toggle it off. Just be aware you won't get top-up reminders if your wallet runs low or Dashboard renewal reminders." },
           { q: "Where do Dashboard renewal reminders go?", a: "Both in-app (as a system notification in your bell) and optionally by email if Billing & Wallet emails are on. You get one 7 days before renewal, one 3 days before, and a confirmation on the day it charges." },
+        ],
+      },
+      {
+        title: "Contact & Support",
+        items: [
+          { q: "How do I contact InCynq as a brand?", a: "Use the contact form at incynq.net/contact.html. Select 'Brand Support' as the category and choose the topic that fits — Getting Started, Team & Managers, Advertising, Analytics, Brand Wallet, or Brand Verification. We aim to reply within 48–72 hours on working days." },
+          { q: "Can I request a custom brand #tag?", a: "Yes. If you'd like a specific #tag associated with your brand — for example #YourBrandName — get in touch via the contact form at incynq.net/contact.html. Select 'Brand Support' and choose 'Advertising' as the topic. Tell us the tag you'd like and we'll review it. Custom tags are subject to availability and approval. We'll confirm or suggest an alternative within 48–72 hours." },
+          { q: "How do I appeal a suspension as a brand?", a: "Email legal@incynq.net with your brand name and the reason you believe the suspension was issued in error. We aim to respond within 48 hours." },
+          { q: "Who do I contact for press or partnership enquiries?", a: "Use the contact form at incynq.net/contact.html and select 'Press & Partnerships'. We'll get back to you within 48–72 hours." },
         ],
       },
     ],
