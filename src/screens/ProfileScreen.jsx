@@ -424,6 +424,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 <span>{formatMemberSince(currentUser.activatedAt, 'resident')}</span>
               </div>
             )}
+
+            {currentUser?.cynqified && (
+              <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: C.sky }}>
+                ✅ Cynqified
+              </div>
+            )}
           </div>
         </div>
 

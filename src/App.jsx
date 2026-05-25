@@ -153,6 +153,7 @@ function AppRoutes() {
         brandNameChangedAt:         profile.brand_name_changed_at          || null,
         brandRemovalRequestedAt:    profile.brand_removal_requested_at     || null,
         adultVerified:              profile.adult_verified                  || false,
+        cynqified:            profile.cynqified              || false,
         brandMode:            false, // always start in resident mode
         referralCode:         profile.referral_code                  || null,
         pushEnabled:          profile.push_enabled !== false,
