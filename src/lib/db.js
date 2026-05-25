@@ -192,8 +192,8 @@ export const uploadPostImage = async (userId, file) => {
 export const searchProfiles = async (query, currentUserId) => {
   let q = supabase
     .from('profiles')
-    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio')
-    .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, cynqified')
+    .or(`username.ilike.%${query}%,display_name.ilike.%${query}%,brand_name.ilike.%${query}%`)
     .neq('account_type', 'official')
     .eq('discoverable', true) // Only show discoverable users in search
     .limit(20);
@@ -2190,49 +2190,4 @@ export const adminSetMaxBrands = async (userId, maxBrands, adminId) => {
     .eq('id', userId);
   if (error) throw error;
   await adminLogAction(adminId, 'set_max_brands', 'user', userId, { max_brands: maxBrands });
-};
-
-// ─── REVIEWS ──────────────────────────────────────────────────────────────────
-
-export const submitReview = async ({ userId, rating, body }) => {
-  const { data, error } = await supabase
-    .from('reviews')
-    .insert({ user_id: userId, rating, body, status: 'approved' })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-};
-
-export const getUserReview = async (userId) => {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('id, rating, body, status, admin_reply, created_at')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  return data || null;
-};
-
-export const getApprovedReviews = async () => {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('id, rating, body, admin_reply, created_at, profiles(username, display_name, avatar_url)')
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
-  return data || [];
-};
-
-// ─── SUGGESTIONS ──────────────────────────────────────────────────────────────
-
-export const submitSuggestion = async ({ userId, body }) => {
-  const { data, error } = await supabase
-    .from('suggestions')
-    .insert({ user_id: userId, body, status: 'new' })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
 };

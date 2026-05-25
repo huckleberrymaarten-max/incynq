@@ -103,8 +103,9 @@ export default function SearchScreen({ onOpenUserProfile }) {
             <div style={{ marginBottom: 8 }}>
               <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PEOPLE</div>
               {people.map(u => {
-                const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
-                const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+                const isBrand = u.account_type === 'brand';
+                const name = isBrand ? (u.brand_name || u.display_name || u.username) : (u.show_display_name !== false && u.display_name ? u.display_name : u.username);
+                const avatar = isBrand ? (u.brand_logo_url || u.avatar_url) : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
@@ -116,7 +117,11 @@ export default function SearchScreen({ onOpenUserProfile }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
-                        {u.bio && <div style={{ fontSize: 12, color: C.sub, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</div>}
+                        <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
+                          {isBrand && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}18`, border: `1px solid ${C.gold}33`, borderRadius: 6, padding: '1px 6px' }}>Brand</span>}
+                          {u.cynqified && <span style={{ fontSize: 10, fontWeight: 700, color: C.sky, background: `${C.sky}18`, border: `1px solid ${C.sky}33`, borderRadius: 6, padding: '1px 6px' }}>✅ Cynqified</span>}
+                          {u.bio && !isBrand && <span style={{ fontSize: 12, color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</span>}
+                        </div>
                       </div>
                     </div>
                     {/* Follow button */}
