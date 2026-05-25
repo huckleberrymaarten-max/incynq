@@ -16,6 +16,7 @@ import MainApp             from './screens/MainApp';
 import Toast               from './components/Toast';
 import SurveyModal         from './components/SurveyModal';
 import MaintenancePage     from './screens/MaintenancePage';
+import PublicBrandProfile  from './screens/PublicBrandProfile';
 
 // ── Deletion countdown banner ─────────────────────────────────
 // Shown inside the app while a deletion request is pending.
@@ -80,6 +81,15 @@ function DeletionBanner({ requestedAt, accountType, onCancel }) {
       </button>
     </div>
   );
+}
+
+// ── Public brand profile route — /brand/:username ──────────────────────
+function BrandRouteCheck({ children }) {
+  const match = window.location.pathname.match(/^\/brand\/([^/]+)$/);
+  if (match) {
+    return <PublicBrandProfile username={match[1]} />;
+  }
+  return children;
 }
 
 function AppRoutes() {
@@ -499,7 +509,9 @@ export default function App() {
     <BrowserRouter>
       <AppProvider>
         <ContentProvider>
-          <AppRoutes />
+          <BrandRouteCheck>
+            <AppRoutes />
+          </BrandRouteCheck>
         </ContentProvider>
       </AppProvider>
     </BrowserRouter>
