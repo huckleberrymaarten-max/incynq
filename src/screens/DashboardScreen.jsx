@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
+import { useContent } from '../context/ContentContext';
 import {
   getDashboardTier,
   getDashboardSubscription,
@@ -14,6 +15,9 @@ import {
 
 export default function DashboardScreen({ onClose }) {
   const { currentUser, toast } = useApp();
+  const { appContent } = useContent();
+  const MONTHLY_PRICE = parseInt(appContent?.dashboard_upgrade_monthly) || 250;
+  const ANNUAL_PRICE  = parseInt(appContent?.dashboard_upgrade_annual)  || 2500;
   const [tier, setTier] = useState(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -266,7 +270,7 @@ export default function DashboardScreen({ onClose }) {
               <div style={{ background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginBottom: 8 }}>💎 Your upgrade</div>
                 <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.8 }}>
-                  <div><strong style={{ color: C.text }}>500 L$/month</strong> · next renewal in <strong style={{ color: C.text }}>{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</strong></div>
+                  <div><strong style={{ color: C.text }}>{MONTHLY_PRICE} L$/month</strong> · next renewal in <strong style={{ color: C.text }}>{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</strong></div>
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
                     Auto-renews from your wallet. Keep your wallet topped up to avoid interruptions.
                   </div>
@@ -305,7 +309,7 @@ export default function DashboardScreen({ onClose }) {
             </div>
             <button onClick={() => setShowUpgradeModal(true)}
               style={{ width: '100%', padding: 12, borderRadius: 12, background: `linear-gradient(135deg, ${C.gold}, ${C.peach})`, color: '#060d14', fontWeight: 800, fontSize: 13, border: 'none' }}>
-              Upgrade for 500 L$/month →
+              {`Upgrade for ${MONTHLY_PRICE} L$/month →`}
             </button>
           </div>
         )}
@@ -322,7 +326,7 @@ export default function DashboardScreen({ onClose }) {
               Upgrade Dashboard
             </div>
             <div style={{ fontSize: 13, color: C.sub, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>
-              500 L$/month from your wallet. Auto-renews. You'll get a 7-day heads-up each cycle.
+              {MONTHLY_PRICE} L$/month from your wallet, or {ANNUAL_PRICE} L$/year (2 months free). Auto-renews. You'll get a 7-day heads-up each cycle.
             </div>
 
             {/* Wallet check */}
@@ -336,12 +340,12 @@ export default function DashboardScreen({ onClose }) {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: C.muted }}>Today's charge</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>500 L$</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>{MONTHLY_PRICE} L$</div>
                 </div>
               </div>
-              {currentUser.wallet < 500 && (
+              {currentUser.wallet < MONTHLY_PRICE && (
                 <div style={{ marginTop: 10, padding: 10, background: '#ff446611', border: '1px solid #ff446633', borderRadius: 8, fontSize: 11, color: '#ff4466' }}>
-                  ⚠️ Not enough L$ — top up {500 - (currentUser.wallet || 0)} more to continue
+                  ⚠️ Not enough L$ — top up {MONTHLY_PRICE - (currentUser.wallet || 0)} more to continue
                 </div>
               )}
             </div>
@@ -351,15 +355,15 @@ export default function DashboardScreen({ onClose }) {
                 style={{ flex: 1, padding: 12, borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13 }}>
                 Cancel
               </button>
-              <button onClick={handleUpgrade} disabled={upgrading || (currentUser.wallet || 0) < 500}
+              <button onClick={handleUpgrade} disabled={upgrading || (currentUser.wallet || 0) < MONTHLY_PRICE}
                 style={{
                   flex: 1, padding: 12, borderRadius: 12,
-                  background: (currentUser.wallet || 0) < 500 ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
-                  color: (currentUser.wallet || 0) < 500 ? C.muted : '#060d14',
+                  background: (currentUser.wallet || 0) < MONTHLY_PRICE ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
+                  color: (currentUser.wallet || 0) < MONTHLY_PRICE ? C.muted : '#060d14',
                   fontWeight: 800, fontSize: 13, border: 'none',
                   opacity: upgrading ? 0.6 : 1,
                 }}>
-                {upgrading ? '⏳ Processing…' : 'Confirm 500 L$'}
+                {upgrading ? '⏳ Processing…' : `Confirm ${MONTHLY_PRICE} L$`}
               </button>
             </div>
             <div style={{ fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
