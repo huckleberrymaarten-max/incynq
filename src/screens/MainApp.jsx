@@ -42,7 +42,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   if (!isBrand && managedBrands.length === 0 && ownedBrands.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Av user={currentUser} size={28} />
+        <Av src={currentUser.avatar} size={28} />
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {currentUser.displayName || currentUser.username}
         </span>
@@ -76,7 +76,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
           const name = activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
           return logo
             ? <img src={logo} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
-            : <Av user={currentUser} size={28} />;
+            : <Av src={currentUser.avatar} size={28} />;
         })()}
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {(() => {
@@ -122,7 +122,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               textAlign:  'left',
             }}
           >
-            <Av user={currentUser} size={32} />
+            <Av src={currentUser.avatar} size={32} />
             <div>
               <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {currentUser.displayName || currentUser.username}
