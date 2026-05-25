@@ -22,7 +22,11 @@ export default function PublicBrandProfile({ username }) {
           .eq('account_type', 'brand')
           .maybeSingle();
 
-        if (error || !data) { setNotFound(true); return; }
+        if (error || !data) {
+          // No brand found — redirect to resident profile
+          window.location.replace('https://incynq.app/profile/' + username);
+          return;
+        }
         setProfile(data);
       } catch (e) {
         setNotFound(true);
