@@ -116,9 +116,14 @@ export const gridStatusLabel = s =>
 export const groupMultiplier = n =>
   n <= 0 ? 0 : n === 1 ? 1 : n === 2 ? 1.8 : n === 3 ? 2.5 : 3;
 
+// Launch promotion — 50% off until 1,000 members
+export const LAUNCH_PROMO_ACTIVE = true;
+export const LAUNCH_PROMO_DISCOUNT = 0.5;
+
 export const calcAdPrice = (tier, groups, isRandom) => {
   const base = tier.basePrice * groupMultiplier(groups.length);
-  return Math.round((isRandom ? base * 0.75 : base) / 50) * 50;
+  const promoBase = LAUNCH_PROMO_ACTIVE ? base * LAUNCH_PROMO_DISCOUNT : base;
+  return Math.round((isRandom ? promoBase * 0.75 : promoBase) / 50) * 50;
 };
 
 export const adMatchesUser = (ad, user) => {
