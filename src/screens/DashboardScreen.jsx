@@ -28,6 +28,7 @@ export default function DashboardScreen({ onClose }) {
   const [subscription, setSubscription] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
 
   // Brand accounts AND official account can access this screen
   const isBrand = currentUser?.accountType === 'brand';
@@ -71,7 +72,7 @@ export default function DashboardScreen({ onClose }) {
   const handleUpgrade = async () => {
     setUpgrading(true);
     try {
-      const res = await upgradeDashboard(currentUser.id);
+      const res = await upgradeDashboard(currentUser.id, billingCycle);
       if (res.success) {
         toast('✅ Dashboard upgraded! Enjoy deeper insights.', 'sky');
         setShowUpgradeModal(false);
@@ -119,8 +120,10 @@ export default function DashboardScreen({ onClose }) {
 
   const isUpgraded = tier?.tier === 'upgraded';
   const isOfficial = tier?.is_official === true;
+  const isLifetime = tier?.status === 'lifetime' || subscription?.is_lifetime === true;
   const isGrace = tier?.status === 'grace';
   const daysLeft = tier?.days_until_renewal;
+  const chargeAmount = billingCycle === 'annual' ? ANNUAL_PRICE : MONTHLY_PRICE;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', overflowY: 'auto' }} className="fadeUp">
@@ -134,7 +137,12 @@ export default function DashboardScreen({ onClose }) {
               ⚡ Official
             </span>
           )}
-          {!isOfficial && isUpgraded && (
+          {!isOfficial && isLifetime && (
+            <span style={{ marginLeft: 8, fontSize: 10, background: `${C.green}22`, color: C.green, border: `1px solid ${C.green}44`, padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>
+              🎁 Lifetime
+            </span>
+          )}
+          {!isOfficial && isUpgraded && !isLifetime && (
             <span style={{ marginLeft: 8, fontSize: 10, background: `${C.gold}22`, color: C.gold, border: `1px solid ${C.gold}44`, padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>
               💎 Upgraded
             </span>
@@ -266,15 +274,29 @@ export default function DashboardScreen({ onClose }) {
             )}
 
             {/* Subscription details — hidden for official accounts */}
-            {subscription && !isOfficial && (
+            {!isOfficial && (
               <div style={{ background: `${C.gold}0a`, border: `1px solid ${C.gold}33`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginBottom: 8 }}>💎 Your upgrade</div>
-                <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.8 }}>
-                  <div><strong style={{ color: C.text }}>{MONTHLY_PRICE} L$/month</strong> · next renewal in <strong style={{ color: C.text }}>{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</strong></div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-                    Auto-renews from your wallet. Keep your wallet topped up to avoid interruptions.
-                  </div>
-                </div>
+                {isLifetime ? (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.green, marginBottom: 6 }}>🎁 Lifetime access</div>
+                    <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>
+                      You have lifetime access to the full dashboard — no renewals, no charges. Ever.
+                    </div>
+                  </>
+                ) : subscription ? (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginBottom: 8 }}>💎 Your upgrade</div>
+                    <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.8 }}>
+                      <div><strong style={{ color: C.text }}>{MONTHLY_PRICE} L$/month</strong> · next renewal in <strong style={{ color: C.text }}>{daysLeft} {daysLeft === 1 ? 'day' : 'days'}</strong></div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                        Auto-renews from your wallet. Keep your wallet topped up to avoid interruptions.
+                      </div>
+                      <div style={{ fontSize: 11, color: C.sky, marginTop: 6 }}>
+                        All new dashboard features and upgrades are included during your paid period.
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
 
@@ -300,6 +322,20 @@ export default function DashboardScreen({ onClose }) {
             <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.6, marginBottom: 14 }}>
               Upgrade your dashboard for deeper insights — peak viewing hours, engagement rates, audience behaviour, and your best-performing content.
             </div>
+
+            {/* Monthly / Annual toggle */}
+            <div style={{ display: 'flex', background: C.card2, borderRadius: 10, padding: 3, marginBottom: 14, gap: 3 }}>
+              {['monthly', 'annual'].map(cycle => (
+                <button key={cycle} onClick={() => setBillingCycle(cycle)}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, border: 'none',
+                    background: billingCycle === cycle ? C.sky : 'transparent',
+                    color: billingCycle === cycle ? '#060d14' : C.muted }}>
+                  {cycle === 'monthly' ? `Monthly — ${MONTHLY_PRICE} L$` : `Annual — ${ANNUAL_PRICE} L$`}
+                  {cycle === 'annual' && <span style={{ display: 'block', fontSize: 10, fontWeight: 600, opacity: 0.8 }}>2 months free</span>}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
               <Perk icon="🎯" text="Engagement & view-through rates" />
               <Perk icon="⏰" text="Peak viewing hours & best days" />
@@ -309,7 +345,7 @@ export default function DashboardScreen({ onClose }) {
             </div>
             <button onClick={() => setShowUpgradeModal(true)}
               style={{ width: '100%', padding: 12, borderRadius: 12, background: `linear-gradient(135deg, ${C.gold}, ${C.peach})`, color: '#060d14', fontWeight: 800, fontSize: 13, border: 'none' }}>
-              {`Upgrade for ${MONTHLY_PRICE} L$/month →`}
+              {`Upgrade for ${chargeAmount} L$/${billingCycle === 'annual' ? 'year' : 'month'} →`}
             </button>
           </div>
         )}
@@ -326,26 +362,29 @@ export default function DashboardScreen({ onClose }) {
               Upgrade Dashboard
             </div>
             <div style={{ fontSize: 13, color: C.sub, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>
-              {MONTHLY_PRICE} L$/month from your wallet, or {ANNUAL_PRICE} L$/year (2 months free). Auto-renews. You'll get a 7-day heads-up each cycle.
+              {billingCycle === 'annual'
+                ? `${ANNUAL_PRICE} L$/year — that's 2 months free vs monthly. No auto-renewal surprises.`
+                : `${MONTHLY_PRICE} L$/month from your wallet. Auto-renews. You'll get a 7-day heads-up each cycle.`
+              }
             </div>
 
             {/* Wallet check */}
             <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontSize: 11, color: C.muted }}>Your wallet</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>Brand wallet</div>
                   <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>
-                    {(currentUser.wallet || 0).toLocaleString()} L$
+                    {(currentUser.brandWallet || 0).toLocaleString()} L$
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: C.muted }}>Today's charge</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>{MONTHLY_PRICE} L$</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>{chargeAmount} L$</div>
                 </div>
               </div>
-              {currentUser.wallet < MONTHLY_PRICE && (
+              {(currentUser.brandWallet || 0) < chargeAmount && (
                 <div style={{ marginTop: 10, padding: 10, background: '#ff446611', border: '1px solid #ff446633', borderRadius: 8, fontSize: 11, color: '#ff4466' }}>
-                  ⚠️ Not enough L$ — top up {MONTHLY_PRICE - (currentUser.wallet || 0)} more to continue
+                  ⚠️ Not enough L$ — top up {chargeAmount - (currentUser.brandWallet || 0)} more to continue
                 </div>
               )}
             </div>
@@ -355,15 +394,15 @@ export default function DashboardScreen({ onClose }) {
                 style={{ flex: 1, padding: 12, borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13 }}>
                 Cancel
               </button>
-              <button onClick={handleUpgrade} disabled={upgrading || (currentUser.wallet || 0) < MONTHLY_PRICE}
+              <button onClick={handleUpgrade} disabled={upgrading || (currentUser.brandWallet || 0) < chargeAmount}
                 style={{
                   flex: 1, padding: 12, borderRadius: 12,
-                  background: (currentUser.wallet || 0) < MONTHLY_PRICE ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
-                  color: (currentUser.wallet || 0) < MONTHLY_PRICE ? C.muted : '#060d14',
+                  background: (currentUser.brandWallet || 0) < chargeAmount ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
+                  color: (currentUser.brandWallet || 0) < chargeAmount ? C.muted : '#060d14',
                   fontWeight: 800, fontSize: 13, border: 'none',
                   opacity: upgrading ? 0.6 : 1,
                 }}>
-                {upgrading ? '⏳ Processing…' : `Confirm ${MONTHLY_PRICE} L$`}
+                {upgrading ? '⏳ Processing…' : `Confirm ${chargeAmount} L$`}
               </button>
             </div>
             <div style={{ fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>

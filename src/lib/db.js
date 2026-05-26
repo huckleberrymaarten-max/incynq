@@ -1145,11 +1145,11 @@ export const getDashboardTier = async (brandId) => {
 };
 
 // ── Upgrade dashboard (charges wallet 500 L$) ─────────────
-export const upgradeDashboard = async (brandId) => {
+export const upgradeDashboard = async (brandId, cycle = 'monthly') => {
   try {
-    const { data, error } = await supabase.rpc('upgrade_dashboard', { p_brand_id: brandId });
+    const { data, error } = await supabase.rpc('upgrade_dashboard', { p_brand_id: brandId, p_cycle: cycle });
     if (error) throw error;
-    return data; // { success: true/false, ...details }
+    return data;
   } catch (err) {
     console.error('Upgrade dashboard failed:', err);
     return { success: false, error: err.message };
