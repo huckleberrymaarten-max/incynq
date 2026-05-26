@@ -105,7 +105,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
               {people.map(u => {
                 const isBrand = u.account_type === 'brand';
                 const name = isBrand ? (u.brand_name || u.display_name || u.username) : (u.show_display_name !== false && u.display_name ? u.display_name : u.username);
-                const avatar = isBrand ? (u.brand_logo_url || u.avatar_url) : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
+                const avatar = isBrand ? (u.brand_logo_url || null) : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
@@ -113,7 +113,10 @@ export default function SearchScreen({ onOpenUserProfile }) {
                     <div 
                       onClick={() => onOpenUserProfile && onOpenUserProfile(u.username)}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                      <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                      {avatar
+                        ? <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                        : <div style={{ width: 46, height: 46, borderRadius: '18%', background: 'rgba(0,180,200,0.12)', border: `2px solid ${C.sky}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏷️</div>
+                      }
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{isBrand ? (u.brand_handle || u.username) : u.username}</div>
