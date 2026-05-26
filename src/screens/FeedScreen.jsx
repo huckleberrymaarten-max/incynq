@@ -185,6 +185,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     : post._profile
       ? {
           username:        post._profile.username,
+          brandHandle:     post._profile.brand_handle,
           displayName:     post._profile.display_name,
           showDisplayName: post._profile.show_display_name,
           avatar:          post._profile.avatar_url,
@@ -217,9 +218,14 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             <span onClick={() => !isOwn && !isOfficial && user.username && onOpenProfile?.(user.username)} style={{ fontWeight: 800, fontSize: 13, color: C.text, cursor: !isOwn && !isOfficial ? 'pointer' : 'default' }}>{visibleName(user)}</span>
             {user.isOfficial && <span style={{ fontSize: 10, background: `${C.gold}22`, color: C.gold, border: `1px solid ${C.gold}44`, padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>⚡</span>}
           </div>
-          {post._profile?.account_type !== 'brand' && user.showDisplayName !== false && user.displayName && user.displayName !== user.username && (
-            <div style={{ fontSize: 10, color: C.muted }}>@{user.username}</div>
-          )}
+          {post._profile?.account_type === 'brand'
+            ? (user.brandHandle && (
+                <div style={{ fontSize: 10, color: C.muted }}>@{user.brandHandle}</div>
+              ))
+            : (user.showDisplayName !== false && user.displayName && user.displayName !== user.username && (
+                <div style={{ fontSize: 10, color: C.muted }}>@{user.username}</div>
+              ))
+          }
           <div style={{ fontSize: 11, color: C.muted }}>{post.time}</div>
         </div>
         {isOwn
@@ -509,6 +515,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
               ? {
                   username:         p.brand.username,
                   display_name:     p.brand.brand_name,
+                  brand_handle:     p.brand.brand_handle,
                   avatar_url:       p.brand.brand_logo_url,
                   show_display_name: true,
                   account_type:     'brand',

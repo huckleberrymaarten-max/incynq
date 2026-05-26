@@ -961,8 +961,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{u.account_type === 'brand' ? (u.brand_name || name) : name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.account_type === 'brand' ? (u.brand_handle || u.username) : u.username}</div>
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
@@ -1006,8 +1006,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{u.account_type === 'brand' ? (u.brand_name || name) : name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.account_type === 'brand' ? (u.brand_handle || u.username) : u.username}</div>
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}

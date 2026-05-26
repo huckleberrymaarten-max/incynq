@@ -116,7 +116,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{isBrand ? (u.brand_handle || u.username) : u.username}</div>
                         <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
                           {isBrand && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}18`, border: `1px solid ${C.gold}33`, borderRadius: 6, padding: '1px 6px' }}>Brand</span>}
                           {u.cynqified && <span style={{ fontSize: 10, fontWeight: 700, color: C.sky, background: `${C.sky}18`, border: `1px solid ${C.sky}33`, borderRadius: 6, padding: '1px 6px' }}>✅ Cynqified</span>}

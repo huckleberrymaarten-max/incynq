@@ -135,7 +135,7 @@ export const getProfileStats = async (userId) => {
 export const getFollowingProfiles = async (userId) => {
   const { data, error } = await supabase
     .from('follows')
-    .select('following_id, profiles!follows_following_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status)')
+    .select('following_id, profiles!follows_following_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle)')
     .eq('follower_id', userId);
   if (error) throw error;
   return data.map(f => f.profiles).filter(Boolean);
@@ -145,7 +145,7 @@ export const getFollowingProfiles = async (userId) => {
 export const getFollowersProfiles = async (userId) => {
   const { data, error } = await supabase
     .from('follows')
-    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status)')
+    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle)')
     .eq('following_id', userId);
   if (error) throw error;
   return data.map(f => f.profiles).filter(Boolean);
@@ -172,7 +172,7 @@ export const createPost = async ({ userId, brandId, caption, imageUrl, imageUrls
 export const getPosts = async () => {
   const { data, error } = await supabase
     .from('posts')
-    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name, account_type), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, account_type), post_comments(id)')
+    .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name, account_type), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, brand_handle, account_type), post_comments(id)')
     .eq('is_welcome', false)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -192,8 +192,8 @@ export const uploadPostImage = async (userId, file) => {
 export const searchProfiles = async (query, currentUserId) => {
   let q = supabase
     .from('profiles')
-    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, cynqified')
-    .or(`username.ilike.%${query}%,display_name.ilike.%${query}%,brand_name.ilike.%${query}%`)
+    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, brand_handle, cynqified')
+    .or(`username.ilike.%${query}%,display_name.ilike.%${query}%,brand_name.ilike.%${query}%,brand_handle.ilike.%${query}%`)
     .neq('account_type', 'official')
     .eq('discoverable', true) // Only show discoverable users in search
     .limit(20);
@@ -207,7 +207,7 @@ export const searchProfiles = async (query, currentUserId) => {
 export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 10) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, cynqified')
+    .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, brand_handle, cynqified')
     .contains('groups', [groupId])
     .eq('discoverable', true)
     .neq('id', currentUserId)
@@ -815,7 +815,7 @@ export const getCurrentPricingTier = async () => {
 export const getActiveAds = async () => {
   const { data, error } = await supabase
     .from('ads')
-    .select('*, brand:profiles!ads_brand_id_fkey(id, username, brand_name, brand_logo_url)')
+    .select('*, brand:profiles!ads_brand_id_fkey(id, username, brand_name, brand_logo_url, brand_handle)')
     .eq('status', 'active')
     .gt('expires_at', new Date().toISOString())   // never serve expired ads
     .order('created_at', { ascending: false });
@@ -1622,12 +1622,32 @@ export const cancelAccountDeletion = async (userId) => {
 // BRAND SYSTEM — #4a + #4b
 // ══════════════════════════════════════════════════════════════
 
+// ── Brand handle utilities ────────────────────────────────────
+// Rules: lowercase, spaces removed, dots + hyphens kept, all other
+// non-alphanumeric chars stripped. Duplicates get 01, 02 suffix.
+export const generateBrandHandle = (name) =>
+  name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9.\-]/g, '');
+
+export const ensureUniqueBrandHandle = async (baseHandle, excludeId = null) => {
+  for (let i = 0; i <= 99; i++) {
+    const candidate = i === 0 ? baseHandle : `${baseHandle}${String(i).padStart(2, '0')}`;
+    let q = supabase.from('profiles').select('id').eq('brand_handle', candidate);
+    if (excludeId) q = q.neq('id', excludeId);
+    const { data } = await q.maybeSingle();
+    if (!data) return candidate;
+  }
+  throw new Error('Could not generate a unique brand handle');
+};
+
 // ── Generate a brand activation code + payment intent ─────────
 // Called when user completes the Add Brand form.
 // Creates a payment_intent with intent_type='brand_activation'.
 // User takes this code to the ATM, pays 3,500 L$.
 // The sl-webhook calls complete_brand_activation() on receipt.
 export const initBrandActivation = async (userId, brandData) => {
+  // Compute unique handle from brand name
+  const brandHandle = await ensureUniqueBrandHandle(generateBrandHandle(brandData.name.trim()), userId);
+
   // Save brand info to profile (pending state)
   const { error: profileError } = await supabase
     .from('profiles')
@@ -1636,6 +1656,7 @@ export const initBrandActivation = async (userId, brandData) => {
       brand_description: brandData.description.trim(),
       brand_email:       brandData.email?.trim() || null,
       brand_logo_url:    brandData.logoUrl || null,
+      brand_handle:      brandHandle,
       brand_pending:     true,
     })
     .eq('id', userId);
@@ -1990,7 +2011,7 @@ export const getManagedBrands = async (userId) => {
       id,
       owner:brand_owner_id(
         id, username, display_name, brand_name, brand_logo_url,
-        brand_wallet, brand_description
+        brand_handle, brand_wallet, brand_description
       )
     `)
     .eq('manager_id', userId)
@@ -2128,6 +2149,9 @@ export const getUserBrandCount = async (userId) => {
 // ── Init a sub-brand activation (for 2nd brand onwards) ───────
 // Creates a new brand profile row + payment intent
 export const initSubBrandActivation = async (ownerId, brandData) => {
+  // Compute unique handle from brand name
+  const brandHandle = await ensureUniqueBrandHandle(generateBrandHandle(brandData.name.trim()));
+
   // Create a new brand profile for the sub-brand
   const { data: newProfile, error: profileError } = await supabase
     .from('profiles')
@@ -2138,6 +2162,7 @@ export const initSubBrandActivation = async (ownerId, brandData) => {
       brand_description: brandData.description.trim(),
       brand_email:       brandData.email?.trim() || null,
       brand_logo_url:    brandData.logoUrl || null,
+      brand_handle:      brandHandle,
       brand_pending:     true,
       brand_owner_id:    ownerId,
       account_type:      'brand',

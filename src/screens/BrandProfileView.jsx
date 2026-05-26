@@ -15,6 +15,7 @@ export default function BrandProfileView({ onOpenUserProfile }) {
     : null;
 
   const brandName        = activeBrand?.brand_name        || currentUser.brandName;
+  const brandHandle      = activeBrand?.brand_handle      || currentUser.brand_handle;
   const brandLogoUrl     = activeBrand?.brand_logo_url    || currentUser.brandLogoUrl;
   const brandDescription = activeBrand?.brand_description || currentUser.brandDescription;
   const brandWallet      = activeBrand?.brand_wallet      ?? currentUser.brandWallet ?? 0;
@@ -75,6 +76,9 @@ export default function BrandProfileView({ onOpenUserProfile }) {
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{brandName}</div>
+            {brandHandle && (
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>@{brandHandle}</div>
+            )}
 
             {/* Brand since */}
             {brandActivatedAt && (
