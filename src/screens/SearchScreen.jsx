@@ -102,37 +102,75 @@ export default function SearchScreen({ onOpenUserProfile }) {
           {people.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PEOPLE</div>
-              {people.map(u => {
-                const isBrand = u.account_type === 'brand';
-                const name = isBrand ? (u.brand_name || u.display_name || u.username) : (u.show_display_name !== false && u.display_name ? u.display_name : u.username);
-                const avatar = isBrand ? (u.brand_logo_url || null) : (u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`);
-                const isFollowing = following.has(u.id);
+              {people.flatMap(u => {
+                const isBrand = u.account_type === 'brand' || u.account_type === 'founding_brand';
+                const lq = q.toLowerCase();
+
+                // Does query match resident identity?
+                const matchesResident = (u.username || '').toLowerCase().includes(lq) ||
+                  (u.display_name || '').toLowerCase().includes(lq);
+
+                // Does query match brand identity?
+                const matchesBrand = isBrand && (
+                  (u.brand_name || '').toLowerCase().includes(lq) ||
+                  (u.brand_handle || '').toLowerCase().includes(lq)
+                );
+
+                const entries = [];
+
+                // Show resident entry if query matched resident fields
+                if (!isBrand || matchesResident) {
+                  entries.push({
+                    key: `${u.id}_resident`,
+                    id: u.id,
+                    displayAs: 'resident',
+                    name: u.show_display_name !== false && u.display_name ? u.display_name : u.username,
+                    handle: u.username,
+                    avatar: u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`,
+                    cynqified: u.cynqified,
+                    bio: u.bio,
+                  });
+                }
+
+                // Show brand entry if query matched brand fields
+                if (isBrand && matchesBrand) {
+                  entries.push({
+                    key: `${u.id}_brand`,
+                    id: u.id,
+                    displayAs: 'brand',
+                    name: u.brand_name || u.display_name || u.username,
+                    handle: u.brand_handle || u.username,
+                    avatar: u.brand_logo_url || null,
+                    cynqified: u.cynqified,
+                    bio: null,
+                  });
+                }
+
+                return entries;
+              }).map(entry => {
+                const isFollowing = following.has(entry.id);
+                const isBrandEntry = entry.displayAs === 'brand';
                 return (
-                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
-                    {/* Clickable user info */}
-                    <div 
-                      onClick={() => onOpenUserProfile && onOpenUserProfile(u.username)}
+                  <div key={entry.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
+                    <div
+                      onClick={() => onOpenUserProfile && onOpenUserProfile(entry.handle)}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                      {avatar
-                        ? <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
-                        : <div style={{ width: 46, height: 46, borderRadius: '18%', background: 'rgba(0,180,200,0.12)', border: `2px solid ${C.sky}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🏷️</div>
+                      {entry.avatar
+                        ? <img src={entry.avatar} alt="" style={{ width: 46, height: 46, borderRadius: isBrandEntry ? 14 : '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
+                        : <div style={{ width: 46, height: 46, borderRadius: isBrandEntry ? 14 : '18%', background: 'rgba(0,180,200,0.12)', border: `2px solid ${C.sky}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{isBrandEntry ? '🏷️' : '👤'}</div>
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{isBrand ? (u.brand_handle || u.username) : u.username}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{entry.name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{entry.handle}</div>
                         <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
-                          {isBrand && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}18`, border: `1px solid ${C.gold}33`, borderRadius: 6, padding: '1px 6px' }}>Brand</span>}
-                          {u.cynqified && <span style={{ fontSize: 10, fontWeight: 700, color: C.sky, background: `${C.sky}18`, border: `1px solid ${C.sky}33`, borderRadius: 6, padding: '1px 6px' }}>✅ Cynqified</span>}
-                          {u.bio && !isBrand && <span style={{ fontSize: 12, color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.bio}</span>}
+                          {isBrandEntry && <span style={{ fontSize: 10, fontWeight: 700, color: C.gold, background: `${C.gold}18`, border: `1px solid ${C.gold}33`, borderRadius: 6, padding: '1px 6px' }}>Brand</span>}
+                          {entry.cynqified && <span style={{ fontSize: 10, fontWeight: 700, color: C.sky, background: `${C.sky}18`, border: `1px solid ${C.sky}33`, borderRadius: 6, padding: '1px 6px' }}>✅ Cynqified</span>}
+                          {entry.bio && !isBrandEntry && <span style={{ fontSize: 12, color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.bio}</span>}
                         </div>
                       </div>
                     </div>
-                    {/* Follow button */}
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleFollow(u);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleFollow({ id: entry.id }); }}
                       style={{ padding: '7px 16px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12,
                         background: isFollowing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
                         color: isFollowing ? C.sky : '#060d14',
