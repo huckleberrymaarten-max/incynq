@@ -343,6 +343,48 @@ export const unfollowUser = async (followerId, followingId) => {
   if (error) throw error;
 };
 
+// ── Blocking ──────────────────────────────────────────────
+export const blockUser = async (blockerId, blockedId) => {
+  // Insert block
+  const { error } = await supabase
+    .from('blocks')
+    .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { onConflict: 'blocker_id,blocked_id' });
+  if (error) throw error;
+  // Remove them from your followers silently
+  await supabase.from('follows').delete()
+    .eq('follower_id', blockedId).eq('following_id', blockerId);
+  // Remove yourself from their followers too
+  await supabase.from('follows').delete()
+    .eq('follower_id', blockerId).eq('following_id', blockedId);
+};
+
+export const unblockUser = async (blockerId, blockedId) => {
+  const { error } = await supabase
+    .from('blocks')
+    .delete()
+    .eq('blocker_id', blockerId)
+    .eq('blocked_id', blockedId);
+  if (error) throw error;
+};
+
+export const getBlockedUsers = async (userId) => {
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_id, profiles!blocks_blocked_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, brand_name, brand_handle, brand_logo_url)')
+    .eq('blocker_id', userId);
+  if (error) throw error;
+  return (data || []).map(b => b.profiles).filter(Boolean);
+};
+
+export const getBlockedByMe = async (userId) => {
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_id')
+    .eq('blocker_id', userId);
+  if (error) throw error;
+  return new Set((data || []).map(b => b.blocked_id));
+};
+
 // ── Comments ─────────────────────────────────────────────
 export const getComments = async (postId) => {
   const { data, error } = await supabase

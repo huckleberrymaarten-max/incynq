@@ -52,7 +52,7 @@ const adMatchesUser = (ad, user) => {
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
-import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView, getActiveAds } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView, getActiveAds, getBlockedByMe } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
@@ -548,6 +548,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
   }, []);
 
   const [liveAds, setLiveAds] = useState([]);
+  const [blockedIds, setBlockedIds] = useState(new Set());
 
   // Load active ads from Supabase
   useEffect(() => {
@@ -561,6 +562,14 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
     };
     loadAds();
   }, []);
+
+  // Load blocked user IDs
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    getBlockedByMe(currentUser.id)
+      .then(ids => setBlockedIds(ids))
+      .catch(() => {});
+  }, [currentUser?.id]);
 
   const activeAds = ads.filter(a => a.expiresAt > Date.now());
 
@@ -584,7 +593,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
     const featuredAds = matchedAds.filter(a => a.tier === 'featured');
     const allInjectable = [...premiumAds, ...featuredAds];
     let qi = 0;
-    const feedPosts = posts.filter(p => !p.isWelcome);
+    const feedPosts = posts.filter(p => !p.isWelcome && !blockedIds.has(p.userId) && !blockedIds.has(p._profile?.id));
     feedPosts.forEach((p, i) => {
       result.push({ type: 'post', data: p });
       if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < allInjectable.length) {

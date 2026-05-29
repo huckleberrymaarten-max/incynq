@@ -18,7 +18,7 @@ import BrandSettingsPanel from '../components/BrandSettingsPanel';
 import BrandProfileView from './BrandProfileView';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, blockUser, unblockUser, getBlockedUsers, getBlockedByMe, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
 import { fetchSLProfile } from '../lib/slProfile';
 import logo from '../assets/Q_Logo_.png';
 
@@ -85,6 +85,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   // Real followers profiles from Supabase
   const [followersProfiles, setFollowersProfiles] = useState([]);
   const [followersProfilesLoaded, setFollowersProfilesLoaded] = useState(false);
+
+  // Blocked users
+  const [blockedUsers, setBlockedUsers] = useState([]);
+  const [blockedIds, setBlockedIds] = useState(new Set());
+  const [showBlocked, setShowBlocked] = useState(false);
+  const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
 
   // Suggested users by interest group (discoverable only)
@@ -278,6 +284,49 @@ export default function ProfileScreen({ onOpenUserProfile }) {
         const s = await getProfileStats(currentUser.id);
         setStats(s);
       } catch(e) { console.warn('Follow failed:', e.message); }
+    }
+  };
+
+  const handleBlock = async (u) => {
+    try {
+      await blockUser(currentUser.id, u.id);
+      // Remove from followers list instantly
+      setFollowersProfiles(prev => prev.filter(p => p.id !== u.id));
+      // Remove from following list too
+      setFollowingProfiles(prev => prev.filter(p => p.id !== u.id));
+      // Update following set
+      const n = new Set(following);
+      n.delete(u.id);
+      setFollowing(n);
+      // Update blocked ids
+      setBlockedIds(prev => new Set([...prev, u.id]));
+      toast(`@${u.username} blocked`);
+    } catch(e) {
+      console.warn('Block failed:', e.message);
+      toast('Could not block — try again', 'error');
+    }
+  };
+
+  const handleUnblock = async (u) => {
+    try {
+      await unblockUser(currentUser.id, u.id);
+      setBlockedUsers(prev => prev.filter(p => p.id !== u.id));
+      setBlockedIds(prev => { const n = new Set(prev); n.delete(u.id); return n; });
+      toast(`@${u.username} unblocked`);
+    } catch(e) {
+      console.warn('Unblock failed:', e.message);
+      toast('Could not unblock — try again', 'error');
+    }
+  };
+
+  const handleOpenBlocked = async () => {
+    setShowBlocked(true);
+    if (!blockedLoaded) {
+      try {
+        const list = await getBlockedUsers(currentUser.id);
+        setBlockedUsers(list || []);
+        setBlockedLoaded(true);
+      } catch(e) { console.warn('Blocked list failed:', e.message); }
     }
   };
 
@@ -750,6 +799,17 @@ export default function ProfileScreen({ onOpenUserProfile }) {
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
             <div style={{ padding: '12px 20px 4px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>PRIVACY</div>
+            <button onClick={handleOpenBlocked}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#ff446618', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🚫</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Blocked Users</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Manage who you've blocked</div>
+                </div>
+              </div>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 20px', borderBottom: `1px solid ${C.border}22` }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>🏷️</div>
               <div style={{ flex: 1 }}>
@@ -1010,6 +1070,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.account_type === 'brand' ? (u.brand_handle || u.username) : u.username}</div>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
                       style={{
                         padding: '7px 14px', borderRadius: 20,
@@ -1020,10 +1081,54 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       }}>
                       {isFollowing ? 'Unfollow' : 'Follow'}
                     </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleBlock(u); }}
+                      style={{ padding: '7px 10px', borderRadius: 20, background: '#ff446611', border: '1px solid #ff446633', color: '#ff6644', fontWeight: 700, fontSize: 12 }}>
+                      Block
+                    </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blocked Users Screen */}
+      {showBlocked && (
+        <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }} className="fadeUp">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0 }}>
+            <button onClick={() => setShowBlocked(false)} style={{ color: C.text, fontSize: 22 }}>←</button>
+            <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Blocked Users</span>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
+            {!blockedLoaded && (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Loading…</div>
+            )}
+            {blockedLoaded && blockedUsers.length === 0 && (
+              <div style={{ padding: '60px 20px', textAlign: 'center', color: C.muted }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🚫</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 6 }}>No blocked users</div>
+                <div style={{ fontSize: 13 }}>You haven't blocked anyone yet.</div>
+              </div>
+            )}
+            {blockedLoaded && blockedUsers.map(u => {
+              const name = u.account_type === 'brand' ? (u.brand_name || u.display_name || u.username) : (u.show_display_name !== false && u.display_name ? u.display_name : u.username);
+              const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+              return (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${C.border}22` }}>
+                  <img src={avatar} alt="" style={{ width: 44, height: 44, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.border}`, flexShrink: 0, filter: 'grayscale(0.5)', opacity: 0.7 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.username}</div>
+                  </div>
+                  <button onClick={() => handleUnblock(u)}
+                    style={{ padding: '7px 14px', borderRadius: 20, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, color: C.sky, fontWeight: 700, fontSize: 12 }}>
+                    Unblock
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
