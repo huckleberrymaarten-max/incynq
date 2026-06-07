@@ -7,6 +7,10 @@ import { useApp } from '../context/AppContext';
 
 export default function SearchScreen({ onOpenUserProfile }) {
   const { following, setFollowing, currentUser } = useApp();
+  const inBrandMode   = currentUser?.brandMode === true;
+  const ownBrandId    = currentUser?.id; // brand mode: same id
+  const managedIds    = (currentUser?.managedBrands || []).map(b => b.id);
+  const managingId    = currentUser?.managingBrandId || null;
   const [query, setQuery] = useState('');
   const [people, setPeople] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -117,9 +121,24 @@ export default function SearchScreen({ onOpenUserProfile }) {
                 );
 
                 const entries = [];
+                const isSelf    = u.id === currentUser?.id;
+                const isManaged = managedIds.includes(u.id);
 
-                // Show resident entry if query matched resident fields
-                if (!isBrand || matchesResident) {
+                // ── Resident entry visibility ──
+                // Hide: resident viewing own resident profile
+                // Hide: brand mode viewing own resident profile
+                // Show: brand mode viewing own resident (so they can see themselves)
+                // Actually: in brand mode, own resident = show (no follow). In resident mode, own resident = hide.
+                const showResident = (!isBrand || matchesResident) && !(isSelf && !inBrandMode);
+
+                // ── Brand entry visibility ──
+                // Hide: resident mode viewing own brand (they own it — hide resident hide brand, show brand only)
+                // Show: resident viewing own brand (they can tap to view)
+                // Hide: brand mode viewing own brand (you are the brand)
+                // Show: manager viewing managed brand
+                const showBrand = isBrand && matchesBrand && !(isSelf && inBrandMode);
+
+                if (showResident) {
                   entries.push({
                     key: `${u.id}_resident`,
                     id: u.id,
@@ -129,11 +148,11 @@ export default function SearchScreen({ onOpenUserProfile }) {
                     avatar: u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`,
                     cynqified: u.cynqified,
                     bio: u.bio,
+                    hideFollow: isSelf,
                   });
                 }
 
-                // Show brand entry if query matched brand fields
-                if (isBrand && matchesBrand) {
+                if (showBrand) {
                   entries.push({
                     key: `${u.id}_brand`,
                     id: u.id,
@@ -143,6 +162,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
                     avatar: u.brand_logo_url || null,
                     cynqified: u.cynqified,
                     bio: null,
+                    hideFollow: isSelf || isManaged,
                   });
                 }
 
@@ -169,14 +189,16 @@ export default function SearchScreen({ onOpenUserProfile }) {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleFollow({ id: entry.id }); }}
-                      style={{ padding: '7px 16px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12,
-                        background: isFollowing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
-                        color: isFollowing ? C.sky : '#060d14',
-                        border: isFollowing ? `1px solid ${C.sky}44` : 'none' }}>
-                      {isFollowing ? 'Following' : 'Follow'}
-                    </button>
+                    {!entry.hideFollow && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleFollow({ id: entry.id }); }}
+                        style={{ padding: '7px 16px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12,
+                          background: isFollowing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                          color: isFollowing ? C.sky : '#060d14',
+                          border: isFollowing ? `1px solid ${C.sky}44` : 'none' }}>
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </button>
+                    )}
                   </div>
                 );
               })}

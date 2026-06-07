@@ -197,9 +197,16 @@ export const searchProfiles = async (query, currentUserId) => {
     .neq('account_type', 'official')
     .eq('discoverable', true) // Only show discoverable users in search
     .limit(20);
-  if (currentUserId) q = q.neq('id', currentUserId);
   const { data, error } = await q;
   if (error) throw error;
+  // Exclude own resident profile from results but allow own brand to show
+  if (currentUserId) {
+    return (data || []).filter(p => {
+      if (p.id !== currentUserId) return true;
+      // Include own profile only if it has a brand (so brand entry can show)
+      return p.account_type === 'brand' || p.account_type === 'founding_brand';
+    });
+  }
   return data;
 };
 
