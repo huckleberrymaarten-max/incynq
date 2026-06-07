@@ -5,7 +5,7 @@ import { visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import { getProfileByUsername, getProfileStats, followUser, unfollowUser, createNotification, formatMemberSince, getFoundingBrandBadge, trackProfileView } from '../lib/db';
 
-export default function UserProfileScreen({ username, onBack }) {
+export default function UserProfileScreen({ username, onBack, viewAs }) {
   const { currentUser, following, setFollowing } = useApp();
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
@@ -42,6 +42,8 @@ export default function UserProfileScreen({ username, onBack }) {
   const handleFollow = async () => {
     if (!profile) return;
     const isFollowing = following.has(profile.id);
+  const isBrandProfile = profile.account_type === 'brand' || profile.account_type === 'founding_brand';
+  const showAsBrand = viewAs === 'brand' || (isBrandProfile && !profile.username.toLowerCase().includes(username?.toLowerCase()));
     const n = new Set(following);
     isFollowing ? n.delete(profile.id) : n.add(profile.id);
     setFollowing(n);
@@ -83,6 +85,8 @@ export default function UserProfileScreen({ username, onBack }) {
   }
 
   const isFollowing = following.has(profile.id);
+  const isBrandProfile = profile.account_type === 'brand' || profile.account_type === 'founding_brand';
+  const showAsBrand = viewAs === 'brand' || (isBrandProfile && !profile.username.toLowerCase().includes(username?.toLowerCase()));
 
   return (
     <div style={{ paddingBottom: 80 }}>
@@ -90,8 +94,8 @@ export default function UserProfileScreen({ username, onBack }) {
       <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={{ color: C.sky, fontSize: 18 }}>←</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 900, fontSize: 16, color: C.text }}>{visibleName(profile)}</div>
-          <div style={{ fontSize: 12, color: C.muted }}>@{profile.username}</div>
+          <div style={{ fontWeight: 900, fontSize: 16, color: C.text }}>{showAsBrand && profile.brand_name ? profile.brand_name : visibleName(profile)}</div>
+          <div style={{ fontSize: 12, color: C.muted }}>@{showAsBrand && profile.brand_handle ? profile.brand_handle : profile.username}</div>
         </div>
       </div>
 
@@ -100,16 +104,19 @@ export default function UserProfileScreen({ username, onBack }) {
         {/* Avatar + Name */}
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 16 }}>
           <div style={{ flexShrink: 0 }}>
-            <Av src={profile.avatar_url} size={72} ring={C.sky} status={profile.grid_status} />
+            {showAsBrand && profile.brand_logo_url
+              ? <img src={profile.brand_logo_url} alt={profile.brand_name} style={{ width: 72, height: 72, borderRadius: 16, objectFit: 'cover', border: `2px solid ${C.sky}44` }} />
+              : <Av src={profile.avatar_url} size={72} ring={C.sky} status={profile.grid_status} />
+            }
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{visibleName(profile)}</div>
-            {profile.show_display_name !== false && profile.display_name && profile.display_name !== profile.username && (
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{profile.username}</div>
+            <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{showAsBrand && profile.brand_name ? profile.brand_name : visibleName(profile)}</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{showAsBrand && profile.brand_handle ? profile.brand_handle : profile.username}</div>
+            {!showAsBrand && (
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                {gridStatusLabel(profile.grid_status || 'online')}
+              </div>
             )}
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-              {gridStatusLabel(profile.grid_status || 'online')}
-            </div>
 
             {/* Member Since / Brand Since */}
             {profile.activated_at && (
@@ -160,7 +167,7 @@ export default function UserProfileScreen({ username, onBack }) {
 
         {/* Bio */}
         <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.6, marginBottom: 16 }}>
-          {profile.bio || 'No bio yet.'}
+          {showAsBrand ? (profile.brand_description || 'No description yet.') : (profile.bio || 'No bio yet.')}
         </div>
 
         {/* Stats */}

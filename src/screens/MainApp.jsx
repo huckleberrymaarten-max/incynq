@@ -13,7 +13,6 @@ import UserProfileScreen from './UserProfileScreen';
 import NotificationsScreen from './NotificationsScreen';
 import ComposeScreen      from '../components/ComposeScreen';
 import HelpScreen         from './HelpScreen';
-import FeedbackScreen     from './FeedbackScreen';
 
 const NAV = [
   { id: 'feed',      icon: '🏠', label: 'Home'      },
@@ -29,7 +28,6 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   const ref             = useRef(null);
   const isBrand         = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
   const managedBrands   = currentUser.managedBrands || [];
-  const ownedBrands     = currentUser.ownedBrands || [];
   const inBrandMode     = currentUser.brandMode === true;
 
   // Close on outside click
@@ -39,11 +37,11 @@ function AccountSwitcher({ currentUser, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // If no brand and no managed brands and no owned brands, just show name — no dropdown
-  if (!isBrand && managedBrands.length === 0 && ownedBrands.length === 0) {
+  // If no brand and no managed brands, just show name — no dropdown
+  if (!isBrand && managedBrands.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Av src={currentUser.avatar} size={28} />
+        <Av user={currentUser} size={28} />
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {currentUser.displayName || currentUser.username}
         </span>
@@ -77,7 +75,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
           const name = activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
           return logo
             ? <img src={logo} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
-            : <Av src={currentUser.avatar} size={28} />;
+            : <Av user={currentUser} size={28} />;
         })()}
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {(() => {
@@ -123,7 +121,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               textAlign:  'left',
             }}
           >
-            <Av src={currentUser.avatar} size={32} />
+            <Av user={currentUser} size={32} />
             <div>
               <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {currentUser.displayName || currentUser.username}
@@ -161,36 +159,6 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               {(inBrandMode && !currentUser.managingBrandId) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
             </button>
           )}
-
-          {/* Owned sub-brands (2nd brand onwards) */}
-          {ownedBrands.filter(b => b.brand_activated_at).map(brand => (
-            <button
-              key={brand.id}
-              onClick={() => { onSwitch('owned', brand.id); setOpen(false); }}
-              style={{
-                width:      '100%',
-                padding:    '10px 14px',
-                display:    'flex',
-                alignItems: 'center',
-                gap:        10,
-                background: (inBrandMode && currentUser.managingBrandId === brand.id) ? 'rgba(0,180,200,0.08)' : 'transparent',
-                border:     'none',
-                cursor:     'pointer',
-                textAlign:  'left',
-                borderTop:  '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              {brand.brand_logo_url
-                ? <img src={brand.brand_logo_url} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
-                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
-              }
-              <div>
-                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{brand.brand_name}</div>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Your brand</div>
-              </div>
-              {(inBrandMode && currentUser.managingBrandId === brand.id) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
-            </button>
-          ))}
 
           {/* Managed brands */}
           {managedBrands.map(brand => (
@@ -237,23 +205,31 @@ function AccountSwitcher({ currentUser, onSwitch }) {
 export default function MainApp() {
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);
+  const [viewingAs, setViewingAs] = useState(null);
   const [showBrandOnly,   setShowBrandOnly]   = useState(false);
   const { notifications, currentUser, setCurrentUser } = useApp();
   const unread   = notifications.filter(n => !n.read).length;
   const [showCompose,       setShowCompose]       = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showHelp,          setShowHelp]          = useState(false);
-  const [showFeedback,      setShowFeedback]      = useState(false);
   const isBrand  = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
 
-  const handleOpenUserProfile = (username) => setViewingUsername(username);
-  const handleCloseUserProfile = () => setViewingUsername(null);
+  const handleOpenUserProfile = (handle) => {
+    if (handle && handle.startsWith('brand:')) {
+      setViewingUsername(handle.slice(6));
+      setViewingAs('brand');
+    } else {
+      setViewingUsername(handle);
+      setViewingAs(null);
+    }
+  };
+  const handleCloseUserProfile = () => setViewingUsername(null); setViewingAs(null);;
 
   const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
       setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null }));
-    } else if ((mode === 'managed' || mode === 'owned') && managingBrandId) {
-      // Switch to brand mode immediately, then refresh wallet in background
+    } else if (mode === 'managed' && managingBrandId) {
+      // Switch to managing mode immediately, then refresh wallet in background
       setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId }));
       try {
         const { supabase } = await import('../lib/supabase');
@@ -286,7 +262,7 @@ export default function MainApp() {
 
   // If viewing a user profile, show that instead of tabs
   if (viewingUsername) {
-    return <UserProfileScreen username={viewingUsername} onBack={handleCloseUserProfile} />;
+    return <UserProfileScreen username={viewingUsername} viewAs={viewingAs} onBack={handleCloseUserProfile} />;
   }
 
   const inBrandMode = currentUser.brandMode === true && (isBrand || !!currentUser.managingBrandId);
@@ -350,7 +326,6 @@ export default function MainApp() {
                 </span>
               )}
             </button>
-            <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: C.muted, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', background: C.card2, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⭐</button>
             <button onClick={() => setShowHelp(true)} style={{ fontSize: 12, color: C.muted, fontWeight: 700, width: 24, height: 24, borderRadius: '50%', background: C.card2, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
           </div>
         </div>
@@ -362,7 +337,6 @@ export default function MainApp() {
       {showCompose       && <ComposeScreen onClose={() => setShowCompose(false)} />}
       {showNotifications && <NotificationsScreen onClose={() => setShowNotifications(false)} />}
       {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
-      {showFeedback      && <FeedbackScreen onClose={() => setShowFeedback(false)} />}
 
       {/* ── Screens ─────────────────────────────────────────── */}
       {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} />}

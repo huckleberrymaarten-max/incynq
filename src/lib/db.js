@@ -1733,7 +1733,7 @@ export const initBrandActivation = async (userId, brandData) => {
     .insert({
       user_id:     userId,
       code:        code,
-      amount:      3500,
+      amount:      2500,
       intent_type: 'brand_activation',
       status:      'pending',
       expires_at:  new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
@@ -2243,7 +2243,7 @@ export const initSubBrandActivation = async (ownerId, brandData) => {
     .insert({
       user_id:       ownerId,
       code:          code,
-      amount:        3500,
+      amount:        2500,
       intent_type:   'brand_activation',
       status:        'pending',
       expires_at:    new Date(Date.now() + 30 * 60 * 1000).toISOString(),

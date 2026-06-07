@@ -173,7 +173,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
                 return (
                   <div key={entry.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.border}22` }}>
                     <div
-                      onClick={() => onOpenUserProfile && onOpenUserProfile(entry.handle)}
+                      onClick={() => onOpenUserProfile && onOpenUserProfile(entry.displayAs === "brand" ? `brand:${entry.handle}` : entry.handle)}
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       {entry.avatar
                         ? <img src={entry.avatar} alt="" style={{ width: 46, height: 46, borderRadius: isBrandEntry ? 14 : '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
