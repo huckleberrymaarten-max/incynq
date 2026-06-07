@@ -973,14 +973,25 @@ export const getFoundingBrandBadge = (foundingNumber) => {
 // Get profile by username (for viewing other users)
 export const getProfileByUsername = async (username) => {
   try {
+    const lower = username.toLowerCase();
+    // Try username first
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('username', username.toLowerCase())
-      .single();
+      .eq('username', lower)
+      .maybeSingle();
 
-    if (error) throw error;
-    return data;
+    if (!error && data) return data;
+
+    // Fall back to brand_handle
+    const { data: brandData, error: brandError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('brand_handle', lower)
+      .maybeSingle();
+
+    if (brandError) throw brandError;
+    return brandData;
   } catch (error) {
     console.error('Get profile by username failed:', error);
     return null;
