@@ -223,7 +223,7 @@ export default function MainApp() {
       setViewingAs(null);
     }
   };
-  const handleCloseUserProfile = () => setViewingUsername(null); setViewingAs(null);;
+  const handleCloseUserProfile = () => { setViewingUsername(null); setViewingAs(null); };
 
   const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
