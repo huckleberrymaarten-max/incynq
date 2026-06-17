@@ -343,7 +343,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
       {/* Caption — below image, before actions (Instagram style) */}
       {!post.isWelcome && post.caption && (
         <div style={{ padding: '10px 14px 4px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif', whiteSpace: 'pre-wrap' }}>
-          {post._profile?.account_type !== 'brand' && (
+          {post._profile?.account_type !== 'brand' && post._profile?.account_type !== 'official' && (
             <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
           )}
           {post.caption}
