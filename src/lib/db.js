@@ -174,6 +174,7 @@ export const getPosts = async () => {
     .from('posts')
     .select('*, profiles!posts_user_id_fkey(username, display_name, avatar_url, show_display_name, account_type), brand:profiles!posts_brand_id_fkey(id, username, brand_name, brand_logo_url, brand_handle, account_type), post_comments(id)')
     .eq('is_welcome', false)
+    .eq('published', true)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data;
