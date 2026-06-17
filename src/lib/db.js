@@ -967,8 +967,8 @@ export const formatMemberSince = (date, accountType = 'member') => {
 
 // Get founding brand badge text
 export const getFoundingBrandBadge = (foundingNumber) => {
-  if (!foundingNumber || foundingNumber > 100) return null;
-  return `🌟 Founding Brand ${foundingNumber}/100`;
+  if (!foundingNumber || foundingNumber > 25) return null;
+  return `🌟 Founding Brand ${foundingNumber}/25`;
 };
 
 // Get profile by username (for viewing other users)
