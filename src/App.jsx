@@ -92,7 +92,19 @@ function BrandRouteCheck({ children }) {
   return children;
 }
 
+// ── Deep link capture — save /profile/username before auth redirects ──
+function captureDeepLink() {
+  const profileMatch = window.location.pathname.match(/^\/profile\/([^/]+)$/);
+  if (profileMatch) {
+    localStorage.setItem('incynq_deep_link', `/profile/${profileMatch[1]}`);
+    window.history.replaceState({}, '', '/');
+  }
+}
+
 function AppRoutes() {
+  // Capture deep link immediately before any auth redirect
+  captureDeepLink();
+
   const {
     loggedIn, showOnboarding,
     currentUser,
@@ -103,7 +115,8 @@ function AppRoutes() {
   const [checking, setChecking] = useState(true);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
-  const [maintenance, setMaintenance] = useState(null); // null = not checked yet
+  const [maintenance, setMaintenance] = useState(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState(() => localStorage.getItem('incynq_deep_link')); // null = not checked yet
 
   // ═══════════════════════════════════════════════════════════════
   // HYDRATE PROFILE — single source of truth for ALL login paths
@@ -496,7 +509,13 @@ function AppRoutes() {
           onCancel={handleCancelDeletion}
         />
       )}
-      <MainApp />
+      <MainApp
+        pendingDeepLink={pendingDeepLink}
+        onDeepLinkConsumed={() => {
+          setPendingDeepLink(null);
+          localStorage.removeItem('incynq_deep_link');
+        }}
+      />
       {notif && <Toast msg={notif.msg} type={notif.type} />}
       {showSurvey && (
         <SurveyModal onClose={() => setShowSurvey(false)} />

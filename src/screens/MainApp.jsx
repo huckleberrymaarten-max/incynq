@@ -202,7 +202,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
 // ══════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════
-export default function MainApp() {
+export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);
   const [viewingAs, setViewingAs] = useState(null);
@@ -224,6 +224,20 @@ export default function MainApp() {
     }
   };
   const handleCloseUserProfile = () => { setViewingUsername(null); setViewingAs(null); };
+
+  // Consume pending deep link (e.g. /profile/gonzagavalley from external link)
+  useEffect(() => {
+    if (!pendingDeepLink) return;
+    const profileMatch = pendingDeepLink.match(/^\/profile\/([^/]+)$/);
+    if (profileMatch) {
+      // Small delay to ensure MainApp is fully mounted and ready
+      const timer = setTimeout(() => {
+        handleOpenUserProfile(profileMatch[1]);
+        onDeepLinkConsumed?.();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
