@@ -1728,13 +1728,21 @@ export const initBrandActivation = async (userId, brandData) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const code = 'ICQ-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 
-  // Create payment intent — type brand_activation, amount 3500
+  // Read the activation fee from admin (app_content) — never hardcode the charge
+  const { data: feeRow } = await supabase
+    .from('app_content')
+    .select('value')
+    .eq('key', 'brand_activation_fee')
+    .single();
+  const activationAmount = parseInt(feeRow?.value, 10) || 3500;
+
+  // Create payment intent — type brand_activation, amount from admin
   const { data, error } = await supabase
     .from('payment_intents')
     .insert({
       user_id:     userId,
       code:        code,
-      amount:      2500,
+      amount:      activationAmount,
       intent_type: 'brand_activation',
       status:      'pending',
       expires_at:  new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
@@ -2238,13 +2246,21 @@ export const initSubBrandActivation = async (ownerId, brandData) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const code = 'ICQ-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 
+  // Read the sub-brand slot fee from admin (app_content) — never hardcode the charge
+  const { data: slotFeeRow } = await supabase
+    .from('app_content')
+    .select('value')
+    .eq('key', 'sub_brand_slot_fee')
+    .single();
+  const subBrandAmount = parseInt(slotFeeRow?.value, 10) || 3500;
+
   // Create payment intent — stores sub_brand_id so webhook knows which profile to activate
   const { data, error } = await supabase
     .from('payment_intents')
     .insert({
       user_id:       ownerId,
       code:          code,
-      amount:        2500,
+      amount:        subBrandAmount,
       intent_type:   'brand_activation',
       status:        'pending',
       expires_at:    new Date(Date.now() + 30 * 60 * 1000).toISOString(),

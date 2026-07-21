@@ -116,13 +116,31 @@ export const gridStatusLabel = s =>
 export const groupMultiplier = n =>
   n <= 0 ? 0 : n === 1 ? 1 : n === 2 ? 1.8 : n === 3 ? 2.5 : 3;
 
-// Launch promotion — 50% off until 1,000 members
-export const LAUNCH_PROMO_ACTIVE = true;
-export const LAUNCH_PROMO_DISCOUNT = 0.5;
+// Launch promotion — driven entirely by admin (app_content), never hardcoded.
+// Reads launch_promo_active / _discount / _threshold and optional _start / _end.
+// Returns { active, discountPct, multiplier }. multiplier is 1 when no promo.
+export const getLaunchPromo = (appContent = {}, memberCount = 0, now = new Date()) => {
+  const active = String(appContent.launch_promo_active).toLowerCase() === 'true';
+  const discountPct = parseInt(appContent.launch_promo_discount, 10) || 0;
+  if (!active || discountPct <= 0) return { active: false, discountPct: 0, multiplier: 1 };
 
-export const calcAdPrice = (tier, groups, isRandom) => {
+  // Optional date window (ISO strings). Applied only if set + valid.
+  const start = appContent.launch_promo_start ? new Date(appContent.launch_promo_start) : null;
+  const end   = appContent.launch_promo_end   ? new Date(appContent.launch_promo_end)   : null;
+  if (start && !isNaN(start.getTime()) && now < start) return { active: false, discountPct, multiplier: 1 };
+  if (end   && !isNaN(end.getTime())   && now > end)   return { active: false, discountPct, multiplier: 1 };
+
+  // Optional member threshold. Applied only if set.
+  const threshold = appContent.launch_promo_threshold ? parseInt(appContent.launch_promo_threshold, 10) : null;
+  if (threshold && memberCount >= threshold) return { active: false, discountPct, multiplier: 1 };
+
+  return { active: true, discountPct, multiplier: Math.max(0, 1 - discountPct / 100) };
+};
+
+// promoMultiplier defaults to 1 (no discount) — callers pass getLaunchPromo().multiplier.
+export const calcAdPrice = (tier, groups, isRandom, promoMultiplier = 1) => {
   const base = tier.basePrice * groupMultiplier(groups.length);
-  const promoBase = LAUNCH_PROMO_ACTIVE ? base * LAUNCH_PROMO_DISCOUNT : base;
+  const promoBase = base * promoMultiplier;
   return Math.round((isRandom ? promoBase * 0.75 : promoBase) / 50) * 50;
 };
 

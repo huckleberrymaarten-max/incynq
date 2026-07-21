@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { calcAdPrice, groupMultiplier, LOCS, INTEREST_GROUPS } from '../data';
+import { calcAdPrice, groupMultiplier, getLaunchPromo, LOCS, INTEREST_GROUPS } from '../data';
 import { useContent } from '../context/ContentContext';
 import ImageCropModal from '../components/ImageCropModal';
 
@@ -16,9 +16,9 @@ const DURATION_OPTIONS = [
 ];
 
 // Calculate total price including duration multiplier
-const calcTotalPrice = (tier, groups, isRandom, weeks) => {
+const calcTotalPrice = (tier, groups, isRandom, weeks, promoMult = 1) => {
   if (!tier) return 0;
-  const weeklyBase = calcAdPrice(tier, groups, isRandom);
+  const weeklyBase = calcAdPrice(tier, groups, isRandom, promoMult);
   const opt        = DURATION_OPTIONS.find(d => d.weeks === weeks) || DURATION_OPTIONS[0];
   return Math.round(weeklyBase * opt.multiplier / 50) * 50;
 };
@@ -63,10 +63,12 @@ export default function AdvertiseScreen() {
   const [uploadingAdImage, setUploadingAdImage] = useState(false);
   const [adCropFile, setAdCropFile]       = useState(null);
 
-  const { adTiers, appContent } = useContent();
+  const { adTiers, appContent, memberCount } = useContent();
+  const promo       = getLaunchPromo(appContent, memberCount);
   const tier        = adTiers.find(t => t.id === selTier);
-  const weeklyPrice = tier ? calcAdPrice(tier, selGroups, isRandom) : 0;
-  const price       = calcTotalPrice(tier, selGroups, isRandom, selDuration);
+  const weeklyPrice = tier ? calcAdPrice(tier, selGroups, isRandom, promo.multiplier) : 0;
+  const prePromoWeekly = tier ? calcAdPrice(tier, selGroups, isRandom, 1) : 0;
+  const price       = calcTotalPrice(tier, selGroups, isRandom, selDuration, promo.multiplier);
   const durationOpt = DURATION_OPTIONS.find(d => d.weeks === selDuration) || DURATION_OPTIONS[0];
   const locName     = selLoc ? selLoc.name : customLoc.trim();
 
@@ -366,6 +368,14 @@ export default function AdvertiseScreen() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, color: C.green }}>Random −25%</span>
                           <span className="sg" style={{ fontSize: 12, color: C.green }}>−{Math.round(tier.basePrice * groupMultiplier(selGroups.length) * 0.25).toLocaleString()} L$</span>
+                        </div>
+                      )}
+
+                      {/* Launch promo — admin-driven (app_content) */}
+                      {promo.active && (prePromoWeekly - weeklyPrice) > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: C.green }}>Launch promo −{promo.discountPct}%</span>
+                          <span className="sg" style={{ fontSize: 12, color: C.green }}>−{(prePromoWeekly - weeklyPrice).toLocaleString()} L$</span>
                         </div>
                       )}
 
