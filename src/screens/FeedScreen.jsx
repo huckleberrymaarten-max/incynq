@@ -172,7 +172,8 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
     if (willOpen && comments.length === 0) loadComments();
     // Analytics: track as a post view when user opens comments (engagement signal)
     // ONLY for brand posts — resident posts are never tracked for privacy
-    const isBrandPost = post._profile?.account_type === 'brand';
+    const _apt = post._profile?.account_type;
+    const isBrandPost = _apt === 'brand' || _apt === 'founding_brand' || _apt === 'performer';
     if (willOpen && typeof post.id !== 'number' && !post.isWelcome && !post.isSponsored && isBrandPost) {
       trackPostView(post.id, currentUser?.id, 'feed');
     }
@@ -180,17 +181,24 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
 
   const [showReport, setShowReport] = useState(false);
   const isOwn = post.userId === currentUser?.id;
-  const user = isOwn
-    ? currentUser
-    : post._profile
-      ? {
-          username:        post._profile.username,
-          brandHandle:     post._profile.brand_handle,
-          displayName:     post._profile.display_name,
-          showDisplayName: post._profile.show_display_name,
-          avatar:          post._profile.avatar_url,
-        }
-      : userOf(post.userId, USERS);
+  // A post authored as a brand / performer identity always renders as that identity —
+  // even when the owner is viewing their own post (post.userId is the owner's resident id).
+  const _pt = post._profile?.account_type;
+  const isIdentityPost = _pt === 'brand' || _pt === 'founding_brand' || _pt === 'performer';
+  const identityUser = post._profile ? {
+    username:        post._profile.username,
+    brandHandle:     post._profile.brand_handle,
+    displayName:     post._profile.display_name,
+    showDisplayName: post._profile.show_display_name,
+    avatar:          post._profile.avatar_url,
+  } : null;
+  const user = (isIdentityPost && identityUser)
+    ? identityUser
+    : isOwn
+      ? currentUser
+      : identityUser
+        ? identityUser
+        : userOf(post.userId, USERS);
   const reasons = [
     '🌍 Out of This World — real life content',
     '🔞 Adult content shown to non-adults',
@@ -218,7 +226,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
             <span onClick={() => !isOwn && !isOfficial && user.username && onOpenProfile?.(user.username)} style={{ fontWeight: 800, fontSize: 13, color: C.text, cursor: !isOwn && !isOfficial ? 'pointer' : 'default' }}>{visibleName(user)}</span>
             {user.isOfficial && <span style={{ fontSize: 10, background: `${C.gold}22`, color: C.gold, border: `1px solid ${C.gold}44`, padding: '1px 6px', borderRadius: 20, fontWeight: 700 }}>⚡</span>}
           </div>
-          {post._profile?.account_type === 'brand'
+          {isIdentityPost
             ? (user.brandHandle && (
                 <div style={{ fontSize: 10, color: C.muted }}>@{user.brandHandle}</div>
               ))
@@ -343,7 +351,7 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
       {/* Caption — below image, before actions (Instagram style) */}
       {!post.isWelcome && post.caption && (
         <div style={{ padding: '10px 14px 4px', fontSize: 13, color: C.sub, lineHeight: 1.5, fontFamily: 'Segoe UI Emoji, Apple Color Emoji, sans-serif', whiteSpace: 'pre-wrap' }}>
-          {post._profile?.account_type !== 'brand' && post._profile?.account_type !== 'official' && (
+          {!isIdentityPost && post._profile?.account_type !== 'official' && (
             <span style={{ fontWeight: 800, color: C.text, marginRight: 6, fontFamily: 'inherit' }}>{visibleName(user)}</span>
           )}
           {post.caption}
@@ -518,7 +526,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
                   brand_handle:     p.brand.brand_handle,
                   avatar_url:       p.brand.brand_logo_url,
                   show_display_name: true,
-                  account_type:     'brand',
+                  account_type:     p.brand.account_type || 'brand',
                 }
               : p.profiles,
           }));
