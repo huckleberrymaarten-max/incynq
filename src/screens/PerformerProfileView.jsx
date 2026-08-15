@@ -37,6 +37,8 @@ export default function PerformerProfileView() {
   const [custom,       setCustom]       = useState('');
   const [buying,       setBuying]       = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [founding,   setFounding]   = useState(null);   // founding_performer_number
+  const [cynqified,  setCynqified]  = useState(false);
   const fileRef = useRef(null);
 
   const onPickPhoto = async (e) => {
@@ -79,6 +81,10 @@ export default function PerformerProfileView() {
       .catch(e => console.warn('Performer stats failed:', e.message))
       .finally(() => setStatsLoading(false));
     loadHours();
+    // Founding number + cynqified status (badges, like brands)
+    supabase.from('profiles').select('founding_performer_number, cynqified').eq('id', performerId).single()
+      .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified); } })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [performerId]);
 
@@ -160,6 +166,20 @@ export default function PerformerProfileView() {
                 <span>{formatMemberSince(perf.brand_activated_at, 'brand').replace('Brand', 'Performing')}</span>
               </div>
             )}
+
+            {/* Status badges — like brands */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {founding && founding <= 25 && (
+                <div style={{ display: 'inline-block', background: `linear-gradient(135deg, ${C.gold}22, ${C.peach}22)`, border: `1px solid ${C.gold}44`, borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: C.gold }}>
+                  🌟 Founding DJ / Performer {founding}/25
+                </div>
+              )}
+              {cynqified && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: C.sky }}>
+                  ✅ Cynqified
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
