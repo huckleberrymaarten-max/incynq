@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
-import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours } from '../lib/db';
+import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo } from '../lib/db';
+import { supabase } from '../lib/supabase';
 
 // Airtime quick-picks, in MINUTES (min 60, 30-min steps). Custom adds more.
 const QUICK_MINUTES = [60, 90, 120];
@@ -35,6 +36,31 @@ export default function PerformerProfileView() {
   const [selected,     setSelected]     = useState(60);   // minutes
   const [custom,       setCustom]       = useState('');
   const [buying,       setBuying]       = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileRef = useRef(null);
+
+  const onPickPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !performerId) return;
+    setUploadingLogo(true);
+    try {
+      const url = await uploadBrandLogo(performerId, file);
+      const { data, error } = await supabase.rpc('update_performer_logo', { p_performer_id: performerId, p_url: url });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Could not save photo');
+      // Reflect immediately in the switcher, feed and this view
+      setCurrentUser(u => ({
+        ...u,
+        ownedBrands: (u.ownedBrands || []).map(b => b.id === performerId ? { ...b, brand_logo_url: url } : b),
+      }));
+      toast('Profile photo updated');
+    } catch (err) {
+      toast(err.message || 'Could not update photo', 'error');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const loadHours = async () => {
     if (!performerId) return;
@@ -105,15 +131,25 @@ export default function PerformerProfileView() {
 
         {/* Logo + name */}
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: 18, overflow: 'hidden', flexShrink: 0,
-            background: 'rgba(0,180,200,0.12)', border: `2px solid rgba(0,180,200,0.3)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32,
-          }}>
-            {perf.brand_logo_url
-              ? <img src={perf.brand_logo_url} alt="performer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : '🎧'
-            }
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 18, overflow: 'hidden',
+              background: 'rgba(0,180,200,0.12)', border: `2px solid rgba(0,180,200,0.3)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32,
+            }}>
+              {uploadingLogo
+                ? <span style={{ fontSize: 20 }}>⏳</span>
+                : perf.brand_logo_url
+                  ? <img src={perf.brand_logo_url} alt="performer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : '🎧'
+              }
+            </div>
+            <button onClick={() => !uploadingLogo && fileRef.current?.click()} disabled={uploadingLogo}
+              title="Change photo"
+              style={{ position: 'absolute', bottom: -4, right: -4, width: 26, height: 26, borderRadius: '50%', background: C.sky, border: `2px solid ${C.bg}`, color: '#060d14', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: uploadingLogo ? 'default' : 'pointer' }}>
+              📷
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickPhoto} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: C.text }}>{perf.brand_name}</div>
