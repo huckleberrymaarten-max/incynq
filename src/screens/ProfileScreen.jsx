@@ -12,6 +12,7 @@ import DashboardScreen from './DashboardScreen';
 import TopUpModal from '../components/TopUpModal';
 import { DeactivateModal, DeleteModal, RemoveBrandModal } from '../components/AccountLifecycleModals';
 import AddBrandScreen from './AddBrandScreen';
+import AddPerformerScreen from './AddPerformerScreen';
 import BrandTeamScreen from './BrandTeamScreen';
 import BrandProfileEditScreen from './BrandProfileEditScreen';
 import BrandSettingsPanel from '../components/BrandSettingsPanel';
@@ -69,6 +70,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showRemoveBrand, setShowRemoveBrand] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
+  const [showAddPerformer, setShowAddPerformer] = useState(false);
   const [showBrandTeam, setShowBrandTeam] = useState(false);
   const [showBrandEdit, setShowBrandEdit] = useState(false);
   const [showBrandSettings, setShowBrandSettings] = useState(false);
@@ -561,6 +563,19 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             </button>
           )}
         </div>
+
+        {/* Add DJ / Live Performer */}
+        <button onClick={() => setShowAddPerformer(true)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'linear-gradient(135deg, rgba(0,180,200,0.1), rgba(0,180,200,0.05))', borderRadius: 14, border: '1px dashed rgba(0,180,200,0.3)', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>🎧</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#00B4C8' }}>Add DJ / Live Performer</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Go live, get tipped, build a following</div>
+            </div>
+          </div>
+          <span style={{ color: C.muted }}>→</span>
+        </button>
 
         {/* Dashboard */}
         {canAccessDashboard && (
@@ -1272,6 +1287,18 @@ export default function ProfileScreen({ onOpenUserProfile }) {
             }));
             setShowAddBrand(false);
             toast('🎉 Brand account activated! Welcome to brand mode.');
+          }}
+        />
+      )}
+
+      {showAddPerformer && (
+        <AddPerformerScreen
+          onClose={() => setShowAddPerformer(false)}
+          onActivated={() => {
+            // A performer is a separate linked identity, not the resident's own
+            // row — so we don't flip currentUser into brand/performer mode here.
+            setShowAddPerformer(false);
+            toast('🎧 Performer identity activated! You are ready to go live.');
           }}
         />
       )}
