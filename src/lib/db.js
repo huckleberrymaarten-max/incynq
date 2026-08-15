@@ -196,7 +196,10 @@ export const searchProfiles = async (query, currentUserId) => {
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, brand_handle, cynqified')
     .or(`username.ilike.%${query}%,display_name.ilike.%${query}%,brand_name.ilike.%${query}%,brand_handle.ilike.%${query}%`)
     .neq('account_type', 'official')
-    .eq('discoverable', true) // Only show discoverable users in search
+    // Personal accounts must opt in via discoverable; brand / performer identities
+    // stay findable regardless (a brand shouldn't vanish from search just because
+    // its owner set themselves to Hidden).
+    .or('discoverable.eq.true,account_type.in.(brand,founding_brand,performer)')
     .limit(20);
   const { data, error } = await q;
   if (error) throw error;
@@ -217,7 +220,8 @@ export const getSuggestedUsersByGroup = async (groupId, currentUserId, limit = 1
     .from('profiles')
     .select('id, username, display_name, avatar_url, show_display_name, account_type, bio, brand_name, brand_logo_url, brand_handle, cynqified')
     .contains('groups', [groupId])
-    .eq('discoverable', true)
+    // Brand / performer identities stay discoverable even if the owner is Hidden.
+    .or('discoverable.eq.true,account_type.in.(brand,founding_brand,performer)')
     .neq('id', currentUserId)
     .neq('account_type', 'official')
     .limit(limit);
