@@ -29,6 +29,10 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   const isBrand         = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
   const managedBrands   = currentUser.managedBrands || [];
   const inBrandMode     = currentUser.brandMode === true;
+  // Activated performer/DJ identities this resident owns (post-as-DJ)
+  const performers      = (currentUser.ownedBrands || []).filter(b => b.account_type === 'performer' && b.brand_activated_at);
+  const inPerformerMode = currentUser.performerMode === true && !!currentUser.activePerformerId;
+  const activePerformer = inPerformerMode ? performers.find(p => p.id === currentUser.activePerformerId) : null;
 
   // Close on outside click
   useEffect(() => {
@@ -37,8 +41,8 @@ function AccountSwitcher({ currentUser, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // If no brand and no managed brands, just show name — no dropdown
-  if (!isBrand && managedBrands.length === 0) {
+  // If no brand, no managed brands and no performers, just show name — no dropdown
+  if (!isBrand && managedBrands.length === 0 && performers.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Av user={currentUser} size={28} />
@@ -66,19 +70,24 @@ function AccountSwitcher({ currentUser, onSwitch }) {
           transition: 'all 0.15s',
         }}
       >
-        {/* Avatar or brand logo */}
+        {/* Avatar or brand / performer logo */}
         {(() => {
+          if (activePerformer) {
+            return activePerformer.brand_logo_url
+              ? <img src={activePerformer.brand_logo_url} alt="performer" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
+              : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🎧</div>;
+          }
           const activeBrand = currentUser.managingBrandId
             ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
             : null;
           const logo = activeBrand?.brand_logo_url || (inBrandMode ? currentUser.brandLogoUrl : null);
-          const name = activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
           return logo
             ? <img src={logo} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
             : <Av user={currentUser} size={28} />;
         })()}
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {(() => {
+            if (activePerformer) return activePerformer.brand_name || activePerformer.username;
             const activeBrand = currentUser.managingBrandId
               ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
               : null;
@@ -115,7 +124,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               display:    'flex',
               alignItems: 'center',
               gap:        10,
-              background: !inBrandMode ? 'rgba(0,180,200,0.08)' : 'transparent',
+              background: (!inBrandMode && !inPerformerMode) ? 'rgba(0,180,200,0.08)' : 'transparent',
               border:     'none',
               cursor:     'pointer',
               textAlign:  'left',
@@ -128,7 +137,7 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               </div>
               <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Resident</div>
             </div>
-            {!inBrandMode && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            {(!inBrandMode && !inPerformerMode) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
           </button>
 
           {/* Brand option (own brand) */}
@@ -190,8 +199,38 @@ function AccountSwitcher({ currentUser, onSwitch }) {
             </button>
           ))}
 
+          {/* Performer / DJ identities */}
+          {performers.map(p => (
+            <button
+              key={p.id}
+              onClick={() => { onSwitch('performer', p.id); setOpen(false); }}
+              style={{
+                width:      '100%',
+                padding:    '10px 14px',
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                background: (inPerformerMode && currentUser.activePerformerId === p.id) ? 'rgba(0,180,200,0.08)' : 'transparent',
+                border:     'none',
+                cursor:     'pointer',
+                textAlign:  'left',
+                borderTop:  '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {p.brand_logo_url
+                ? <img src={p.brand_logo_url} alt="performer" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎧</div>
+              }
+              <div>
+                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{p.brand_name || p.username}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>DJ / Performer</div>
+              </div>
+              {(inPerformerMode && currentUser.activePerformerId === p.id) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            </button>
+          ))}
+
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 14px', color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>
-            One login · Two modes
+            One login · Switch identities
           </div>
         </div>
       )}
@@ -241,10 +280,13 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
 
   const handleSwitchMode = async (mode, managingBrandId = null) => {
     if (mode === 'resident') {
-      setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null }));
+      setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null, performerMode: false, activePerformerId: null }));
+    } else if (mode === 'performer' && managingBrandId) {
+      // Switch into a DJ / performer identity (post-as-DJ). managingBrandId carries the performer id.
+      setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null, performerMode: true, activePerformerId: managingBrandId }));
     } else if (mode === 'managed' && managingBrandId) {
       // Switch to managing mode immediately, then refresh wallet in background
-      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId }));
+      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId, performerMode: false, activePerformerId: null }));
       try {
         const { supabase } = await import('../lib/supabase');
         const { data } = await supabase.from('profiles').select('brand_wallet').eq('id', managingBrandId).single();
@@ -261,7 +303,7 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
       }
     } else {
       // Own brand mode — switch immediately, refresh own brand wallet in background
-      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId: null }));
+      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId: null, performerMode: false, activePerformerId: null }));
       try {
         const { supabase } = await import('../lib/supabase');
         const { data } = await supabase.from('profiles').select('brand_wallet').eq('id', currentUser.id).single();
@@ -299,9 +341,9 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
         {/* Left: account switcher */}
         <AccountSwitcher currentUser={currentUser} onSwitch={handleSwitchMode} />
 
-        {/* Right: brand mode indicator only */}
+        {/* Right: brand / performer mode indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {inBrandMode && (
+          {(inBrandMode || (currentUser.performerMode && currentUser.activePerformerId)) && (
             <div style={{
               background:   'rgba(0,180,200,0.12)',
               border:       '1px solid rgba(0,180,200,0.3)',
@@ -312,7 +354,7 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
               fontWeight:   700,
               letterSpacing: 0.5,
             }}>
-              {currentUser.managingBrandId ? 'MANAGING' : 'BRAND MODE'}
+              {(currentUser.performerMode && currentUser.activePerformerId) ? 'PERFORMER' : currentUser.managingBrandId ? 'MANAGING' : 'BRAND MODE'}
             </div>
           )}
         </div>

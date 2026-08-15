@@ -17,7 +17,14 @@ export default function ComposeScreen({ onClose }) {
           ? currentUser.id : null
       ))
     : null;
-  const authorId = activeBrandId || currentUser.id;
+  // Post-as-DJ: when in performer mode, attribute the post to the performer identity
+  const activePerformer = (currentUser.performerMode && currentUser.activePerformerId)
+    ? (currentUser.ownedBrands || []).find(b => b.id === currentUser.activePerformerId && b.account_type === 'performer')
+    : null;
+  const activePerformerId = activePerformer ? activePerformer.id : null;
+  // The identity a post is attributed to via posts.brand_id (brands + performers share this FK)
+  const activeAuthorBrandId = activePerformerId || activeBrandId;
+  const authorId = activeAuthorBrandId || currentUser.id;
   const { interestGroups } = useContent();
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState([]);
@@ -30,7 +37,7 @@ export default function ComposeScreen({ onClose }) {
   const [cropQueue, setCropQueue] = useState([]);
   const [currentCropFile, setCurrentCropFile] = useState(null);
 
-  const isBrand = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || !!currentUser.managingBrandId;
+  const isBrand = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || !!currentUser.managingBrandId || !!activePerformer;
   const maxImages = isBrand ? 8 : 4;
 
   const toggleTag = tag => setSelTags(prev =>
@@ -145,7 +152,7 @@ export default function ComposeScreen({ onClose }) {
         try {
           savedPost = await createPost({
             userId:    currentUser.id,
-            brandId:   activeBrandId || null,
+            brandId:   activeAuthorBrandId || null,
             caption:   caption.trim(),
             imageUrl:  imageUrls[0] || null,
             imageUrls: imageUrls,
@@ -167,7 +174,15 @@ export default function ComposeScreen({ onClose }) {
         comments: [],
         time: 'just now',
         locationId: null,
-        _profile: activeBrandId ? {
+        _profile: activePerformer ? {
+          username:          activePerformer.username,
+          display_name:      activePerformer.brand_name || activePerformer.username,
+          brand_name:        activePerformer.brand_name,
+          brand_logo_url:    activePerformer.brand_logo_url,
+          avatar_url:        activePerformer.brand_logo_url,
+          show_display_name: true,
+          account_type:      'performer',
+        } : activeBrandId ? {
           username: activeBrandId === currentUser.id
             ? currentUser.username
             : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.username || currentUser.username,
@@ -217,9 +232,27 @@ export default function ComposeScreen({ onClose }) {
 
         {/* User + caption */}
         <div style={{ display: 'flex', gap: 12, padding: '16px 16px 0', alignItems: 'flex-start' }}>
-          <Av src={currentUser.avatar} size={40} ring={C.sky} />
+          <Av
+            src={activePerformer
+              ? activePerformer.brand_logo_url
+              : activeBrandId
+                ? (activeBrandId === currentUser.id
+                    ? currentUser.brandLogoUrl
+                    : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.brand_logo_url || currentUser.brandLogoUrl)
+                : currentUser.avatar}
+            size={40}
+            ring={C.sky}
+          />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 6 }}>{visibleName(currentUser)}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 6 }}>
+              {activePerformer
+                ? (activePerformer.brand_name || activePerformer.username)
+                : activeBrandId
+                  ? (activeBrandId === currentUser.id
+                      ? currentUser.brandName
+                      : (currentUser.managedBrands || []).find(b => b.id === activeBrandId)?.brand_name || currentUser.brandName)
+                  : visibleName(currentUser)}
+            </div>
             <textarea
               value={caption}
               onChange={e => setCaption(e.target.value)}
