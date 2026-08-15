@@ -2295,6 +2295,141 @@ export const adminSetMaxBrands = async (userId, maxBrands, adminId) => {
 };
 
 
+// ══════════════════════════════════════════════════════════════
+// DJ / LIVE PERFORMER  -  Phase 1 (identity)
+// ══════════════════════════════════════════════════════════════
+// A performer (DJMAX / @djmax) is a SEPARATE profiles row with
+// account_type = 'performer', owned by a resident via brand_owner_id -
+// exactly the same shape as a sub-brand. These mirror
+// initSubBrandActivation / checkSubBrandActivated almost line for line.
+
+// ── Init a performer activation ───────────────────────────────
+// Creates a new performer profile row + its performer_profiles row +
+// a payment intent (intent_type='performer_activation'). The resident
+// pays inworld; the SL webhook flips the identity live and credits
+// performer_activation_price to brand_wallet (spend credit).
+export const initPerformerActivation = async (ownerId, performerData) => {
+  // Slot gate: a performer counts against max_brands, same as a brand.
+  // (The Add-Performer screen checks this first too, but we re-check here
+  // so the limit can't be bypassed by a direct API call.)
+  const { total, max } = await getUserBrandCount(ownerId);
+  if (total >= max) throw new Error('BRAND_SLOT_LIMIT');
+
+  // Compute a unique handle from the stage name (DJMAX -> djmax).
+  const brandHandle = await ensureUniqueBrandHandle(generateBrandHandle(performerData.name.trim()));
+
+  // Create the performer identity profile row (pending until paid).
+  const { data: newProfile, error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      username:          `${performerData.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20)}_${Date.now().toString(36)}`,
+      display_name:      performerData.name.trim(),
+      brand_name:        performerData.name.trim(),
+      brand_description: performerData.bio?.trim() || null,
+      brand_email:       performerData.email?.trim() || null,
+      brand_logo_url:    performerData.logoUrl || null,
+      brand_handle:      brandHandle,
+      brand_pending:     true,
+      brand_owner_id:    ownerId,
+      account_type:      'performer',
+      performer_type:    performerData.performerType,   // 'dj' | 'live' | 'both'
+      activated:         true,
+    })
+    .select()
+    .single();
+
+  if (profileError) throw profileError;
+
+  // Create the companion performer_profiles row. Descriptive fields only -
+  // hours_balance / earnings_balance stay at their DB default of 0 and only
+  // ever move via service-role edge functions.
+  const { error: perfError } = await supabase
+    .from('performer_profiles')
+    .insert({
+      profile_id: newProfile.id,
+      genres:     performerData.genres || [],
+      stream_url: performerData.streamUrl?.trim() || null,
+      home_slurl: performerData.homeSlurl?.trim() || null,
+      sample_url: performerData.sampleUrl?.trim() || null,
+    });
+
+  if (perfError) {
+    // Roll back the half-created identity so we never leave an orphan row.
+    await supabase.from('profiles').delete().eq('id', newProfile.id);
+    throw perfError;
+  }
+
+  // Activation code (same format as brand / top-up codes).
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const code = 'ICQ-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+  // Read the performer activation price from admin - never hardcode the charge.
+  const { data: feeRow } = await supabase
+    .from('app_content')
+    .select('value')
+    .eq('key', 'performer_activation_price')
+    .single();
+  const activationAmount = parseInt(feeRow?.value, 10) || 1750;
+
+  // Payment intent - type performer_activation, performer_id in metadata so the
+  // webhook knows which profile to activate + credit.
+  const { data, error } = await supabase
+    .from('payment_intents')
+    .insert({
+      user_id:     ownerId,
+      code:        code,
+      amount:      activationAmount,
+      intent_type: 'performer_activation',
+      status:      'pending',
+      expires_at:  new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
+      metadata:    { performer_id: newProfile.id },
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { ...data, performerId: newProfile.id };
+};
+
+// ── Poll for performer activation ─────────────────────────────
+// Called every 3s from the Add-Performer screen while waiting for payment,
+// same pattern as checkSubBrandActivated. Returns the profile once the
+// webhook has set brand_activated_at.
+export const checkPerformerActivated = async (performerId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('account_type, brand_wallet, brand_activated_at, brand_name, brand_handle')
+    .eq('id', performerId)
+    .single();
+  if (error) throw error;
+  return data?.brand_activated_at ? data : null;
+};
+
+// ── Cancel a pending performer activation (before payment) ────
+// Removes the pending identity + cancels its intent. No-op once activated.
+export const cancelPerformerActivation = async (performerId, ownerId) => {
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('brand_activated_at, brand_owner_id')
+    .eq('id', performerId)
+    .single();
+
+  // Guard: only the owner may cancel, and only while still pending.
+  if (!prof || prof.brand_owner_id !== ownerId || prof.brand_activated_at) return;
+
+  await supabase
+    .from('payment_intents')
+    .update({ status: 'cancelled' })
+    .eq('user_id', ownerId)
+    .eq('intent_type', 'performer_activation')
+    .eq('status', 'pending')
+    .contains('metadata', { performer_id: performerId });
+
+  // performer_profiles cascades away via its FK (on delete cascade).
+  await supabase.from('profiles').delete().eq('id', performerId);
+};
+
+
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────
 
 export const submitReview = async ({ userId, rating, body }) => {
