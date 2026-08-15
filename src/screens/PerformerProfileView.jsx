@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
 import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo } from '../lib/db';
 import { supabase } from '../lib/supabase';
+import EditPerformerScreen from './EditPerformerScreen';
 
 // Airtime quick-picks, in MINUTES (min 60, 30-min steps). Custom adds more.
 const QUICK_MINUTES = [60, 90, 120];
@@ -39,6 +40,7 @@ export default function PerformerProfileView() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [founding,   setFounding]   = useState(null);   // founding_performer_number
   const [cynqified,  setCynqified]  = useState(false);
+  const [showEdit,   setShowEdit]   = useState(false);
   const fileRef = useRef(null);
 
   const onPickPhoto = async (e) => {
@@ -246,12 +248,14 @@ export default function PerformerProfileView() {
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Non-refundable credit. Buys airtime and promotion. Your tip earnings are kept separate.</div>
         </div>
 
-        {/* Back */}
-        <button onClick={exit}
+        {/* Edit profile */}
+        <button onClick={() => setShowEdit(true)}
           style={{ width: '100%', padding: '11px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-          Back to my profile
+          Edit Profile
         </button>
       </div>
+
+      {showEdit && <EditPerformerScreen onClose={() => setShowEdit(false)} />}
     </div>
   );
 }
