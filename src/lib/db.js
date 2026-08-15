@@ -2433,6 +2433,32 @@ export const cancelPerformerActivation = async (performerId, ownerId) => {
   await supabase.from('profiles').delete().eq('id', performerId);
 };
 
+// ── Buy broadcast hours (airtime) ─────────────────────────────
+// Spends the performer's SPEND wallet (brand_wallet) on airtime, atomically,
+// via the buy_broadcast_hours() SQL function. minutes: >= 60, in 30-min steps.
+// Returns { ok, minutes, hours_added, rate_l, cost_l, new_wallet, hours_balance }.
+export const buyBroadcastHours = async (performerId, minutes) => {
+  const { data, error } = await supabase.rpc('buy_broadcast_hours', {
+    p_performer_id: performerId,
+    p_minutes:      minutes,
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Could not buy hours');
+  return data;
+};
+
+// ── Read a performer's airtime + spend wallet (for the dashboard) ──
+export const getPerformerHours = async (performerId) => {
+  const [profRes, perfRes] = await Promise.all([
+    supabase.from('profiles').select('brand_wallet').eq('id', performerId).single(),
+    supabase.from('performer_profiles').select('hours_balance').eq('profile_id', performerId).single(),
+  ]);
+  return {
+    spendWallet:  profRes.data?.brand_wallet   || 0,
+    hoursBalance: Number(perfRes.data?.hours_balance) || 0,   // fractional hours
+  };
+};
+
 
 // ─── REVIEWS ──────────────────────────────────────────────────────────────────
 
