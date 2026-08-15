@@ -23,6 +23,11 @@ import { updateProfile, followUser, unfollowUser, blockUser, unblockUser, getBlo
 import { fetchSLProfile } from '../lib/slProfile';
 import logo from '../assets/Q_Logo_.png';
 
+// Feature flag: the DJ / Live Performer activation flow is built but not launched.
+// While false, the "Add DJ / Live Performer" button shows a Coming Soon screen.
+// Flip to true to go live — no other change needed.
+const PERFORMER_LIVE = false;
+
 const stableHash = s => { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) & 0xffffffff; return h; };
 
 const DB_FIELD_MAP = {
@@ -1292,15 +1297,32 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       )}
 
       {showAddPerformer && (
-        <AddPerformerScreen
-          onClose={() => setShowAddPerformer(false)}
-          onActivated={() => {
-            // A performer is a separate linked identity, not the resident's own
-            // row — so we don't flip currentUser into brand/performer mode here.
-            setShowAddPerformer(false);
-            toast('🎧 Performer identity activated! You are ready to go live.');
-          }}
-        />
+        PERFORMER_LIVE ? (
+          <AddPerformerScreen
+            onClose={() => setShowAddPerformer(false)}
+            onActivated={() => {
+              // A performer is a separate linked identity, not the resident's own
+              // row — so we don't flip currentUser into brand/performer mode here.
+              setShowAddPerformer(false);
+              toast('🎧 Performer identity activated! You are ready to go live.');
+            }}
+          />
+        ) : (
+          <div style={{ position: 'fixed', inset: 0, background: '#040f14', zIndex: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Inter', sans-serif" }}>
+            <div style={{ maxWidth: 400, textAlign: 'center' }}>
+              <div style={{ fontSize: 52, marginBottom: 16 }}>🎧</div>
+              <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>DJ &amp; Live Performer</h2>
+              <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, color: '#00B4C8', background: 'rgba(0,180,200,0.12)', border: '1px solid rgba(0,180,200,0.35)', borderRadius: 20, padding: '4px 14px', marginBottom: 18 }}>COMING SOON</div>
+              <p style={{ color: '#b0c4d0', fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+                Go live inside InCynq, build your following, and collect tips — all from your own DJ / performer identity. We are putting the finishing touches on it. Stay tuned!
+              </p>
+              <button onClick={() => setShowAddPerformer(false)}
+                style={{ display: 'block', width: '100%', padding: '13px 0', background: '#00B4C8', border: 'none', borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+                Back
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {showDeactivate && (
