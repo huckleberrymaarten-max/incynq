@@ -17,6 +17,7 @@ import BrandTeamScreen from './BrandTeamScreen';
 import BrandProfileEditScreen from './BrandProfileEditScreen';
 import BrandSettingsPanel from '../components/BrandSettingsPanel';
 import BrandProfileView from './BrandProfileView';
+import PerformerProfileView from './PerformerProfileView';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
 import { updateProfile, followUser, unfollowUser, blockUser, unblockUser, getBlockedUsers, getBlockedByMe, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
@@ -439,6 +440,10 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const discoverPreview = discoverAll.slice(0, 10);
 
   // ── Render ────────────────────────────────────────────────
+  // Performer mode: acting as a DJ / performer identity → show its home/dashboard
+  if (currentUser.performerMode && currentUser.activePerformerId) {
+    return <PerformerProfileView onOpenUserProfile={onOpenUserProfile} />;
+  }
   if (currentUser.brandMode && (currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand' || currentUser.managingBrandId)) {
     return <BrandProfileView onOpenUserProfile={onOpenUserProfile} />;
   }
