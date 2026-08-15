@@ -25,8 +25,11 @@ import logo from '../assets/Q_Logo_.png';
 
 // Feature flag: the DJ / Live Performer activation flow is built but not launched.
 // While false, the "Add DJ / Live Performer" button shows a Coming Soon screen.
-// Flip to true to go live — no other change needed.
+// Flip PERFORMER_LIVE to true to launch for everyone.
 const PERFORMER_LIVE = false;
+// Backdoor: usernames here get the REAL flow while it stays hidden from everyone
+// else — for previewing progress in the live app. Clear it at launch.
+const PERFORMER_PREVIEW = ['maarten.huckleberry'];
 
 const stableHash = s => { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) & 0xffffffff; return h; };
 
@@ -1297,7 +1300,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
       )}
 
       {showAddPerformer && (
-        PERFORMER_LIVE ? (
+        (PERFORMER_LIVE || PERFORMER_PREVIEW.includes(currentUser.username)) ? (
           <AddPerformerScreen
             onClose={() => setShowAddPerformer(false)}
             onActivated={() => {
