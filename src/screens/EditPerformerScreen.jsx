@@ -126,7 +126,7 @@ export default function EditPerformerScreen({ onClose }) {
                   <span>{performer.brand_name}</span>
                   <span style={{ fontSize: 11, color: B.muted }}>🔒 admin only</span>
                 </div>
-                <div style={{ color: B.muted, fontSize: 12, marginTop: 6 }}>Want a different stage name? Contact us and we'll change it for you.</div>
+                <div style={{ color: B.muted, fontSize: 12, marginTop: 6 }}>Want a different stage name? <a href="https://incynq.net/contact" target="_blank" rel="noopener noreferrer" style={{ color: B.sky, textDecoration: 'underline' }}>Contact us</a> and we'll change it for you.</div>
               </div>
 
               {/* Performer type */}
