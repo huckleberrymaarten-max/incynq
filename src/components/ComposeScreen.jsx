@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { useContent } from '../context/ContentContext';
 import { visibleName } from '../data';
 import { createPost, uploadPostImage } from '../lib/db';
 import { supabase } from '../lib/supabase';
@@ -25,12 +24,18 @@ export default function ComposeScreen({ onClose }) {
   // The identity a post is attributed to via posts.brand_id (brands + performers share this FK)
   const activeAuthorBrandId = activePerformerId || activeBrandId;
   const authorId = activeAuthorBrandId || currentUser.id;
-  const { interestGroups } = useContent();
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selTags, setSelTags] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
+  // Tag system: categories from interest_categories, tags via get_composer_tags.
+  // (The old interest_groups table is legacy — it carried duplicated tag arrays.)
+  const [categories, setCategories] = useState([]);
+  const [catTags, setCatTags] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [brandTags, setBrandTags] = useState([]);
+  const [tagColors, setTagColors] = useState({});
   const [posting, setPosting] = useState(false);
   const [checking, setChecking] = useState(false);
   const fileRef = useRef(null);
@@ -43,6 +48,65 @@ export default function ComposeScreen({ onClose }) {
   const toggleTag = tag => setSelTags(prev =>
     prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
   );
+
+  // Categories for the chip row
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('interest_categories')
+        .select('id, name, icon, color, sort_order')
+        .order('sort_order');
+      if (alive && !error && data) setCategories(data);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // The brand's own tags (identity + any custom ones), pinned above the row.
+  // The identity tag is pre-selected — a brand post defaults to being findable
+  // under its own name.
+  useEffect(() => {
+    let alive = true;
+    if (!activeAuthorBrandId) { setBrandTags([]); return; }
+    (async () => {
+      const { data, error } = await supabase
+        .rpc('get_brand_tags', { p_brand_id: activeAuthorBrandId });
+      if (!alive || error || !data) return;
+      setBrandTags(data);
+      const identity = data.find(t => t.tag_type === 'identity');
+      if (identity) {
+        const label = `#${identity.label}`;
+        setSelTags(prev => prev.includes(label) ? prev : [...prev, label]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [activeAuthorBrandId]);
+
+  // Tags for the selected category only — deduped server-side, so each word
+  // appears exactly once no matter how many subcategories carry it.
+  useEffect(() => {
+    let alive = true;
+    if (!selGroup) { setCatTags([]); return; }
+    setLoadingTags(true);
+    (async () => {
+      const { data, error } = await supabase.rpc('get_composer_tags', {
+        p_brand_id: null,
+        p_category_ids: [selGroup],
+      });
+      if (!alive) return;
+      if (!error && data) {
+        setCatTags(data);
+        const colour = categories.find(c => c.id === selGroup)?.color || C.sky;
+        setTagColors(prev => {
+          const next = { ...prev };
+          data.forEach(t => { next[t.label] = colour; });
+          return next;
+        });
+      }
+      setLoadingTags(false);
+    })();
+    return () => { alive = false; };
+  }, [selGroup, categories]);
 
   const handleImage = e => {
     const files = Array.from(e.target.files);
@@ -211,7 +275,7 @@ export default function ComposeScreen({ onClose }) {
     }
   };
 
-  const selectedGroupData = interestGroups.find(g => g.id === selGroup);
+  const selectedCategory = categories.find(c => c.id === selGroup);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 800, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto', overflow: 'hidden' }} className="fadeUp">
@@ -322,42 +386,69 @@ export default function ComposeScreen({ onClose }) {
         <div style={{ padding: '16px 16px 8px' }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: .5, marginBottom: 10 }}>ADD TAGS</div>
 
+          {/* The brand's own tags — always visible, never scroll away */}
+          {brandTags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {brandTags.map(bt => {
+                const label = `#${bt.label}`;
+                const on = selTags.includes(label);
+                return (
+                  <button key={bt.tag_id} onClick={() => toggleTag(label)}
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
+                      border: `1px solid ${on ? C.sky : C.border}`,
+                      background: on ? `${C.sky}22` : 'transparent',
+                      color: on ? C.sky : C.muted }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 8 }}>
-            {interestGroups.map(g => (
-              <button key={g.id} onClick={() => setSelGroup(selGroup === g.id ? null : g.id)}
+            {categories.map(c => (
+              <button key={c.id} onClick={() => setSelGroup(selGroup === c.id ? null : c.id)}
                 style={{ flexShrink: 0, fontSize: 11, padding: '5px 11px', borderRadius: 20, fontWeight: 700,
-                  border: `1.5px solid ${selGroup === g.id ? g.color : C.border}`,
-                  background: selGroup === g.id ? `${g.color}22` : 'transparent',
-                  color: selGroup === g.id ? g.color : C.muted,
+                  border: `1.5px solid ${selGroup === c.id ? (c.color || C.sky) : C.border}`,
+                  background: selGroup === c.id ? `${c.color || C.sky}22` : 'transparent',
+                  color: selGroup === c.id ? (c.color || C.sky) : C.muted,
                   whiteSpace: 'nowrap', transition: 'all .15s' }}>
-                {g.label}
+                {c.name}
               </button>
             ))}
           </div>
 
-          {selectedGroupData && (
+          {selectedCategory && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '10px 12px', background: C.card2, borderRadius: 12, marginBottom: 8, paddingBottom: 12 }}>
-              {(selectedGroupData.tags || []).map(tag => (
-                <button key={tag} onClick={() => toggleTag(tag)}
-                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
-                    border: `1px solid ${selTags.includes(tag) ? selectedGroupData.color : C.border}`,
-                    background: selTags.includes(tag) ? `${selectedGroupData.color}22` : 'transparent',
-                    color: selTags.includes(tag) ? selectedGroupData.color : C.muted }}>
-                  {tag}
-                </button>
-              ))}
+              {loadingTags ? (
+                <span style={{ fontSize: 11, color: C.muted }}>Loading tags…</span>
+              ) : catTags.length === 0 ? (
+                <span style={{ fontSize: 11, color: C.muted }}>No tags in this category yet.</span>
+              ) : catTags.map(t => {
+                const colour = selectedCategory.color || C.sky;
+                const on = selTags.includes(t.label);
+                return (
+                  <button key={t.tag_id} onClick={() => toggleTag(t.label)}
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
+                      border: `1px solid ${on ? colour : C.border}`,
+                      background: on ? `${colour}22` : 'transparent',
+                      color: on ? colour : C.muted }}>
+                    {t.label}
+                  </button>
+                );
+              })}
             </div>
           )}
 
           {selTags.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {selTags.map(tag => {
-                const grp = interestGroups.find(g => g.tags?.includes(tag));
+                const colour = tagColors[tag] || C.sky;
                 return (
                   <button key={tag} onClick={() => toggleTag(tag)}
                     style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
-                      background: `${grp?.color || C.sky}22`, color: grp?.color || C.sky,
-                      border: `1px solid ${grp?.color || C.sky}44` }}>
+                      background: `${colour}22`, color: colour,
+                      border: `1px solid ${colour}44` }}>
                     {tag} ✕
                   </button>
                 );
