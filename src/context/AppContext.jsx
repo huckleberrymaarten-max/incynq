@@ -101,6 +101,20 @@ export function AppProvider({ children }) {
 
   useEffect(() => { if (loggedIn) loadBrandAds(); }, [loggedIn, loadBrandAds]);
 
+  // Remove a past ad from the list
+  const removeAd = async (adId) => {
+    if (!activeBrandId) return;
+    try {
+      const { deleteAd } = await import('../lib/db');
+      await deleteAd(adId, activeBrandId);
+      setBrandAds(prev => prev.filter(a => a.id !== adId));
+      toast('Ad deleted');
+    } catch (e) {
+      console.error('deleteAd failed:', e);
+      toast(e.message || 'Could not delete ad', 'error');
+    }
+  };
+
   // Purchase ad — deducts from correct wallet and saves to Supabase
   const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
     try {
@@ -177,7 +191,7 @@ export function AppProvider({ children }) {
       linkedProfiles, setLinkedProfiles,
       posts, setPosts,
       ads, setAds,
-      brandAds, loadBrandAds,
+      brandAds, loadBrandAds, removeAd,
       liked, setLiked, toggleLike,
       saved, setSaved, toggleSave,
       following, setFollowing,

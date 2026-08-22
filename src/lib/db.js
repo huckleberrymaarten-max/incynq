@@ -908,6 +908,19 @@ export const getBrandAds = async (brandId) => {
   }));
 };
 
+// ── Delete one of your own ads (used for past/expired ads) ───
+// No refund logic: expired ads have already run. RLS restricts this to the
+// owning brand, and the UI only offers it on past ads.
+export const deleteAd = async (adId, brandId) => {
+  if (!adId || !brandId) throw new Error('Missing ad or brand ID');
+  const { error } = await supabase
+    .from('ads')
+    .delete()
+    .eq('id', adId)
+    .eq('brand_id', brandId);
+  if (error) throw error;
+};
+
 export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
 

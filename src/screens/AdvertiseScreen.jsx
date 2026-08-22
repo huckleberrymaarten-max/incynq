@@ -46,7 +46,7 @@ const getReach = (tierId, memberCount) => {
 };
 
 export default function AdvertiseScreen() {
-  const { currentUser, brandAds, purchaseAd, toast } = useApp();
+  const { currentUser, brandAds, purchaseAd, removeAd, toast } = useApp();
   const [step, setStep]                   = useState(0);
   const [selLoc, setSelLoc]               = useState(null);
   const [customLoc, setCustomLoc]         = useState('');
@@ -199,7 +199,16 @@ export default function AdvertiseScreen() {
                 <div key={ad.id} style={{ background: C.card, borderRadius: 14, padding: 14, marginBottom: 10, border: `1px solid ${C.border}`, opacity: 0.65 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span style={{ fontWeight: 700, fontSize: 14, color: C.muted }}>{t?.icon} {t?.name}</span>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Ended {new Date(ad.expiresAt).toLocaleDateString()}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Ended {new Date(ad.expiresAt).toLocaleDateString()}</span>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Delete this past ad? This cannot be undone.')) removeAd(ad.id);
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#ff6680', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '2px 4px' }}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted }}>📍 {ad.locationName || 'Custom location'}</div>
                   {(ad.adImageUrl || ad.adCaption) && (
