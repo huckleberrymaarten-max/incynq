@@ -46,7 +46,7 @@ const getReach = (tierId, memberCount) => {
 };
 
 export default function AdvertiseScreen() {
-  const { currentUser, ads, purchaseAd, toast } = useApp();
+  const { currentUser, brandAds, purchaseAd, toast } = useApp();
   const [step, setStep]                   = useState(0);
   const [selLoc, setSelLoc]               = useState(null);
   const [customLoc, setCustomLoc]         = useState('');
@@ -82,7 +82,8 @@ export default function AdvertiseScreen() {
   const canSelectAdult = Array.isArray(currentUser.maturity)
     ? currentUser.maturity.includes('adult')
     : currentUser.maturity === 'adult';
-  const activeAds = ads.filter(a => a.expiresAt > Date.now());
+  const activeAds = (brandAds || []).filter(a => a.status === 'active' && a.expiresAt > Date.now());
+  const pastAds   = (brandAds || []).filter(a => !(a.status === 'active' && a.expiresAt > Date.now()));
 
   const canProceed = () => {
     if (step === 0) return true;
@@ -177,7 +178,26 @@ export default function AdvertiseScreen() {
           </>
         )}
 
-        {activeAds.length === 0 && (
+        {/* Past ads */}
+        {pastAds.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, margin: '18px 0 10px' }}>PAST ADS</div>
+            {pastAds.map(ad => {
+              const t = adTiers.find(t => t.id === ad.tier);
+              return (
+                <div key={ad.id} style={{ background: C.card, borderRadius: 14, padding: 14, marginBottom: 10, border: `1px solid ${C.border}`, opacity: 0.65 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: C.muted }}>{t?.icon} {t?.name}</span>
+                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Ended {new Date(ad.expiresAt).toLocaleDateString()}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted }}>📍 {ad.locationName || 'Custom location'}</div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {activeAds.length === 0 && pastAds.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: C.muted }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📢</div>
             <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 8 }}>No active ads</div>

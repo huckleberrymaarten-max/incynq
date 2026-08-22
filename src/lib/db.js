@@ -877,6 +877,37 @@ export const getActiveAds = async () => {
   return data || [];
 };
 
+// ── Get a brand's OWN ads (for the Advertise screen) ─────────
+// Returns active AND expired, newest first, mapped to the camelCase shape the
+// UI expects. The screen splits them into current vs past.
+export const getBrandAds = async (brandId) => {
+  if (!brandId) return [];
+  const { data, error } = await supabase
+    .from('ads')
+    .select('*')
+    .eq('brand_id', brandId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(a => ({
+    id:             a.id,
+    tier:           a.tier,
+    groups:         a.groups || [],
+    isRandom:       a.is_random,
+    adMaturity:     a.ad_maturity,
+    price:          a.price,
+    status:         a.status,
+    locationId:     a.location_id,
+    locationName:   a.location_name,
+    slurl:          a.slurl,
+    marketplaceUrl: a.marketplace_url,
+    adCaption:      a.ad_caption,
+    adImageUrl:     a.ad_image_url,
+    durationWeeks:  a.duration_weeks,
+    expiresAt:      a.expires_at ? new Date(a.expires_at).getTime() : 0,
+    createdAt:      a.created_at ? new Date(a.created_at).getTime() : 0,
+  }));
+};
+
 export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
 

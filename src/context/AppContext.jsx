@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ME, INIT_POSTS, INIT_ADS, USERS, DAY, DEFAULT_FOLLOWING } from '../data';
 import { savePost, unsavePost } from '../lib/db';
 
@@ -14,6 +14,8 @@ export function AppProvider({ children }) {
   // Content
   const [posts, setPosts] = useState(INIT_POSTS);
   const [ads, setAds] = useState(INIT_ADS);
+  // The signed-in brand's OWN ads, loaded from Supabase (INIT_ADS is mock feed data)
+  const [brandAds, setBrandAds] = useState([]);
   const [liked, setLiked] = useState(new Set());
   const [saved, setSaved] = useState(new Set());
   const [following, setFollowing] = useState(DEFAULT_FOLLOWING);
@@ -79,8 +81,28 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Which brand is currently acting (managed brand takes priority over own)
+  const activeBrandId =
+    currentUser?.managingBrandId ||
+    ((currentUser?.accountType === 'brand' || currentUser?.accountType === 'founding_brand')
+      ? currentUser.id
+      : null);
+
+  // Load the brand's own ads from Supabase
+  const loadBrandAds = useCallback(async () => {
+    if (!activeBrandId) { setBrandAds([]); return; }
+    try {
+      const { getBrandAds } = await import('../lib/db');
+      setBrandAds(await getBrandAds(activeBrandId) || []);
+    } catch (e) {
+      console.warn('Ad load failed:', e.message);
+    }
+  }, [activeBrandId]);
+
+  useEffect(() => { if (loggedIn) loadBrandAds(); }, [loggedIn, loadBrandAds]);
+
   // Purchase ad — deducts from correct wallet and saves to Supabase
-  const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
+  const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
     try {
       const { placeAd } = await import('../lib/db');
 
@@ -94,6 +116,7 @@ export function AppProvider({ children }) {
       await placeAd({
         brandId,
         tier, groups, isRandom, adMaturity, price,
+        durationWeeks: durationWeeks || 1,
         locationId: locationId || null,
         locationName: locationName || null,
         slurl: slurl || null,
@@ -121,6 +144,7 @@ export function AppProvider({ children }) {
         setCurrentUser(u => ({ ...u, wallet: Math.max(0, (u.wallet || 0) - price) }));
       }
 
+      await loadBrandAds();
       toast(`Ad live! ${price.toLocaleString()} L$ charged`, 'gold');
     } catch (e) {
       console.error('purchaseAd failed:', e);
@@ -153,6 +177,7 @@ export function AppProvider({ children }) {
       linkedProfiles, setLinkedProfiles,
       posts, setPosts,
       ads, setAds,
+      brandAds, loadBrandAds,
       liked, setLiked, toggleLike,
       saved, setSaved, toggleSave,
       following, setFollowing,
