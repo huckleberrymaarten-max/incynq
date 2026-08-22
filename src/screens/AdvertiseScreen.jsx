@@ -171,7 +171,18 @@ export default function AdvertiseScreen() {
                     <span style={{ fontSize: 11, color: C.green, fontWeight: 700 }}>● {daysLeft}d left</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted }}>📍 {ad.locationName || 'Custom location'}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Groups: {(ad.groups || []).join(', ')}</div>
+                  {(ad.adImageUrl || ad.adCaption) && (
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                      {ad.adImageUrl && (
+                        <img src={ad.adImageUrl} alt=""
+                          style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: `1px solid ${C.border}` }} />
+                      )}
+                      {ad.adCaption && (
+                        <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, flex: 1 }}>{ad.adCaption}</div>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Groups: {(ad.groups || []).join(', ')}</div>
                 </div>
               );
             })}
@@ -191,6 +202,17 @@ export default function AdvertiseScreen() {
                     <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Ended {new Date(ad.expiresAt).toLocaleDateString()}</span>
                   </div>
                   <div style={{ fontSize: 12, color: C.muted }}>📍 {ad.locationName || 'Custom location'}</div>
+                  {(ad.adImageUrl || ad.adCaption) && (
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                      {ad.adImageUrl && (
+                        <img src={ad.adImageUrl} alt=""
+                          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: `1px solid ${C.border}` }} />
+                      )}
+                      {ad.adCaption && (
+                        <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ad.adCaption}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
