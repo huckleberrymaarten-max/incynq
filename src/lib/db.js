@@ -867,14 +867,21 @@ export const getCurrentPricingTier = async () => {
 // ── Place an ad (deducts from brand wallet in Supabase) ───────
 // ── Get active ads for feed injection ────────────────────────
 export const getActiveAds = async () => {
-  const { data, error } = await supabase
-    .from('ads')
-    .select('*, brand:profiles!ads_brand_id_fkey(id, username, brand_name, brand_logo_url, brand_handle)')
-    .eq('status', 'active')
-    .gt('expires_at', new Date().toISOString())   // never serve expired ads
-    .order('created_at', { ascending: false });
+  // Via RPC — the old .from('ads') query hit /rest/v1/ads, which ad blockers
+  // block, so residents running one never saw any ads at all.
+  const { data, error } = await supabase.rpc('feed_promos');
   if (error) throw error;
-  return data || [];
+  // Re-nest the brand fields so callers keep the shape they already expect.
+  return (data || []).map(a => ({
+    ...a,
+    brand: {
+      id:             a.brand_id,
+      username:       a.brand_username,
+      brand_name:     a.brand_name,
+      brand_logo_url: a.brand_logo_url,
+      brand_handle:   a.brand_handle,
+    },
+  }));
 };
 
 // ── Get a brand's OWN ads (for the Advertise screen) ─────────
@@ -882,11 +889,9 @@ export const getActiveAds = async () => {
 // UI expects. The screen splits them into current vs past.
 export const getBrandAds = async (brandId) => {
   if (!brandId) return [];
-  const { data, error } = await supabase
-    .from('ads')
-    .select('*')
-    .eq('brand_id', brandId)
-    .order('created_at', { ascending: false });
+  // Goes via RPC (/rest/v1/rpc/list_promos) rather than /rest/v1/ads — the
+  // literal "/ads" path is blocked by common ad blockers.
+  const { data, error } = await supabase.rpc('list_promos', { p_brand_id: brandId });
   if (error) throw error;
   return (data || []).map(a => ({
     id:             a.id,
@@ -909,68 +914,39 @@ export const getBrandAds = async (brandId) => {
 };
 
 // ── Delete one of your own ads (used for past/expired ads) ───
-// No refund logic: expired ads have already run. RLS restricts this to the
-// owning brand, and the UI only offers it on past ads.
-export const deleteAd = async (adId, brandId) => {
-  if (!adId || !brandId) throw new Error('Missing ad or brand ID');
-  const { error } = await supabase
-    .from('ads')
-    .delete()
-    .eq('id', adId)
-    .eq('brand_id', brandId);
+// Via RPC so ad blockers don't kill the request.
+export const deleteAd = async (adId) => {
+  if (!adId) throw new Error('Missing ad ID');
+  const { data, error } = await supabase.rpc('remove_promo', { p_ad_id: adId });
   if (error) throw error;
+  if (data?.status === 'error') throw new Error(data.reason);
 };
 
 export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
   if (!brandId) throw new Error('No brand ID provided');
 
-  // Default to 1 week if not specified
-  const weeks = durationWeeks && durationWeeks >= 1 && durationWeeks <= 4 ? durationWeeks : 1;
+  // Single atomic RPC: wallet deduction + ad insert in one transaction, so a
+  // failure can never leave a brand charged with no ad. Also avoids the
+  // /rest/v1/ads path, which ad blockers block.
+  const { data, error } = await supabase.rpc('place_promo', {
+    p_brand_id:        brandId,
+    p_tier:            tier,
+    p_groups:          groups || [],
+    p_is_random:       isRandom || false,
+    p_ad_maturity:     adMaturity || 'general',
+    p_price:           price,
+    p_duration_weeks:  durationWeeks && durationWeeks >= 1 && durationWeeks <= 4 ? durationWeeks : 1,
+    p_location_id:     locationId || null,
+    p_location_name:   locationName || null,
+    p_slurl:           slurl || null,
+    p_marketplace_url: marketplaceUrl || null,
+    p_ad_caption:      adCaption || null,
+    p_ad_image_url:    adImageUrl || null,
+  });
 
-  // Deduct from brand wallet
-  const { data: profile, error: fetchError } = await supabase
-    .from('profiles')
-    .select('brand_wallet')
-    .eq('id', brandId)
-    .single();
-
-  if (fetchError) throw fetchError;
-  const currentBrandWallet = profile?.brand_wallet || 0;
-  if (currentBrandWallet < price) throw new Error('Insufficient brand wallet balance');
-
-  const { error: deductError } = await supabase
-    .from('profiles')
-    .update({ brand_wallet: currentBrandWallet - price })
-    .eq('id', brandId);
-
-  if (deductError) throw deductError;
-
-  // Save the ad record — expires_at based on chosen duration
-  const { error: adError } = await supabase
-    .from('ads')
-    .insert({
-      brand_id:        brandId,
-      tier,
-      groups:          groups || [],
-      is_random:       isRandom || false,
-      ad_maturity:     adMaturity || 'general',
-      price,
-      duration_weeks:  weeks,
-      location_id:     locationId || null,
-      location_name:   locationName || null,
-      slurl:           slurl || null,
-      marketplace_url: marketplaceUrl || null,
-      ad_caption:      adCaption || null,
-      ad_image_url:    adImageUrl || null,
-      status:          'active',
-      expires_at:      new Date(Date.now() + weeks * 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
-
-  if (adError) {
-    // Refund if ad insert fails
-    await supabase.from('profiles').update({ brand_wallet: currentBrandWallet }).eq('id', brandId);
-    throw adError;
-  }
+  if (error) throw error;
+  if (data?.status === 'error') throw new Error(data.reason);
+  return data;
 };
 
 export const getCurrentAdPrices = async () => {

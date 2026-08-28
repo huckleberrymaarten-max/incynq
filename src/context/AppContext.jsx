@@ -106,7 +106,7 @@ export function AppProvider({ children }) {
     if (!activeBrandId) return;
     try {
       const { deleteAd } = await import('../lib/db');
-      await deleteAd(adId, activeBrandId);
+      await deleteAd(adId);
       setBrandAds(prev => prev.filter(a => a.id !== adId));
       toast('Ad deleted');
     } catch (e) {
