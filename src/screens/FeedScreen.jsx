@@ -597,10 +597,17 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
       isRandom:   a.is_random,
       groups:     a.groups || [],
     }, user));
-    // Tier order is preserved (premium first, then featured, then basic), but
-    // ads are shuffled WITHIN each tier. Without this, allInjectable stayed in
-    // created_at order, so the earliest buyer always took the top slot and the
-    // last ones might never render at all before the feed ran out.
+    // Tier placement follows the published design:
+    //   Basic    → highlighted in search + explore (NOT the feed)
+    //   Featured → featured card injected in the feed
+    //   Premium  → top story + feed + explore banner
+    // So only premium and featured are injectable here. Basic is deliberately
+    // excluded — putting it in the feed would devalue Featured, which brands
+    // pay ~2.7x more for precisely to get feed placement.
+    //
+    // Shuffled WITHIN each tier: without this, allInjectable stayed in
+    // created_at order, so the earliest buyer always took the top slot and
+    // later ones might never render before the feed ran out.
     const shuffle = arr => {
       const a = [...arr];
       for (let i = a.length - 1; i > 0; i--) {
@@ -611,8 +618,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
     };
     const premiumAds  = shuffle(matchedAds.filter(a => a.tier === 'premium'));
     const featuredAds = shuffle(matchedAds.filter(a => a.tier === 'featured'));
-    const basicAds    = shuffle(matchedAds.filter(a => a.tier === 'basic'));
-    const allInjectable = [...premiumAds, ...featuredAds, ...basicAds];
+    const allInjectable = [...premiumAds, ...featuredAds];
     let qi = 0;
     const feedPosts = posts.filter(p => !p.isWelcome && !blockedIds.has(p.userId) && !blockedIds.has(p._profile?.id));
     feedPosts.forEach((p, i) => {
