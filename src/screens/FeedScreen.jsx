@@ -597,9 +597,22 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
       isRandom:   a.is_random,
       groups:     a.groups || [],
     }, user));
-    const premiumAds  = matchedAds.filter(a => a.tier === 'premium');
-    const featuredAds = matchedAds.filter(a => a.tier === 'featured');
-    const allInjectable = [...premiumAds, ...featuredAds];
+    // Tier order is preserved (premium first, then featured, then basic), but
+    // ads are shuffled WITHIN each tier. Without this, allInjectable stayed in
+    // created_at order, so the earliest buyer always took the top slot and the
+    // last ones might never render at all before the feed ran out.
+    const shuffle = arr => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const premiumAds  = shuffle(matchedAds.filter(a => a.tier === 'premium'));
+    const featuredAds = shuffle(matchedAds.filter(a => a.tier === 'featured'));
+    const basicAds    = shuffle(matchedAds.filter(a => a.tier === 'basic'));
+    const allInjectable = [...premiumAds, ...featuredAds, ...basicAds];
     let qi = 0;
     const feedPosts = posts.filter(p => !p.isWelcome && !blockedIds.has(p.userId) && !blockedIds.has(p._profile?.id));
     feedPosts.forEach((p, i) => {
