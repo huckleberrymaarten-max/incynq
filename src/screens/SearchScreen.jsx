@@ -2,11 +2,77 @@ import C from '../theme';
 import { useState, useEffect } from 'react';
 import { visibleName } from '../data';
 import { useContent } from '../context/ContentContext';
-import { searchProfiles, followUser, unfollowUser, createNotification } from '../lib/db';
+import { searchProfiles, followUser, unfollowUser, createNotification, getActiveAds } from '../lib/db';
 import { useApp } from '../context/AppContext';
+import { matchAdsForUser, shuffleAds } from '../lib/adMatch';
+
+// ── Sponsored surfaces on Search / Explore ───────────────────
+// Tier placement per the published design:
+//   Basic   → highlighted here (this is Basic's ONLY placement)
+//   Premium → explore banner here, on top of its feed placement
+// Featured is feed-only and deliberately does not appear on this screen.
+
+function PremiumBanner({ ad }) {
+  const brand = ad.brand || {};
+  return (
+    <div style={{ margin: '10px 16px 4px', borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.gold}44`, background: C.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+        {brand.brand_logo_url
+          ? <img src={brand.brand_logo_url} alt="" style={{ width: 34, height: 34, borderRadius: 10, objectFit: 'cover' }} />
+          : <div style={{ width: 34, height: 34, borderRadius: 10, background: `${C.gold}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏷️</div>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{brand.brand_name || brand.username}</div>
+          <div style={{ fontSize: 10, color: C.gold, fontWeight: 800, letterSpacing: 1 }}>SPONSORED</div>
+        </div>
+      </div>
+      {ad.ad_image_url && (
+        <img src={ad.ad_image_url} alt="" style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }} />
+      )}
+      {ad.ad_caption && (
+        <div style={{ padding: '10px 14px', fontSize: 13, color: C.sub, lineHeight: 1.5 }}>{ad.ad_caption}</div>
+      )}
+      {(ad.location_name || ad.slurl || ad.marketplace_url) && (
+        <div style={{ padding: '0 14px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {ad.location_name && <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>📍 {ad.location_name}</span>}
+          {ad.slurl && <a href={ad.slurl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: C.sky, fontWeight: 700 }}>Visit inworld →</a>}
+          {ad.marketplace_url && <a href={ad.marketplace_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: C.sky, fontWeight: 700 }}>Marketplace →</a>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BasicAdRow({ ad }) {
+  const brand = ad.brand || {};
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: `${C.sky}08`, borderBottom: `1px solid ${C.border}22` }}>
+      {ad.ad_image_url
+        ? <img src={ad.ad_image_url} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+        : brand.brand_logo_url
+          ? <img src={brand.brand_logo_url} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+          : <div style={{ width: 46, height: 46, borderRadius: 12, background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🏷️</div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{brand.brand_name || brand.username}</div>
+        {ad.ad_caption && (
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.ad_caption}</div>
+        )}
+        <div style={{ display: 'flex', gap: 6, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: C.sky, background: `${C.sky}18`, border: `1px solid ${C.sky}33`, borderRadius: 6, padding: '1px 6px', letterSpacing: 0.5 }}>SPONSORED</span>
+          {ad.location_name && <span style={{ fontSize: 11, color: C.muted }}>📍 {ad.location_name}</span>}
+        </div>
+      </div>
+      {ad.slurl && (
+        <a href={ad.slurl} target="_blank" rel="noreferrer"
+          style={{ padding: '7px 14px', borderRadius: 20, flexShrink: 0, fontWeight: 700, fontSize: 12, color: C.sky, border: `1px solid ${C.sky}44` }}>
+          Visit
+        </a>
+      )}
+    </div>
+  );
+}
 
 export default function SearchScreen({ onOpenUserProfile }) {
-  const { following, setFollowing, currentUser } = useApp();
+  const { following, setFollowing, currentUser, myGroups, mySubs } = useApp();
   const inBrandMode   = currentUser?.brandMode === true;
   const ownBrandId    = currentUser?.id; // brand mode: same id
   const managedIds    = (currentUser?.managedBrands || []).map(b => b.id);
@@ -16,6 +82,27 @@ export default function SearchScreen({ onOpenUserProfile }) {
   const [searching, setSearching] = useState(false);
   const { interestGroups: INTEREST_GROUPS } = useContent();
   const q = query.toLowerCase().trim();
+  const [liveAds, setLiveAds] = useState([]);
+
+  // Sponsored placements for this screen
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await getActiveAds();
+        if (alive) setLiveAds(data || []);
+      } catch (e) { console.warn('Could not load ads:', e.message); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const adUser = {
+    groups: myGroups, subs: mySubs,
+    maturity: currentUser?.maturity, adultVerified: currentUser?.adultVerified,
+  };
+  const matchedAds  = matchAdsForUser(liveAds, adUser);
+  const premiumAd   = shuffleAds(matchedAds.filter(a => a.tier === 'premium'))[0] || null;
+  const basicAds    = shuffleAds(matchedAds.filter(a => a.tier === 'basic')).slice(0, 3);
 
   // Search Supabase profiles
   useEffect(() => {
@@ -75,13 +162,24 @@ export default function SearchScreen({ onOpenUserProfile }) {
         </div>
       </div>
 
+      {/* Explore — sponsored placements show with or without a query */}
+      {premiumAd && <PremiumBanner ad={premiumAd} />}
+
       {/* No query — empty state */}
       {!q && (
-        <div style={{ textAlign: 'center', padding: '80px 20px', color: C.muted }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 6 }}>Search InCynq</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>Find people, brands, locations and interest groups.</div>
-        </div>
+        <>
+          <div style={{ textAlign: 'center', padding: premiumAd ? '30px 20px 20px' : '60px 20px 20px', color: C.muted }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 6 }}>Search InCynq</div>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>Find people, brands, locations and interest groups.</div>
+          </div>
+          {basicAds.length > 0 && (
+            <div>
+              <div style={{ padding: '10px 16px 6px', fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BASED ON YOUR INTERESTS</div>
+              {basicAds.map(ad => <BasicAdRow key={`ex_${ad.id}`} ad={ad} />)}
+            </div>
+          )}
+        </>
       )}
 
       {/* No results */}
@@ -101,6 +199,13 @@ export default function SearchScreen({ onOpenUserProfile }) {
       {/* Results */}
       {q && hasResults && (
         <div style={{ padding: '8px 0 20px' }}>
+
+          {/* Sponsored — Basic tier, pinned above organic results */}
+          {basicAds.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              {basicAds.map(ad => <BasicAdRow key={`sp_${ad.id}`} ad={ad} />)}
+            </div>
+          )}
 
           {/* People */}
           {people.length > 0 && (

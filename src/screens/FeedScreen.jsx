@@ -6,49 +6,8 @@ import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { userOf, locOf, visibleName, USERS } from '../data';
 
-// ── adMatchesUser — maturity filter ──────────────────────────
-// LOCKED MODEL:
-//   General  → sees General only
-//   Moderate → sees General + Moderate
-//   Adult    → sees General + Moderate + Adult (requires adult_verified)
-//
-// user sees ad IF ad maturity level ≤ user's highest enabled level
-const MATURITY_RANK = { general: 0, moderate: 1, adult: 2 };
+import { matchAdsForUser, shuffleAds } from '../lib/adMatch';
 
-const adMatchesUser = (ad, user) => {
-  // Parse maturity — handle string, array, and double-encoded values
-  let maturityArr = user.maturity;
-  if (typeof maturityArr === 'string') {
-    try { maturityArr = JSON.parse(maturityArr); } catch { maturityArr = [maturityArr]; }
-  }
-  if (!Array.isArray(maturityArr)) maturityArr = ['general'];
-  // Flatten double-encoded entries like '["general","moderate","adult"]'
-  maturityArr = maturityArr.flatMap(m => {
-    if (typeof m === 'string' && m.startsWith('[')) {
-      try { return JSON.parse(m); } catch { return [m]; }
-    }
-    return [m];
-  });
-
-  const adLevel = ad.adMaturity || 'general';
-
-  // Adult ads require adult_verified
-  if (adLevel === 'adult' && !user.adultVerified) return false;
-
-  // Get user's highest enabled maturity rank
-  const ranks = maturityArr.map(m => MATURITY_RANK[m] ?? 0);
-  const userMaxRank = ranks.length > 0 ? Math.max(...ranks) : 0;
-  const adRank = MATURITY_RANK[adLevel] ?? 0;
-
-  // Ad level must be ≤ user's max level
-  if (adRank > userMaxRank) return false;
-
-  // Interest group matching
-  if (ad.isRandom) return true;
-  if (!ad.groups || ad.groups.length === 0) return true;
-  const userGroups = new Set([...(user.groups || []), ...(user.subs || [])]);
-  return ad.groups.some(g => userGroups.has(g));
-};
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
@@ -592,11 +551,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
 
     // Use live ads from Supabase, filtered by maturity + interest groups
     const user = { groups: myGroups, subs: mySubs, maturity: currentUser.maturity, adultVerified: currentUser.adultVerified };
-    const matchedAds = liveAds.filter(a => adMatchesUser({
-      adMaturity: a.ad_maturity || 'general',
-      isRandom:   a.is_random,
-      groups:     a.groups || [],
-    }, user));
+    const matchedAds = matchAdsForUser(liveAds, user);
     // Tier placement follows the published design:
     //   Basic    → highlighted in search + explore (NOT the feed)
     //   Featured → featured card injected in the feed
@@ -608,16 +563,8 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
     // Shuffled WITHIN each tier: without this, allInjectable stayed in
     // created_at order, so the earliest buyer always took the top slot and
     // later ones might never render before the feed ran out.
-    const shuffle = arr => {
-      const a = [...arr];
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    };
-    const premiumAds  = shuffle(matchedAds.filter(a => a.tier === 'premium'));
-    const featuredAds = shuffle(matchedAds.filter(a => a.tier === 'featured'));
+    const premiumAds  = shuffleAds(matchedAds.filter(a => a.tier === 'premium'));
+    const featuredAds = shuffleAds(matchedAds.filter(a => a.tier === 'featured'));
     const allInjectable = [...premiumAds, ...featuredAds];
     let qi = 0;
     const feedPosts = posts.filter(p => !p.isWelcome && !blockedIds.has(p.userId) && !blockedIds.has(p._profile?.id));
