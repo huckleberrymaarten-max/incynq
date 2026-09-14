@@ -41,6 +41,10 @@ string  gActiveUsername;
 integer gListenHandle = -1;
 integer gChatChannel;
 integer gRegistered   = FALSE;
+// TRUE only when the SERVER rejected our token (bad / used / wrong type).
+// Retrying that is pointless, so we stop and say so. Network failures leave
+// this FALSE and keep retrying — see timer().
+integer gTokenRejected = FALSE;
 integer gStatusTick   = 0;     // 2-min tick counter for status check
 integer gMaintenance  = FALSE;
 string  gCurrentAction = "";
@@ -102,6 +106,24 @@ setFloat(string text, vector col) {
 
 clearFloat() {
     llSetText("", <0,0,0>, 0.0);
+}
+
+
+// ───────── Why did the request fail? ─────────
+// Every failure used to read "Connection error", so a dead webhook, an expired
+// install token and a genuine network blip were indistinguishable. That turned
+// a backend outage into three weeks of guesswork.
+string httpReason(integer status) {
+    if (status == 503) return "Service unavailable";
+    if (status == 502) return "Server error";
+    if (status == 504) return "Server timed out";
+    if (status == 500) return "Server error";
+    if (status == 401) return "Not authorised";
+    if (status == 403) return "Access denied";
+    if (status == 404) return "Service not found";
+    if (status == 499) return "Request timed out";
+    if (status == 0)   return "No response";
+    return "Connection error (" + (string)status + ")";
 }
 
 // ───────── Version check ─────────
@@ -200,6 +222,7 @@ selfRegister() {
     if (INSTALL_TOKEN == "ICQ-XXXXXXXX") {
         setFloat("Master copy — no token set.\nEdit INSTALL_TOKEN before rezzing.", <1.0, 0.5, 0.0>);
         llOwnerSay("[InCynq] Master copy detected. Replace INSTALL_TOKEN with a real token before rezzing.");
+        gTokenRejected = TRUE;   // unconfigured master copy — don't retry forever
         return;
     }
     llSetLinkTexture(BODY_LINK, TEX_BODY, ALL_SIDES);
@@ -322,6 +345,15 @@ default {
     }
 
     timer() {
+        // Not registered yet — retry on the tick instead of sitting dead until
+        // somebody resets the script by hand. A failed registration used to be
+        // terminal: selfRegister() only ran on state_entry, so after the Aug/Sep
+        // webhook outage the whole fleet had to be reset manually.
+        if (!gRegistered) {
+            syncTimer();
+            if (!gTokenRejected) selfRegister();
+            return;
+        }
         // Session timeout
         if (gToucherKey != NULL_KEY && gCurrentAction == "") {
             llRegionSayTo(gToucherKey, 0, "ATM timeout. Touch again to retry.");
@@ -345,15 +377,16 @@ default {
         gPendingHTTP = NULL_KEY;
 
         if (status != 200) {
+            string why = httpReason(status);
             llOwnerSay("ATM HTTP " + (string)status + ": " + body);
             if (gCurrentAction == "payment" && gPaidBy != NULL_KEY && gPaidAmount > 0) {
                 llGiveMoney(gPaidBy, gPaidAmount);
-                llRegionSayTo(gPaidBy, 0, "Connection error. Your " + (string)gPaidAmount + " L$ has been refunded.");
+                llRegionSayTo(gPaidBy, 0, why + " — your " + (string)gPaidAmount + " L$ has been refunded.");
             } else if (gToucherKey != NULL_KEY) {
-                llRegionSayTo(gToucherKey, 0, "Connection error. Please try again.");
+                llRegionSayTo(gToucherKey, 0, why + ". Please try again.");
             }
-            if (!gRegistered) setFloat("Registration failed\nContact support", <1.0, 0.3, 0.3>);
-            else showError("Connection error");
+            if (!gRegistered) setFloat(why + "\nRetrying every 2 min...", <1.0, 0.6, 0.0>);
+            else showError(why);
             goIdle();
             return;
         }
@@ -379,8 +412,11 @@ default {
                 goIdle();
             } else {
                 string err = llJsonGetValue(body, ["error"]);
-                llOwnerSay("ATM Registration failed: " + err);
-                setFloat("Registration failed\nContact InCynq support", <1.0, 0.3, 0.3>);
+                llOwnerSay("ATM Registration refused: " + err);
+                // The server answered and said no — a bad, used or wrong-type
+                // token. Retrying cannot fix that, so stop and show why.
+                gTokenRejected = TRUE;
+                setFloat(err, <1.0, 0.3, 0.3>);
             }
             return;
         }
@@ -440,6 +476,10 @@ default {
         if (gCurrentAction == "check_status") {
             integer maint = (llSubStringIndex(body, "maintenance") != -1 && llSubStringIndex(body, "false") == -1);
             if (maint && !gMaintenance) {
+                // Say so. Going quiet is exactly when the owner most needs to
+                // know — twelve devices silently pausing is how maintenance got
+                // left on for an afternoon.
+                llOwnerSay("[InCynq] Maintenance mode enabled — pausing.");
                 goMaintenance();
             } else if (!maint && gMaintenance) {
                 gMaintenance = FALSE;
