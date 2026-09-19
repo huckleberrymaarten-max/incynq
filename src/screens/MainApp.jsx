@@ -515,7 +515,7 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
               shouldn't have to navigate back to Events to tip. */}
           {nowPlaying.sessionId && (
             tippable !== null && tippable < minTip ? (
-              <a href={atm?.slurl || '#'} target="_blank" rel="noreferrer"
+              <a href={atm?.map_url || atm?.slurl || '#'} target="_blank" rel="noreferrer"
                 style={{ padding: '6px 13px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>
                 📍 Top up to tip
               </a>

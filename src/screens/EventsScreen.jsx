@@ -455,7 +455,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                     tippable !== null && tippable < minTip ? (
                       /* Nothing to tip with. Say where to fix it rather than
                          offering a button that can't do anything. */
-                      <a href={atm?.slurl || '#'} target="_blank" rel="noreferrer"
+                      <a href={atm?.map_url || atm?.slurl || '#'} target="_blank" rel="noreferrer"
                         style={{ display: 'block', width: '100%', padding: '10px', borderRadius: 12, marginTop: 8,
                           border: `1px solid ${C.border}`, background: C.card2, color: C.sub,
                           fontWeight: 700, fontSize: 12, textAlign: 'center', boxSizing: 'border-box' }}>
