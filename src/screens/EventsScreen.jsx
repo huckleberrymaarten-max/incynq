@@ -391,36 +391,45 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
           
           // Format SLT time and convert to the viewer's local time.
           //
-          // The stored value IS Second Life Time (America/Los_Angeles). The old
-          // version did `new Date(date + 'T' + time)`, which builds that wall
-          // time in the VIEWER's zone, then asked what that instant looks like
-          // in LA — the conversion backwards. From Ireland it showed the same
-          // number twice, so 05:00 SLT (13:00 here) read as "13:00 SLT".
+          // The stored value IS Second Life Time (America/Los_Angeles).
           //
-          // Correct approach: find the real instant that corresponds to that
-          // wall time in LA, then render it locally.
+          // Two ways to get this wrong, both of which we did:
+          //   1. `new Date(date + 'T' + time)` builds that wall time in the
+          //      VIEWER's zone, then asks what instant it is in LA — backwards.
+          //   2. Correcting that via `new Date(someDate.toLocaleString(...))`
+          //      re-parses a localised string in the viewer's zone, so the
+          //      offset came out an hour wrong from Dublin while testing fine
+          //      in UTC.
+          //
+          // This never parses a localised string: it reads LA's wall-clock
+          // parts for a guessed instant, rebuilds them as UTC to measure the
+          // real offset on that date (DST included), and shifts by it.
           const sltTime    = ev.time_slt ? ev.time_slt.replace('.', ':') : null;
           let localTimeStr = null;
           if (ev.date && sltTime) {
             try {
               const hhmm = sltTime.padStart(5, '0');
-              // Treat the wall time as UTC, then shift by LA's offset ON THAT
-              // DATE — which handles DST without a library.
-              const asUTC   = new Date(`${ev.date}T${hhmm}:00Z`);
-              const seenInLA = new Date(asUTC.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-              const instant = new Date(asUTC.getTime() + (asUTC.getTime() - seenInLA.getTime()));
+              const guess = new Date(`${ev.date}T${hhmm}:00Z`);
 
-              const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Los_Angeles', hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+              }).formatToParts(guess).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+
+              const laAsUTC  = Date.UTC(+parts.year, +parts.month - 1, +parts.day,
+                                        (+parts.hour) % 24, +parts.minute, +parts.second);
+              const instant  = new Date(guess.getTime() - (laAsUTC - guess.getTime()));
+
+              const localTz  = Intl.DateTimeFormat().resolvedOptions().timeZone;
               const localStr = instant.toLocaleTimeString('en-GB', { timeZone: localTz, hour: '2-digit', minute: '2-digit', hour12: false });
               const tzAbbr   = new Intl.DateTimeFormat('en', { timeZoneName: 'short', timeZone: localTz })
-                                 .formatToParts(instant).find(p => p.type === 'timeZoneName')?.value || '';
-              // Only worth showing when it actually differs from the SLT value.
+                                 .formatToParts(instant).find(x => x.type === 'timeZoneName')?.value || '';
+              // Only worth showing when it differs from the SLT value.
               if (localStr !== hhmm) localTimeStr = `${localStr} ${tzAbbr}`;
             } catch {}
           }
 
-          // Owner = the human who created it, OR the performer identity it's
-          // posted as (which the same human is currently acting through).
           const isOwner = currentUser?.id && (
             ev.user_id === currentUser.id ||
             ev.profiles?.id === currentUser.id ||
