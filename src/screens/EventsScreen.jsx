@@ -3,7 +3,8 @@ import C from '../theme';
 import TipSheet from '../components/TipSheet';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings, getTippableBalance, getTipLadder, getAtmSlurl } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings, getTippableBalance, getTipLadder, getAtmSlurl, getFollowerIds } from '../lib/db';
+import { sendPushToUsers } from '../lib/pushNotifications';
 import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId }) {
@@ -248,6 +249,26 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
       toast(`You're live now and have ${left} of airtime left!`);
       setEvents(await getEvents());
       await refreshLive();
+
+      // Push to followers. The in-app notification only reaches people already
+      // in the app, which rather defeats the point of "your DJ just started
+      // playing" — a set is happening now and gone in two hours.
+      //
+      // Followers, not RSVPs: following is the relationship people actually use,
+      // and it's who a DJ would expect to hear. RSVP stays the in-app one.
+      //
+      // Fire and forget — a set starting must never wait on notifications.
+      if (activePerformer?.id) {
+        getFollowerIds(activePerformer.id)
+          .then(ids => ids.length && sendPushToUsers({
+            userIds: ids,
+            title: `🔴 ${activePerformer.brand_name} is live`,
+            body:  ev.title,
+            url:   'https://incynq.app/#events',
+          }))
+          .catch(e => console.warn('Go-live push failed:', e.message));
+      }
+
       if (onPlayLive) onPlayLive(ev);
     } catch (e) {
       toast(e.message || 'Could not go live', 'error');

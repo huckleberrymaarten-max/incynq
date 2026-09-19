@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
       VAPID_PRIVATE_KEY
     );
 
-    const { userId, all, title, body, url } = await req.json();
+    // userIds (plural) added for go-live: a DJ's followers are many people, and
+    // one call beats one request per follower.
+    const { userId, userIds, all, title, body, url } = await req.json();
 
     const payload = JSON.stringify({
       title: title || 'InCynq',
@@ -40,7 +42,9 @@ Deno.serve(async (req) => {
       .select('endpoint, p256dh, auth, user_id')
       .eq('active', true);
 
-    if (!all && userId) {
+    if (!all && Array.isArray(userIds) && userIds.length) {
+      query = query.in('user_id', userIds);
+    } else if (!all && userId) {
       query = query.eq('user_id', userId);
     }
 

@@ -127,6 +127,24 @@ export async function sendPushToUser({ userId, title, body, url = 'https://incyn
  * Send a push notification to ALL users (InCynq Official broadcasts).
  * Admin only.
  */
+// Push to many people in one call — a DJ's followers when they go live.
+// Deliberately best-effort: a set starting must never depend on notifications
+// working.
+export async function sendPushToUsers({ userIds, title, body, url = 'https://incynq.app' }) {
+  if (!userIds?.length) return { ok: true, sent: 0 };
+  try {
+    const { supabase } = await import('./supabase');
+    const { data, error } = await supabase.functions.invoke('send-push', {
+      body: { userIds, title, body, url },
+    });
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.warn('Push to followers failed:', e.message);
+    return { ok: false };
+  }
+}
+
 export async function sendPushToAll({ title, body, url = 'https://incynq.app' }) {
   const { error } = await supabase.functions.invoke('send-push', {
     body: { all: true, title, body, url }

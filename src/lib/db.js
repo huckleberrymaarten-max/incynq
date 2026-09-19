@@ -573,6 +573,16 @@ export const getPerformerStats = async (performerId) => {
   return data || { gigs: 0, total_minutes: 0, total_listeners: 0, best_crowd: 0 };
 };
 
+// Everyone following this performer. Used to push "they're live now" — the one
+// notification worth reaching someone outside the app for, since a set is
+// happening now and gone in two hours.
+export const getFollowerIds = async (profileId) => {
+  const { data, error } = await supabase
+    .from('follows').select('follower_id').eq('following_id', profileId);
+  if (error) throw error;
+  return (data || []).map(r => r.follower_id);
+};
+
 // ── Tips ─────────────────────────────────────────────────────
 // A tip moves credit that is ALREADY in the treasury — the tipper topped up at
 // an ATM and those L$ have been sitting as float since. Nothing leaves InCynq
