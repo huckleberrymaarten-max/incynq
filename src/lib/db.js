@@ -531,6 +531,32 @@ export const getLiveStream = async (eventId) => {
   return data.stream_url;
 };
 
+// The performer's own heartbeat while broadcasting.
+//
+// Airtime is settled on elapsed time, so if the DJ's connection drops nothing
+// would otherwise tell the database — the clock would keep running and they'd
+// pay for time they weren't on air. These pings are what the sweep uses to bill
+// only up to the last one it heard. Returns the listener count too, so the DJ's
+// browser makes one call rather than two.
+export const performerHeartbeat = async (sessionId) => {
+  const { data, error } = await supabase.rpc('performer_heartbeat', { p_session_id: sessionId });
+  if (error) throw error;
+  if (!data?.ok) {
+    const e = new Error(data?.error || 'Session is not live');
+    e.ended = !!data?.ended;
+    throw e;
+  }
+  return data;
+};
+
+// How long the browser can go quiet before the session is ended, so the DJ can
+// be told plainly rather than guessing. Admin-set.
+export const getLiveSettings = async () => {
+  const { data, error } = await supabase.rpc('get_live_settings');
+  if (error) throw error;
+  return data || { grace_minutes: 10 };
+};
+
 // ── Live listener presence ───────────────────────────────────
 // The audio comes straight from the DJ's own Shoutcast server, so InCynq never
 // sees the connection — presence has to be counted here instead. The player

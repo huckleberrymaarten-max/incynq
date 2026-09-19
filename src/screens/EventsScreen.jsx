@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, getListenerCount } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings } from '../lib/db';
 import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId }) {
@@ -160,19 +160,47 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
        || null)
     : null;
 
+  // The performer's heartbeat. Does double duty: it keeps the session alive AND
+  // returns the listener count, so this is one call rather than two.
+  //
+  // Without it, a dropped connection would leave the session running and the DJ
+  // would be billed for airtime they never used — settling on elapsed time
+  // can't tell "still broadcasting" from "browser gone" on its own.
   useEffect(() => {
     if (!myLiveSessionId) return;
     let alive = true;
-    const tick = async () => {
+    const beat = async () => {
       try {
-        const n = await getListenerCount(myLiveSessionId);
-        if (alive) setListeners(prev => ({ ...prev, [myLiveSessionId]: n }));
-      } catch (e) { /* informational — not worth a toast */ }
+        const res = await performerHeartbeat(myLiveSessionId);
+        if (alive) setListeners(prev => ({ ...prev, [myLiveSessionId]: res.listeners ?? 0 }));
+      } catch (e) {
+        if (!alive) return;
+        // The session ended underneath us — capped, swept, or ended elsewhere.
+        if (e.ended) {
+          toast('Your set has ended');
+          setEvents(await getEvents());
+          await refreshLive();
+        }
+      }
     };
-    tick();
-    const t = setInterval(tick, 20000);
-    return () => { alive = false; clearInterval(t); };
+    beat();
+    const t = setInterval(beat, 30000);
+    // Coming back to the tab should re-establish presence immediately rather
+    // than waiting out the interval.
+    const onVisible = () => { if (document.visibilityState === 'visible') beat(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [myLiveSessionId]);
+
+  // Admin-set: how long the browser may go quiet before the session is ended.
+  const [graceMins, setGraceMins] = useState(10);
+  useEffect(() => {
+    getLiveSettings().then(s => setGraceMins(s.grace_minutes || 10)).catch(() => {});
+  }, []);
 
   const toggleFollow = async (performerId) => {
     if (!currentUser?.id || followBusy) return;
@@ -196,7 +224,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
     try {
       const res = await goLive(ev.id);
       const ends = new Date(res.auto_end_at);
-      toast(`You're live! Airtime is running — set ends by ${ends.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      toast(`You're live! Airtime is running — set ends by ${ends.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} unless you end it sooner`);
       setEvents(await getEvents());
       await refreshLive();
       if (onPlayLive) onPlayLive(ev);
@@ -379,6 +407,11 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                           color: '#ff6680', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
                         {goingLive === l.event_id ? 'Ending…' : '⏹ End set'}
                       </button>
+                      <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>
+                        Keep InCynq open while you're live — it's how we know you're still
+                        on air. If it's closed for more than {graceMins} minutes your set
+                        ends automatically, and you're only charged for the time you were on.
+                      </div>
                     </>
                   )}
 
