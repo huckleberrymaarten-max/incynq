@@ -93,7 +93,7 @@ serve(async (req: Request) => {
 
     <div style="font-size:13px;color:#9fb6c2;line-height:1.7;">
       Pay each avatar from <strong style="color:#e6f0f5;">IncynqPayments</strong> inworld,
-      then mark them paid in admin → Transactions. Nothing is sent automatically.
+      then mark them paid in admin → Payouts. Nothing is sent automatically.
     </div>
 
     <div style="text-align:center;padding:22px 0;color:#5a7a8a;font-size:12px;">
