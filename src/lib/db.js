@@ -539,7 +539,11 @@ export const getLiveStream = async (eventId) => {
 export const listenerPing = async (sessionId) => {
   const { data, error } = await supabase.rpc('listener_ping', { p_session_id: sessionId });
   if (error) throw error;
-  return data?.listeners ?? 0;
+  // Throws when the set is over, which is how the player learns to stop. The
+  // RPC returns ok:false rather than an error for that case, so it has to be
+  // turned into one here or the caller can't tell the difference.
+  if (!data?.ok) throw new Error(data?.error || 'Session is not live');
+  return data.listeners ?? 0;
 };
 
 export const listenerLeave = async (sessionId) => {

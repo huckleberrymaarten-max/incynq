@@ -146,21 +146,30 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   }, []);
 
   // Poll the listener count for the performer's OWN live set, every 20s.
+  //
+  // Reads the session id straight off the event the performer is looking at,
+  // rather than going via the liveNow list. That earlier version silently did
+  // nothing whenever liveNow was empty — including when its RPC didn't exist —
+  // so the count sat at 0 with no clue why. The card already knows its own
+  // session; use that.
+  const myLiveEvent = activePerformer
+    ? events.find(e => e.performer_id === activePerformer.id && e.live_session_id)
+    : null;
+  const myLiveSessionId = myLiveEvent?.live_session_id || null;
+
   useEffect(() => {
-    if (!activePerformer) return;
-    const mine = liveNow.find(l => l.performer_id === activePerformer.id);
-    if (!mine) return;
+    if (!myLiveSessionId) return;
     let alive = true;
     const tick = async () => {
       try {
-        const n = await getListenerCount(mine.session_id);
-        if (alive) setListeners(prev => ({ ...prev, [mine.session_id]: n }));
-      } catch (e) { /* not worth a toast — the count is informational */ }
+        const n = await getListenerCount(myLiveSessionId);
+        if (alive) setListeners(prev => ({ ...prev, [myLiveSessionId]: n }));
+      } catch (e) { /* informational — not worth a toast */ }
     };
     tick();
     const t = setInterval(tick, 20000);
     return () => { alive = false; clearInterval(t); };
-  }, [activePerformer?.id, liveNow]);
+  }, [myLiveSessionId]);
 
   const toggleFollow = async (performerId) => {
     if (!currentUser?.id || followBusy) return;

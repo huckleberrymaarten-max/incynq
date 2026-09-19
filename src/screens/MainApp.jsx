@@ -285,11 +285,24 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
 
   // Heartbeat while listening. 30s interval against a 60s presence window, so
   // one missed ping doesn't drop the listener out of the count.
+  //
+  // The ping doubles as the "is this still on?" check. Nothing else told the
+  // player a set had finished, so when a DJ ended their set — or the airtime
+  // cap hit — the audio simply kept playing: the gig was over, the DJ had
+  // stopped paying, and the listener was still hearing the stream. Worst case
+  // now is 30 seconds of overrun.
   useEffect(() => {
     if (!nowPlaying?.sessionId) return;
     let alive = true;
-    const ping = () => {
-      listenerPing(nowPlaying.sessionId).catch(() => {});
+    const ping = async () => {
+      try {
+        await listenerPing(nowPlaying.sessionId);
+      } catch (e) {
+        if (!alive) return;
+        // listener_ping throws once the session is no longer live.
+        console.info('Live session ended — stopping playback');
+        stopLive();
+      }
     };
     ping();
     const t = setInterval(() => { if (alive) ping(); }, 30000);
