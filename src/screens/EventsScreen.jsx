@@ -177,7 +177,9 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
         if (!alive) return;
         // The session ended underneath us — capped, swept, or ended elsewhere.
         if (e.ended) {
-          toast('Your set has ended');
+          // Most likely the heartbeat lapsed. Say what to do about it, rather
+          // than leaving the DJ wondering whether the gig is gone.
+          toast('Your set ended — tap Go Live to start again');
           setEvents(await getEvents());
           await refreshLive();
         }
@@ -408,9 +410,10 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                         {goingLive === l.event_id ? 'Ending…' : '⏹ End set'}
                       </button>
                       <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>
-                        Keep InCynq open while you're live — it's how we know you're still
-                        on air. If it's closed for more than {graceMins} minutes your set
-                        ends automatically, and you're only charged for the time you were on.
+                        Keep InCynq open while you're live — it's how we know you're still on
+                        air. Lose connection for more than {graceMins} minutes and your set
+                        ends on its own. You're only charged for the time you were actually
+                        on, and your gig stays right here — just tap Go Live again.
                       </div>
                     </>
                   )}
