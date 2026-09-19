@@ -233,13 +233,20 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
           </div>
           <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.8 }}>
             The grid just got a lot less noisy.<br /><br />
-            Pick your interests in your profile and your feed will start making sense immediately.<br /><br />
+            {(currentUser?.groups?.length || 0) > 0
+              ? <>Your feed is already shaped around what you picked. Follow a few people and it gets sharper still.<br /><br /></>
+              : <>Pick your interests in your profile and your feed will start making sense immediately.<br /><br /></>}
             Good to have you here.<br />
             <span style={{ color: C.sky, fontWeight: 700, display: 'block', marginTop: 8 }}>The InCynq Team</span>
           </div>
-          <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
-            👤 Go to Profile → add your interests
-          </button>
+          {/* The welcome post is a real post and stays in the feed forever, so
+              it kept telling people to add interests they'd already added.
+              Greeting stays; the nagging stops. */}
+          {(currentUser?.groups?.length || 0) === 0 && (
+            <button onClick={onGoToProfile} style={{ marginTop: 16, width: '100%', padding: '10px 14px', background: `${C.sky}18`, borderRadius: 10, fontSize: 12, color: C.sky, fontWeight: 700, textAlign: 'center', border: `1px solid ${C.sky}33`, cursor: 'pointer' }}>
+              👤 Go to Profile → add your interests
+            </button>
+          )}
         </div>
       )}
 
