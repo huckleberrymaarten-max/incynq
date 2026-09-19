@@ -243,6 +243,43 @@ function AccountSwitcher({ currentUser, onSwitch }) {
 // MAIN APP
 // ══════════════════════════════════════════════════════════════
 export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
+  // ── Live audio ────────────────────────────────────────────
+  // The player lives at this level, not inside EventsScreen, so listening
+  // continues while the resident browses the feed, search or their profile.
+  // One <audio> element, mounted once, never unmounted by navigation.
+  const audioRef = useRef(null);
+  const [nowPlaying, setNowPlaying] = useState(null);  // { eventId, title, who }
+
+  const playLive = async (ev) => {
+    try {
+      // The URL is fetched per-listen and never stored in component state or
+      // returned by the events list — see get_live_stream(). Keeps a DJ's
+      // permanent stream address from being harvested by anyone loading Events.
+      const url = await getLiveStream(ev.id);
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        await audioRef.current.play();
+      }
+      setNowPlaying({
+        eventId: ev.id,
+        title:   ev.title,
+        who:     ev.performer?.brand_name || ev.performer?.brand_handle || 'Live',
+      });
+    } catch (e) {
+      console.warn('Could not start stream:', e.message);
+      setNowPlaying(null);
+    }
+  };
+
+  const stopLive = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+    }
+    setNowPlaying(null);
+  };
+
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);
   const [viewingAs, setViewingAs] = useState(null);
