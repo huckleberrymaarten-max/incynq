@@ -152,10 +152,13 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   // nothing whenever liveNow was empty — including when its RPC didn't exist —
   // so the count sat at 0 with no clue why. The card already knows its own
   // session; use that.
-  const myLiveEvent = activePerformer
-    ? events.find(e => e.performer_id === activePerformer.id && e.live_session_id)
+  // Session id comes from liveNow now that a live event is no longer rendered
+  // in the list below, falling back to the event itself.
+  const myLiveSessionId = activePerformer
+    ? (liveNow.find(l => l.performer_id === activePerformer.id)?.session_id
+       || events.find(e => e.performer_id === activePerformer.id && e.live_session_id)?.live_session_id
+       || null)
     : null;
-  const myLiveSessionId = myLiveEvent?.live_session_id || null;
 
   useEffect(() => {
     if (!myLiveSessionId) return;
@@ -353,6 +356,32 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                       </button>
                     )}
                   </div>
+                  {(() => {
+                    const ev = events.find(e => e.id === l.event_id);
+                    return ev?.description ? (
+                      <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginBottom: 10 }}>{ev.description}</div>
+                    ) : null;
+                  })()}
+
+                  {/* The performer's own controls live here now, since their
+                      event is no longer rendered in the list below. */}
+                  {mine && (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, padding: '8px 12px', background: C.card2, borderRadius: 10 }}>
+                        <span style={{ fontSize: 15 }}>👂</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.sky }}>{listeners[l.session_id] ?? 0}</span>
+                        <span style={{ fontSize: 12, color: C.muted }}>listening right now</span>
+                      </div>
+                      <button onClick={() => handleEndSet({ id: l.event_id, live_session_id: l.session_id })}
+                        disabled={goingLive === l.event_id}
+                        style={{ width: '100%', padding: '10px', borderRadius: 12, marginBottom: 8,
+                          background: 'transparent', border: '1px solid #ff446666',
+                          color: '#ff6680', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                        {goingLive === l.event_id ? 'Ending…' : '⏹ End set'}
+                      </button>
+                    </>
+                  )}
+
                   <button onClick={() => playing ? onStopLive && onStopLive() : onPlayLive && onPlayLive({ id: l.event_id, live_session_id: l.session_id, title: l.title, performer: { brand_name: l.brand_name, brand_handle: l.brand_handle } })}
                     style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none',
                       background: playing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
@@ -365,7 +394,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
           </div>
         )}
 
-        {!loading && events.length === 0 && (
+        {!loading && events.length === 0 && liveNow.length === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: C.muted }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
             <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 6 }}>No events yet</div>
@@ -377,7 +406,10 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
           </div>
         )}
 
-        {events.map(ev => {
+        {/* Anything currently live is pinned above, so it's excluded here —
+            otherwise the same gig appears twice. The pin is "on now", this list
+            is "coming up". */}
+        {events.filter(ev => !ev.live_session_id).map(ev => {
           const boostColor = eventBoostTiers.find(t => t.id === ev.boost_tier)?.color || C.gold;
           const isRsvp     = rsvped.has(ev.id);
           const isInt      = interested.has(ev.id);
