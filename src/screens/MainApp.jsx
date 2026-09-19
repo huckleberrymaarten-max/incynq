@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
 import { getLiveStream, listenerPing, listenerLeave, getTippableBalance, getTipLadder, getAtmSlurl } from '../lib/db';
+import { subscribeToPush, getPushStatus } from '../lib/pushNotifications';
 import TipSheet from '../components/TipSheet';
 import FeedScreen        from './FeedScreen';
 import SearchScreen      from './SearchScreen';
@@ -328,6 +329,53 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
   const [showBrandOnly,   setShowBrandOnly]   = useState(false);
   const { notifications, currentUser, setCurrentUser } = useApp();
 
+  // ── Notifications, for people who registered before this existed ──────
+  // New members are asked once at activation. Anyone who signed up earlier was
+  // never asked, and the Settings toggle is three screens deep — which is why
+  // there was one subscription after months.
+  //
+  // Asked ONCE and remembered, using the same flag as activation, so nobody who
+  // already said yes or no sees it again. A prompt nobody asked for is exactly
+  // the thing InCynq is meant not to be; once, with a clear reason, is the most
+  // it should ever do.
+  const [askPush, setAskPush]   = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.id || !currentUser?.activated) return;
+    let alive = true;
+    const t = setTimeout(async () => {          // let the app settle first
+      try {
+        if (localStorage.getItem('incynq_push_asked')) return;
+        const status = await getPushStatus();
+        if (!alive) return;
+        // Already on, or the browser has blocked it — either way, don't ask.
+        if (status?.subscribed || status?.permission === 'denied') {
+          localStorage.setItem('incynq_push_asked', '1');
+          return;
+        }
+        setAskPush(true);
+      } catch { /* never let this break the app */ }
+    }, 2500);
+    return () => { alive = false; clearTimeout(t); };
+  }, [currentUser?.id, currentUser?.activated]);
+
+  const acceptPush = async () => {
+    setPushBusy(true);
+    try { await subscribeToPush(currentUser.id); }
+    catch (e) { console.warn('Push subscribe failed:', e.message); }
+    finally {
+      localStorage.setItem('incynq_push_asked', '1');
+      setPushBusy(false);
+      setAskPush(false);
+    }
+  };
+
+  const declinePush = () => {
+    localStorage.setItem('incynq_push_asked', '1');
+    setAskPush(false);
+  };
+
   // Enough to tip with? Decides whether the bar offers a tip or a route to an ATM.
   useEffect(() => {
     if (!nowPlaying?.sessionId) return;
@@ -489,6 +537,36 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
       {tab === 'events'    && <EventsScreen    onPlayLive={playLive} onStopLive={stopLive} nowPlayingEventId={nowPlaying?.eventId} />}
       {tab === 'advertise' && <AdvertiseScreen />}
       {tab === 'profile'   && <ProfileScreen   onOpenUserProfile={handleOpenUserProfile} />}
+
+      {/* Asked once, a moment after the app settles. Same sheet and same flag
+          as activation, so nobody is asked twice. */}
+      {askPush && (
+        <div onClick={declinePush}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(4,15,20,0.88)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 480, background: C.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: '22px 20px calc(24px + env(safe-area-inset-bottom))', border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 30, marginBottom: 10 }}>🔔</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 6 }}>
+              Want to be kept in the loop?
+            </div>
+            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7, marginBottom: 18 }}>
+              DJs can now go live on InCynq. We'll let you know when one you follow starts a
+              set, and when brands you follow post something. That's it — no daily digests,
+              no nagging, and you can turn it off any time in Settings.
+            </div>
+            <button onClick={acceptPush} disabled={pushBusy}
+              style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', marginBottom: 8,
+                background: pushBusy ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                color: pushBusy ? C.muted : '#060d14', fontWeight: 900, fontSize: 15, cursor: 'pointer' }}>
+              {pushBusy ? 'Just a moment…' : 'Yes, keep me posted'}
+            </button>
+            <button onClick={declinePush}
+              style={{ width: '100%', padding: '12px', borderRadius: 14, border: 'none', background: 'transparent', color: C.muted, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              No thanks
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Live audio ──────────────────────────────────────── */}
       {/* Mounted unconditionally: if this element were rendered only while
