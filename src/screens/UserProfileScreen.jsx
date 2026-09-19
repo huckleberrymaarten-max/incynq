@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 import { visibleName, gridStatusLabel } from '../data';
 import Av from '../components/Av';
 import { getProfileByUsername, getProfileStats, followUser, unfollowUser, createNotification, formatMemberSince, getFoundingBrandBadge, trackProfileView } from '../lib/db';
-import { subscribeToPush, getPushStatus } from '../lib/pushNotifications';
 
 export default function UserProfileScreen({ username, onBack, viewAs }) {
   const { currentUser, following, setFollowing } = useApp();
@@ -40,40 +39,6 @@ export default function UserProfileScreen({ username, onBack, viewAs }) {
     load();
   }, [username]);
 
-  // Asked once, after a first follow — the moment someone commits to hearing
-  // from a person, which is a far better time than a toggle buried three
-  // screens deep in Settings. Declining is remembered, so nobody gets nagged on
-  // every follow; the Settings toggle is still there if they change their mind.
-  const [askPush, setAskPush] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
-
-  const maybeAskForPush = async () => {
-    try {
-      if (localStorage.getItem('incynq_push_asked')) return;
-      const status = await getPushStatus();
-      // Already on, or the browser has blocked it — either way, don't ask.
-      if (status?.subscribed || status?.permission === 'denied') return;
-      setAskPush(true);
-    } catch { /* never block a follow on this */ }
-  };
-
-  const acceptPush = async () => {
-    setPushBusy(true);
-    try {
-      await subscribeToPush(currentUser.id);
-      localStorage.setItem('incynq_push_asked', '1');
-      setAskPush(false);
-    } catch (e) {
-      console.warn('Push subscribe failed:', e.message);
-      setAskPush(false);
-    } finally { setPushBusy(false); }
-  };
-
-  const declinePush = () => {
-    localStorage.setItem('incynq_push_asked', '1');
-    setAskPush(false);
-  };
-
   const handleFollow = async () => {
     if (!profile) return;
     const isFollowing = following.has(profile.id);
@@ -93,7 +58,6 @@ export default function UserProfileScreen({ username, onBack, viewAs }) {
           type: 'follow',
           actorId: currentUser.id,
         });
-        maybeAskForPush();
       }
     } catch (e) {
       console.warn('Follow failed:', e.message);
@@ -126,36 +90,6 @@ export default function UserProfileScreen({ username, onBack, viewAs }) {
 
   return (
     <div style={{ paddingBottom: 80 }}>
-
-      {/* Asked once, right after a first follow — a clear reason at the right
-          moment, rather than the pop-up every site throws at you on arrival.
-          A blocked permission is much harder to undo than a deferred one. */}
-      {askPush && (
-        <div onClick={declinePush}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(4,15,20,0.88)', zIndex: 400, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: 480, background: C.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: '22px 20px calc(24px + env(safe-area-inset-bottom))', border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 30, marginBottom: 10 }}>🔔</div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 6 }}>
-              Want to know when they go live?
-            </div>
-            <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 18 }}>
-              We'll let you know when someone you follow starts a set or posts something
-              worth seeing. Nothing else — no daily digests, no nagging.
-            </div>
-            <button onClick={acceptPush} disabled={pushBusy}
-              style={{ width: '100%', padding: '13px', borderRadius: 14, border: 'none', marginBottom: 8,
-                background: pushBusy ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
-                color: pushBusy ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, cursor: 'pointer' }}>
-              {pushBusy ? 'Just a moment…' : 'Yes, keep me posted'}
-            </button>
-            <button onClick={declinePush}
-              style={{ width: '100%', padding: '11px', borderRadius: 14, border: 'none', background: 'transparent', color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              Not now
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>

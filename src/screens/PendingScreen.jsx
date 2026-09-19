@@ -8,6 +8,7 @@ import {
   refreshProfile,
   processReferralReward,
 } from '../lib/db';
+import { subscribeToPush, getPushStatus } from '../lib/pushNotifications';
 
 // Fetch SL profile picture using avatar username
 const fetchSLAvatar = async (username) => {
@@ -38,6 +39,16 @@ const formatTimeLeft = (expiresAt) => {
 };
 
 export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
+  // Activation is detected by a background poll, which cannot raise a browser
+  // permission dialog — that needs a user gesture. So the push ask lives on a
+  // short "you're in" moment straight after activation: it IS a gesture, and
+  // it's the best mood we'll ever catch someone in.
+  //
+  // Asked ONCE, here. Not after every follow — that's the nagging we're trying
+  // to avoid. Settings keeps the toggle for anyone who changes their mind.
+  const [welcome, setWelcome]       = useState(null);
+  const [pushBusy, setPushBusy]     = useState(false);
+  const [canAskPush, setCanAskPush] = useState(false);
   const [code, setCode] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -92,8 +103,24 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
       console.warn('Referral reward processing failed:', e.message);
     }
 
-    // Tell the app we're activated
-    onActivate(slAvatar ? { avatar: slAvatar } : {});
+    // Hold here rather than dropping straight into the app: one screen to say
+    // they're in, and to ask about notifications while there's a gesture to
+    // hang the permission dialog on.
+    try {
+      const status = await getPushStatus();
+      setCanAskPush(!status?.subscribed && status?.permission !== 'denied');
+    } catch { setCanAskPush(false); }
+
+    setWelcome(slAvatar ? { avatar: slAvatar } : {});
+  };
+
+  const finish = () => onActivate(welcome || {});
+
+  const acceptPush = async () => {
+    setPushBusy(true);
+    try { await subscribeToPush(currentUser.id); }
+    catch (e) { console.warn('Push subscribe failed:', e.message); }
+    finally { setPushBusy(false); finish(); }
   };
 
   // ── Mount: load code + subscribe to profile changes ──
@@ -140,6 +167,57 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
       // Clipboard API unavailable — silently fail
     }
   };
+
+  // ── Activated. One screen before the app. ──
+  if (welcome) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, maxWidth: 480, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
+          <div className="sg" style={{ fontWeight: 900, fontSize: 24, color: C.text, marginBottom: 8 }}>
+            You're in.
+          </div>
+          <div style={{ fontSize: 15, color: C.sub, lineHeight: 1.7 }}>
+            Your 100 L$ welcome credit is in your wallet.
+          </div>
+        </div>
+
+        {canAskPush ? (
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 22, marginBottom: 14 }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🔔</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>
+                Want to be kept in the loop?
+              </div>
+              <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.7 }}>
+                We'll let you know when a DJ you follow goes live, and when brands you
+                follow post something. That's it — no daily digests, no nagging, and you
+                can turn it off any time in Settings.
+              </div>
+            </div>
+
+            <button onClick={acceptPush} disabled={pushBusy}
+              style={{ width: '100%', padding: '14px', borderRadius: 14, border: 'none', marginBottom: 8,
+                background: pushBusy ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                color: pushBusy ? C.muted : '#060d14', fontWeight: 900, fontSize: 15, cursor: 'pointer' }}>
+              {pushBusy ? 'Just a moment…' : 'Yes, keep me posted'}
+            </button>
+            <button onClick={finish}
+              style={{ width: '100%', padding: '12px', borderRadius: 14, border: 'none', background: 'transparent', color: C.muted, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              No thanks
+            </button>
+          </div>
+        ) : (
+          <button onClick={finish}
+            style={{ width: '100%', maxWidth: 380, padding: '14px', borderRadius: 14, border: 'none',
+              background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14',
+              fontWeight: 900, fontSize: 15, cursor: 'pointer' }}>
+            Let's go
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, maxWidth: 480, margin: '0 auto' }}>
