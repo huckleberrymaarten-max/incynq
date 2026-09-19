@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
-import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo } from '../lib/db';
+import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo, getPerformerGigs, getPerformerStats } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import EditPerformerScreen from './EditPerformerScreen';
 
@@ -17,6 +17,16 @@ function fmtHours(h) {
   if (hh && mm) return `${hh}h ${mm}m`;
   if (hh)       return `${hh}h`;
   return `${mm}m`;
+}
+
+
+// Minutes is how a DJ thinks about a set; 0.333 hours means nothing.
+function fmtMins(m) {
+  const mins = Math.max(0, Math.round(m || 0));
+  const h = Math.floor(mins / 60), r = mins % 60;
+  if (h && r) return `${h}h ${r}m`;
+  if (h)      return `${h}h`;
+  return `${r}m`;
 }
 
 const minLabel = (m) => (m % 60 === 0 ? `${m / 60} hr` : `${(m / 60).toFixed(1)} hr`);
@@ -41,6 +51,10 @@ export default function PerformerProfileView() {
   const [founding,   setFounding]   = useState(null);   // founding_performer_number
   const [cynqified,  setCynqified]  = useState(false);
   const [showEdit,   setShowEdit]   = useState(false);
+  // Past sets. Listener numbers were only ever shown in a toast that vanished —
+  // this is where they live now, and where earnings will sit alongside them.
+  const [gigs,       setGigs]       = useState([]);
+  const [gigStats,   setGigStats]   = useState(null);
   const fileRef = useRef(null);
 
   const onPickPhoto = async (e) => {
@@ -83,6 +97,8 @@ export default function PerformerProfileView() {
       .catch(e => console.warn('Performer stats failed:', e.message))
       .finally(() => setStatsLoading(false));
     loadHours();
+    getPerformerGigs(performerId).then(setGigs).catch(e => console.warn('Gigs failed:', e.message));
+    getPerformerStats(performerId).then(setGigStats).catch(() => {});
     // Founding number + cynqified status (badges, like brands)
     supabase.from('profiles').select('founding_performer_number, cynqified').eq('id', performerId).single()
       .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified); } })
@@ -247,6 +263,56 @@ export default function PerformerProfileView() {
           <div style={{ fontSize: 22, fontWeight: 900, color: '#F4B942' }}>L$ {(spendWallet).toLocaleString()}</div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Non-refundable credit. Buys airtime and promotion. Your tip earnings are kept separate.</div>
         </div>
+
+
+        {/* Past sets */}
+        {gigs.length > 0 && (
+          <div style={{ background: C.card2, borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 1, marginBottom: 12 }}>YOUR SETS</div>
+
+            {gigStats && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                {[
+                  ['Sets',       gigStats.gigs],
+                  ['On air',     fmtMins(gigStats.total_minutes)],
+                  ['Listeners',  gigStats.total_listeners],
+                  ['Best crowd', gigStats.best_crowd],
+                ].map(([label, val]) => (
+                  <div key={label} style={{ flex: 1, textAlign: 'center', padding: '8px 2px', background: C.card, borderRadius: 10 }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: C.sky }}>{val}</div>
+                    <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginTop: 2 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {gigs.map(g => (
+              <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: `1px solid ${C.border}44` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {g.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                    {new Date(g.started_at).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}
+                    {' · '}{fmtMins(g.minutes)}
+                    {/* Worth surfacing: a set that ended because the connection
+                        dropped is a different story from one the DJ wrapped up. */}
+                    {g.ended_reason === 'dropped' && <span style={{ color: '#ffa550' }}> · connection lost</span>}
+                    {g.ended_reason === 'auto'    && <span style={{ color: C.muted }}> · airtime ran out</span>}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: g.total_listeners ? C.sky : C.muted }}>
+                    {g.total_listeners}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.muted }}>
+                    listener{g.total_listeners === 1 ? '' : 's'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Edit profile */}
         <button onClick={() => setShowEdit(true)}

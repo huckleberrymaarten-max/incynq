@@ -225,8 +225,14 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
     setGoingLive(ev.id);
     try {
       const res = await goLive(ev.id);
-      const ends = new Date(res.auto_end_at);
-      toast(`You're live! Airtime is running — set ends by ${ends.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} unless you end it sooner`);
+      // How much airtime, not what time it'll run out. A bare clock time read
+      // as a countdown — "set ends by 01:04" looks like 64 seconds when it
+      // actually meant 1am tomorrow. A DJ wants to know how long they can play.
+      const mins  = Math.max(0, Math.round((res.hours_available || 0) * 60));
+      const hh    = Math.floor(mins / 60);
+      const mm    = mins % 60;
+      const left  = hh ? (mm ? `${hh}h ${mm}m` : `${hh}h`) : `${mm}m`;
+      toast(`You're live now and have ${left} of airtime left!`);
       setEvents(await getEvents());
       await refreshLive();
       if (onPlayLive) onPlayLive(ev);
@@ -240,9 +246,13 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
     setGoingLive(ev.id);
     try {
       const res = await endSet(ev.live_session_id);
-      toast(res.total_listeners
-        ? `Set ended — ${res.minutes_consumed} min of airtime, ${res.total_listeners} listener${res.total_listeners === 1 ? '' : 's'}`
-        : `Set ended — ${res.minutes_consumed} min of airtime used`);
+      // What's LEFT, not just what was used — a DJ finishing a set mostly wants
+      // to know whether they can do another one. Listener numbers live on the
+      // performer profile now, so they don't vanish with the toast.
+      const remMins = Math.max(0, Math.round((res.hours_remaining || 0) * 60));
+      const rh = Math.floor(remMins / 60), rm = remMins % 60;
+      const remain = rh ? (rm ? `${rh}h ${rm}m` : `${rh}h`) : `${rm}m`;
+      toast(`Set ended — ${res.minutes_consumed} min used, ${remain} of airtime left.`);
       setEvents(await getEvents());
       await refreshLive();
       if (onStopLive) onStopLive();

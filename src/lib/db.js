@@ -557,6 +557,22 @@ export const getLiveSettings = async () => {
   return data || { grace_minutes: 10 };
 };
 
+// Past sets for the performer profile. Listener numbers were only ever shown
+// in a toast that vanished — this is where "how did Friday go?" gets answered.
+export const getPerformerGigs = async (performerId, limit = 20) => {
+  const { data, error } = await supabase.rpc('get_performer_gigs', {
+    p_performer_id: performerId, p_limit: limit,
+  });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getPerformerStats = async (performerId) => {
+  const { data, error } = await supabase.rpc('get_performer_stats', { p_performer_id: performerId });
+  if (error) throw error;
+  return data || { gigs: 0, total_minutes: 0, total_listeners: 0, best_crowd: 0 };
+};
+
 // ── Live listener presence ───────────────────────────────────
 // The audio comes straight from the DJ's own Shoutcast server, so InCynq never
 // sees the connection — presence has to be counted here instead. The player
