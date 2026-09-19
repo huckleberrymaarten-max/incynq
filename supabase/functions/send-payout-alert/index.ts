@@ -108,7 +108,15 @@ serve(async (req: Request) => {
     body: JSON.stringify({
       from: 'InCynq <noreply@incynq.net>',
       to: [ALERT_TO],
-      subject: `${netL.toLocaleString()} L$ of DJ tips ready to pay out`,
+      subject: `❗ ${netL.toLocaleString()} L$ of DJ tips ready to pay out`,
+      // Flagged high priority: this is money owed to DJs sitting unpaid, and it
+      // needs to stand out from everything else in the inbox. Gmail shows the
+      // marker in the list; Outlook shows a red exclamation.
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+      },
       html,
     }),
   })
