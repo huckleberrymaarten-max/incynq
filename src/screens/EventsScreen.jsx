@@ -277,6 +277,9 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   // ── Create OR update event ────────────────────────────────
   const handleCreate = async () => {
     if (!title.trim()) { toast('Give your event a title', 'error'); return; }
+    // Date is required: an event without one can't be sorted, never expires,
+    // and tells nobody when to turn up.
+    if (!date) { toast('Pick a date for your event', 'error'); return; }
     setSaving(true);
     try {
       let uploadedImageUrl = null;
@@ -516,6 +519,17 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                     <span style={{ fontSize: 10 }}>🔴</span>
                     <span style={{ fontSize: 10, fontWeight: 800, color: '#ff6680', letterSpacing: 0.5 }}>LIVE NOW</span>
                   </div>
+                ) : ev.last_ended_at ? (
+                  /* States a fact — the last session is over — without claiming
+                     the DJ is finished for good. A dropped set and a deliberate
+                     one look identical, so we don't guess: Go Live stays
+                     available and tapping it just starts again. */
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: C.card2, border: `1px solid ${C.border}`, borderRadius: 8, padding: '3px 9px', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10 }}>⏹</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: C.muted, letterSpacing: 0.5 }}>
+                      SET ENDED {new Date(ev.last_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 ) : ev.is_live_set && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, borderRadius: 8, padding: '3px 9px', marginBottom: 8 }}>
                     <span style={{ fontSize: 10 }}>🎧</span>
@@ -579,7 +593,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                       style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', marginBottom: 12,
                         background: busy ? C.border : `linear-gradient(135deg, #ff4466, ${C.peach})`,
                         color: busy ? C.muted : '#fff', fontWeight: 800, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
-                      {busy ? 'Starting…' : '🔴 Go Live'}
+                      {busy ? 'Starting…' : ev.last_ended_at ? '🔴 Go Live again' : '🔴 Go Live'}
                     </button>
                   );
                   if (mine && isLive) return (
@@ -722,7 +736,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
 
               <div style={{ display: 'flex', gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>DATE</label>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>DATE *</label>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)} className="inp" />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -738,8 +752,8 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
 
               <button
                 onClick={handleCreate}
-                disabled={saving || !title.trim()}
-                style={{ width: '100%', background: saving || !title.trim() ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: saving || !title.trim() ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, padding: '13px', borderRadius: 14 }}>
+                disabled={saving || !title.trim() || !date}
+                style={{ width: '100%', background: saving || !title.trim() || !date ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: saving || !title.trim() || !date ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, padding: '13px', borderRadius: 14 }}>
                 {saving ? '⏳ Saving…' : editingEvent ? 'Save changes →' : 'Create event →'}
               </button>
             </div>
