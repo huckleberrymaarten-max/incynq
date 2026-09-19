@@ -296,7 +296,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Events</span>
-        <button onClick={() => setShowCreate(true)} style={{ background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 800, fontSize: 12, padding: '7px 14px', borderRadius: 20 }}>+ Create</button>
+        <button onClick={() => setShowCreate(true)} style={{ background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 800, fontSize: 12, padding: '7px 14px', borderRadius: 20 }}>+ Create event</button>
       </div>
 
       {/* Events list */}
@@ -363,7 +363,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
             <div style={{ fontSize: 13, lineHeight: 1.6 }}>Be the first to post one — it is free for everyone.</div>
             <button onClick={() => setShowCreate(true)}
               style={{ marginTop: 16, padding: '10px 24px', borderRadius: 20, background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontWeight: 800, fontSize: 13 }}>
-              + Post an event
+              + Create an event
             </button>
           </div>
         )}
@@ -549,7 +549,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
         <div style={{ position: 'fixed', inset: 0, background: '#000000bb', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: C.card, borderRadius: 20, width: '100%', maxWidth: 440, overflow: 'hidden', maxHeight: '88vh', overflowY: 'auto' }} className="fadeUp">
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between' }}>
-              <span className="sg" style={{ fontWeight: 700, fontSize: 15, color: C.text }}>{editingEvent ? 'Edit Event' : 'Create Event'}</span>
+              <span className="sg" style={{ fontWeight: 700, fontSize: 15, color: C.text }}>{editingEvent ? 'Edit event' : 'Create event'}</span>
               <button onClick={() => { setShowCreate(false); setEditingEvent(null); }} style={{ color: C.muted, fontSize: 18 }}>✕</button>
             </div>
             <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -644,7 +644,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                 onClick={handleCreate}
                 disabled={saving || !title.trim()}
                 style={{ width: '100%', background: saving || !title.trim() ? C.border : `linear-gradient(135deg,${C.sky},${C.peach})`, color: saving || !title.trim() ? C.muted : '#060d14', fontWeight: 900, fontSize: 14, padding: '13px', borderRadius: 14 }}>
-                {saving ? '⏳ Saving…' : editingEvent ? 'Save Changes →' : 'Post Event →'}
+                {saving ? '⏳ Saving…' : editingEvent ? 'Save changes →' : 'Create event →'}
               </button>
             </div>
           </div>
