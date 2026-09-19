@@ -322,6 +322,12 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
     };
   }, [nowPlaying?.sessionId]);
 
+  const [tab,             setTab]             = useState('feed');
+  const [viewingUsername, setViewingUsername] = useState(null);
+  const [viewingAs, setViewingAs] = useState(null);
+  const [showBrandOnly,   setShowBrandOnly]   = useState(false);
+  const { notifications, currentUser, setCurrentUser } = useApp();
+
   // Enough to tip with? Decides whether the bar offers a tip or a route to an ATM.
   useEffect(() => {
     if (!nowPlaying?.sessionId) return;
@@ -330,11 +336,6 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
     getAtmSlurl().then(setAtm).catch(() => {});
   }, [nowPlaying?.sessionId, tipping]);
 
-  const [tab,             setTab]             = useState('feed');
-  const [viewingUsername, setViewingUsername] = useState(null);
-  const [viewingAs, setViewingAs] = useState(null);
-  const [showBrandOnly,   setShowBrandOnly]   = useState(false);
-  const { notifications, currentUser, setCurrentUser } = useApp();
   const unread   = notifications.filter(n => !n.read).length;
   const [showCompose,       setShowCompose]       = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
