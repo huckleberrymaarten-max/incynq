@@ -626,6 +626,16 @@ export const getPerformerEarnings = async (performerId) => {
   return data || { cut_pct: 5, held_gross: 0, held_net: 0, paid_gross: 0, paid_net: 0, tip_count: 0 };
 };
 
+// Individual payments, so "did I get paid for the gig on the 12th?" has an
+// answer. A payout batch IS the payment — every tip carries its batch id.
+export const getPayoutHistory = async (performerId, limit = 20) => {
+  const { data, error } = await supabase.rpc('get_payout_history', {
+    p_performer_id: performerId, p_limit: limit,
+  });
+  if (error) throw error;
+  return data || [];
+};
+
 export const getSessionTips = async (sessionId) => {
   const { data, error } = await supabase.rpc('get_session_tips', { p_session_id: sessionId });
   if (error) throw error;

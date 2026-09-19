@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
-import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo, getPerformerGigs, getPerformerStats, getPerformerEarnings } from '../lib/db';
+import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo, getPerformerGigs, getPerformerStats, getPerformerEarnings, getPayoutHistory } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import EditPerformerScreen from './EditPerformerScreen';
 
@@ -56,6 +56,8 @@ export default function PerformerProfileView() {
   const [gigs,       setGigs]       = useState([]);
   const [gigStats,   setGigStats]   = useState(null);
   const [earnings,   setEarnings]   = useState(null);
+  const [payouts,    setPayouts]    = useState([]);
+  const [showPayouts, setShowPayouts] = useState(false);
   const fileRef = useRef(null);
 
   const onPickPhoto = async (e) => {
@@ -101,6 +103,7 @@ export default function PerformerProfileView() {
     getPerformerGigs(performerId).then(setGigs).catch(e => console.warn('Gigs failed:', e.message));
     getPerformerStats(performerId).then(setGigStats).catch(() => {});
     getPerformerEarnings(performerId).then(setEarnings).catch(() => {});
+    getPayoutHistory(performerId).then(setPayouts).catch(() => {});
     // Founding number + cynqified status (badges, like brands)
     supabase.from('profiles').select('founding_performer_number, cynqified').eq('id', performerId).single()
       .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified); } })
@@ -297,6 +300,40 @@ export default function PerformerProfileView() {
               Paid to your avatar a week after each gig, minus a {earnings.cut_pct}% handling fee.
               Nothing is taken from your airtime or anything you top up.
             </div>
+
+            {/* Individual payments. A single "already paid out" total left no
+                way to answer "did I get paid for the 12th?" without asking. */}
+            {payouts.length > 0 && (
+              <>
+                <button onClick={() => setShowPayouts(v => !v)}
+                  style={{ marginTop: 12, background: 'none', border: 'none', color: C.sky, fontSize: 12, fontWeight: 700, padding: 0, cursor: 'pointer' }}>
+                  {showPayouts ? 'Hide payments' : `See your ${payouts.length} payment${payouts.length === 1 ? '' : 's'}`}
+                </button>
+
+                {showPayouts && (
+                  <div style={{ marginTop: 10 }}>
+                    {payouts.map(p => (
+                      <div key={p.batch_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderTop: `1px solid ${C.border}44` }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
+                            {new Date(p.paid_at).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                          <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>
+                            {p.tip_count} tip{p.tip_count === 1 ? '' : 's'} · {p.gross_l.toLocaleString()} L$ before fee
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.green }}>
+                          {p.net_l.toLocaleString()} L$
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+                      Sent to your avatar inworld. If one of these is missing, get in touch.
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
