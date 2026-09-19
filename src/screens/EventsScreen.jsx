@@ -419,7 +419,13 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
             } catch {}
           }
 
-          const isOwner = currentUser?.id && (ev.user_id === currentUser.id || ev.profiles?.id === currentUser.id);
+          // Owner = the human who created it, OR the performer identity it's
+          // posted as (which the same human is currently acting through).
+          const isOwner = currentUser?.id && (
+            ev.user_id === currentUser.id ||
+            ev.profiles?.id === currentUser.id ||
+            (activePerformer && ev.performer_id === activePerformer.id)
+          );
 
           return (
             <div key={ev.id} style={{ background: C.card, borderRadius: 16, overflow: 'hidden', marginBottom: 12, border: `1px solid ${ev.boost_tier ? boostColor + '44' : C.border}` }}>
@@ -531,18 +537,22 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                   }
                   return null;
                 })()}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => handleRsvp(ev.id)}
-                    style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: isRsvp ? `${C.sky}22` : C.card2, border: `1.5px solid ${isRsvp ? C.sky : C.border}`, color: isRsvp ? C.sky : C.sub }}>
-                    {isRsvp ? '✓ Going' : 'RSVP'}
-                  </button>
-                  <button
-                    onClick={() => handleInterested(ev.id)}
-                    style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: isInt ? `${C.gold}18` : C.card2, border: `1.5px solid ${isInt ? C.gold : C.border}`, color: isInt ? C.gold : C.sub }}>
-                    {isInt ? '★ Interested' : 'Interested'}
-                  </button>
-                </div>
+                {/* Nobody RSVPs to their own event — the owner just sees the
+                    counts below. */}
+                {!isOwner && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleRsvp(ev.id)}
+                      style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: isRsvp ? `${C.sky}22` : C.card2, border: `1.5px solid ${isRsvp ? C.sky : C.border}`, color: isRsvp ? C.sky : C.sub }}>
+                      {isRsvp ? '✓ Going' : 'RSVP'}
+                    </button>
+                    <button
+                      onClick={() => handleInterested(ev.id)}
+                      style={{ flex: 1, padding: '9px', borderRadius: 10, fontWeight: 700, fontSize: 13, background: isInt ? `${C.gold}18` : C.card2, border: `1.5px solid ${isInt ? C.gold : C.border}`, color: isInt ? C.gold : C.sub }}>
+                      {isInt ? '★ Interested' : 'Interested'}
+                    </button>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: C.muted }}>
                   <span>👥 {ev.rsvp_count || 0} going</span>
                   <span>⭐ {ev.interested_count || 0} interested</span>
