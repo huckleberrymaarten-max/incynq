@@ -46,6 +46,27 @@ const DB_FIELD_MAP = {
   discoverable:    'discoverable',
 };
 
+// A brand or performer is NOT a separate profiles row — it's the resident's own
+// row with brand_name / brand_logo_url set. So a list that renders avatar_url
+// shows the human's picture even when the follow was for the brand, which is
+// exactly what it looked like: "following SLCompare" with Maarten's face.
+//
+// Also checks founding_brand and performer, not just 'brand' — the original
+// only handled one of the three.
+const asIdentity = (u) => {
+  const isBrandish = u?.account_type === 'brand'
+    || u?.account_type === 'founding_brand'
+    || u?.account_type === 'performer';
+  const fallbackName = u?.show_display_name !== false && u?.display_name ? u.display_name : u?.username;
+  return {
+    name:   isBrandish ? (u.brand_name   || fallbackName) : fallbackName,
+    handle: isBrandish ? (u.brand_handle || u.username)   : u?.username,
+    avatar: (isBrandish && u.brand_logo_url)
+      ? u.brand_logo_url
+      : (u?.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u?.username || '')}&backgroundColor=b6e3f4`),
+  };
+};
+
 export default function ProfileScreen({ onOpenUserProfile }) {
   const { currentUser, setCurrentUser, setLinkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn, following, setFollowing } = useApp();
   const { interestGroups: INTEREST_GROUPS } = useContent();
@@ -644,11 +665,11 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 return (
                   <div key={u.id} style={{ flexShrink: 0, width: 108, background: C.card2, borderRadius: 14, padding: '11px 9px', textAlign: 'center', border: `1px solid ${u._group?.color || C.border}22` }}>
                     <div style={{ position: 'relative', width: 52, height: 52, margin: '0 auto 7px' }}>
-                      <img src={(u.account_type === 'brand' ? u.brand_logo_url : null) || u.avatar_url || u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`} alt="" style={{ width: 52, height: 52, borderRadius: u.account_type === 'brand' ? 14 : '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
+                      <img src={asIdentity(u).avatar} alt="" style={{ width: 52, height: 52, borderRadius: (u.account_type === 'brand' || u.account_type === 'founding_brand' || u.account_type === 'performer') ? 14 : '18%', objectFit: 'cover', border: `2px solid ${u._group?.color || C.sky}55` }} />
                       {u.account_type === 'brand' && <div style={{ position: 'absolute', bottom: 0, right: 0, background: `${C.gold}ee`, fontSize: 8, fontWeight: 900, color: '#000', width: 15, height: 15, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${C.card2}` }}>🏷️</div>}
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-                      {u.account_type === 'brand' ? (u.brand_name || u.display_name || u.username) : (u.display_name || u.username)}
+                      {asIdentity(u).name}
                     </div>
                     {u.cynqified && <div style={{ fontSize: 9, color: C.sky, fontWeight: 700, marginBottom: 2 }}>✅ Cynqified</div>}
                     {u.mutual_count > 0 && (
@@ -1040,8 +1061,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               )}
               {followingProfiles.filter(u => u && u.id !== currentUser.id).map(u => {
                 if (!u) return null;
-                const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
-                const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+                const { name, handle, avatar } = asIdentity(u);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
                     <div
@@ -1049,8 +1069,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{u.account_type === 'brand' ? (u.brand_name || name) : name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.account_type === 'brand' ? (u.brand_handle || u.username) : u.username}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
@@ -1084,8 +1104,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               )}
               {followersProfiles.filter(u => u && u.id !== currentUser.id).map(u => {
                 if (!u) return null;
-                const name = u.show_display_name !== false && u.display_name ? u.display_name : u.username;
-                const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+                const { name, handle, avatar } = asIdentity(u);
                 const isFollowing = following.has(u.id);
                 return (
                   <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${C.border}22` }}>
@@ -1094,8 +1113,8 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                       <img src={avatar} alt="" style={{ width: 46, height: 46, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.sky}44`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{u.account_type === 'brand' ? (u.brand_name || name) : name}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{u.account_type === 'brand' ? (u.brand_handle || u.username) : u.username}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -1141,8 +1160,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               </div>
             )}
             {blockedLoaded && blockedUsers.map(u => {
-              const name = u.account_type === 'brand' ? (u.brand_name || u.display_name || u.username) : (u.show_display_name !== false && u.display_name ? u.display_name : u.username);
-              const avatar = u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`;
+              const { name, avatar } = asIdentity(u);
               return (
                 <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: `1px solid ${C.border}22` }}>
                   <img src={avatar} alt="" style={{ width: 44, height: 44, borderRadius: '18%', objectFit: 'cover', border: `2px solid ${C.border}`, flexShrink: 0, filter: 'grayscale(0.5)', opacity: 0.7 }} />
