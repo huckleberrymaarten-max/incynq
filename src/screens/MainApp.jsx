@@ -4,7 +4,7 @@ import logo from '../assets/Q_Logo_.png';
 import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
-import { getLiveStream } from '../lib/db';
+import { getLiveStream, listenerPing, listenerLeave } from '../lib/db';
 import FeedScreen        from './FeedScreen';
 import SearchScreen      from './SearchScreen';
 import EventsScreen      from './EventsScreen';
@@ -261,9 +261,10 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
         await audioRef.current.play();
       }
       setNowPlaying({
-        eventId: ev.id,
-        title:   ev.title,
-        who:     ev.performer?.brand_name || ev.performer?.brand_handle || 'Live',
+        eventId:   ev.id,
+        sessionId: ev.live_session_id || ev.session_id || null,
+        title:     ev.title,
+        who:       ev.performer?.brand_name || ev.performer?.brand_handle || 'Live',
       });
     } catch (e) {
       console.warn('Could not start stream:', e.message);
@@ -277,8 +278,31 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
       audioRef.current.removeAttribute('src');
       audioRef.current.load();
     }
+    // Drop out of the count immediately rather than waiting 60s to go stale.
+    if (nowPlaying?.sessionId) listenerLeave(nowPlaying.sessionId);
     setNowPlaying(null);
   };
+
+  // Heartbeat while listening. 30s interval against a 60s presence window, so
+  // one missed ping doesn't drop the listener out of the count.
+  useEffect(() => {
+    if (!nowPlaying?.sessionId) return;
+    let alive = true;
+    const ping = () => {
+      listenerPing(nowPlaying.sessionId).catch(() => {});
+    };
+    ping();
+    const t = setInterval(() => { if (alive) ping(); }, 30000);
+    // Closing the tab is the common case, and unload won't wait for a promise —
+    // but the row goes stale in 60s anyway, so this is only a tidiness win.
+    const bye = () => listenerLeave(nowPlaying.sessionId);
+    window.addEventListener('beforeunload', bye);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      window.removeEventListener('beforeunload', bye);
+    };
+  }, [nowPlaying?.sessionId]);
 
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);

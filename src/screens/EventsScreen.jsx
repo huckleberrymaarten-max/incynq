@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, getListenerCount } from '../lib/db';
 import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId }) {
@@ -38,6 +38,9 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   // that resident's feed strip.
   const [liveNow, setLiveNow] = useState([]);
   const [followBusy, setFollowBusy] = useState(null);
+  // Listener counts, keyed by session id. Only fetched for the performer's own
+  // live set — a DJ needs to know who's in the room; other people don't.
+  const [listeners, setListeners] = useState({});
   const [eventImageUrl, setEventImageUrl] = useState('');
   const [eventImageFile, setEventImageFile] = useState(null);
   const [eventCropFile, setEventCropFile] = useState(null);
@@ -142,6 +145,23 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
     return () => clearInterval(t);
   }, []);
 
+  // Poll the listener count for the performer's OWN live set, every 20s.
+  useEffect(() => {
+    if (!activePerformer) return;
+    const mine = liveNow.find(l => l.performer_id === activePerformer.id);
+    if (!mine) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const n = await getListenerCount(mine.session_id);
+        if (alive) setListeners(prev => ({ ...prev, [mine.session_id]: n }));
+      } catch (e) { /* not worth a toast — the count is informational */ }
+    };
+    tick();
+    const t = setInterval(tick, 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [activePerformer?.id, liveNow]);
+
   const toggleFollow = async (performerId) => {
     if (!currentUser?.id || followBusy) return;
     setFollowBusy(performerId);
@@ -178,7 +198,9 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
     setGoingLive(ev.id);
     try {
       const res = await endSet(ev.live_session_id);
-      toast(`Set ended — ${res.minutes_consumed} min of airtime used`);
+      toast(res.total_listeners
+        ? `Set ended — ${res.minutes_consumed} min of airtime, ${res.total_listeners} listener${res.total_listeners === 1 ? '' : 's'}`
+        : `Set ended — ${res.minutes_consumed} min of airtime used`);
       setEvents(await getEvents());
       await refreshLive();
       if (onStopLive) onStopLive();
@@ -322,7 +344,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                       </button>
                     )}
                   </div>
-                  <button onClick={() => playing ? onStopLive && onStopLive() : onPlayLive && onPlayLive({ id: l.event_id, title: l.title, performer: { brand_name: l.brand_name, brand_handle: l.brand_handle } })}
+                  <button onClick={() => playing ? onStopLive && onStopLive() : onPlayLive && onPlayLive({ id: l.event_id, live_session_id: l.session_id, title: l.title, performer: { brand_name: l.brand_name, brand_handle: l.brand_handle } })}
                     style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none',
                       background: playing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
                       color: playing ? C.sky : '#060d14', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
@@ -350,21 +372,41 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
           const boostColor = eventBoostTiers.find(t => t.id === ev.boost_tier)?.color || C.gold;
           const isRsvp     = rsvped.has(ev.id);
           const isInt      = interested.has(ev.id);
-          const host       = ev.profiles?.display_name || ev.profiles?.username || 'Unknown';
+          // A gig is hosted by the performer identity, not the human who created
+          // it. user_id stays the accountable human; performer_id is who it
+          // appears AS — same split posts use with brand_id.
+          const host       = ev.performer
+            ? (ev.performer.brand_handle || ev.performer.brand_name)
+            : (ev.profiles?.display_name || ev.profiles?.username || 'Unknown');
           const dateStr    = ev.date ? new Date(ev.date + 'T00:00:00').toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'short' }) : null;
           
-          // Format SLT time and convert to user's local time
+          // Format SLT time and convert to the viewer's local time.
+          //
+          // The stored value IS Second Life Time (America/Los_Angeles). The old
+          // version did `new Date(date + 'T' + time)`, which builds that wall
+          // time in the VIEWER's zone, then asked what that instant looks like
+          // in LA — the conversion backwards. From Ireland it showed the same
+          // number twice, so 05:00 SLT (13:00 here) read as "13:00 SLT".
+          //
+          // Correct approach: find the real instant that corresponds to that
+          // wall time in LA, then render it locally.
           const sltTime    = ev.time_slt ? ev.time_slt.replace('.', ':') : null;
           let localTimeStr = null;
           if (ev.date && sltTime) {
             try {
-              // SLT = America/Los_Angeles
-              const sltDate = new Date(`${ev.date}T${sltTime.padStart(5, '0')}:00`);
-              const sltMs   = sltDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', hour12: false });
-              // Get user's local time
-              const localMs = sltDate.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
-              const tzAbbr  = new Intl.DateTimeFormat('en', { timeZoneName: 'short', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }).formatToParts(sltDate).find(p => p.type === 'timeZoneName')?.value || '';
-              if (localMs !== sltMs) localTimeStr = `${localMs} ${tzAbbr}`;
+              const hhmm = sltTime.padStart(5, '0');
+              // Treat the wall time as UTC, then shift by LA's offset ON THAT
+              // DATE — which handles DST without a library.
+              const asUTC   = new Date(`${ev.date}T${hhmm}:00Z`);
+              const seenInLA = new Date(asUTC.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+              const instant = new Date(asUTC.getTime() + (asUTC.getTime() - seenInLA.getTime()));
+
+              const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const localStr = instant.toLocaleTimeString('en-GB', { timeZone: localTz, hour: '2-digit', minute: '2-digit', hour12: false });
+              const tzAbbr   = new Intl.DateTimeFormat('en', { timeZoneName: 'short', timeZone: localTz })
+                                 .formatToParts(instant).find(p => p.type === 'timeZoneName')?.value || '';
+              // Only worth showing when it actually differs from the SLT value.
+              if (localStr !== hhmm) localTimeStr = `${localStr} ${tzAbbr}`;
             } catch {}
           }
 
@@ -449,12 +491,23 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                     </button>
                   );
                   if (mine && isLive) return (
-                    <button onClick={() => handleEndSet(ev)} disabled={busy}
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, padding: '8px 12px', background: C.card2, borderRadius: 10 }}>
+                        <span style={{ fontSize: 15 }}>👂</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.sky }}>
+                          {listeners[ev.live_session_id] ?? 0}
+                        </span>
+                        <span style={{ fontSize: 12, color: C.muted }}>
+                          listening right now
+                        </span>
+                      </div>
+                      <button onClick={() => handleEndSet(ev)} disabled={busy}
                       style={{ width: '100%', padding: '11px', borderRadius: 12, marginBottom: 12,
                         background: 'transparent', border: `1px solid #ff446666`,
                         color: '#ff6680', fontWeight: 800, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
                       {busy ? 'Ending…' : '⏹ End set'}
-                    </button>
+                      </button>
+                    </>
                   );
                   if (isLive) {
                     const playing = nowPlayingEventId === ev.id;

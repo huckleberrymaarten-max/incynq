@@ -624,7 +624,7 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
               {liveFollowing.map(l => (
                 <button key={l.session_id}
                   onClick={() => onPlayLive && onPlayLive({
-                    id: l.event_id, title: l.title,
+                    id: l.event_id, live_session_id: l.session_id, title: l.title,
                     performer: { brand_name: l.brand_name, brand_handle: l.brand_handle },
                   })}
                   style={{

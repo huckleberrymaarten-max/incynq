@@ -531,6 +531,28 @@ export const getLiveStream = async (eventId) => {
   return data.stream_url;
 };
 
+// ── Live listener presence ───────────────────────────────────
+// The audio comes straight from the DJ's own Shoutcast server, so InCynq never
+// sees the connection — presence has to be counted here instead. The player
+// pings every 30s while playing; a listener is present if seen in the last 60s,
+// so closing a tab drops them out on its own.
+export const listenerPing = async (sessionId) => {
+  const { data, error } = await supabase.rpc('listener_ping', { p_session_id: sessionId });
+  if (error) throw error;
+  return data?.listeners ?? 0;
+};
+
+export const listenerLeave = async (sessionId) => {
+  try { await supabase.rpc('listener_leave', { p_session_id: sessionId }); }
+  catch (e) { console.warn('listener_leave failed:', e.message); }
+};
+
+export const getListenerCount = async (sessionId) => {
+  const { data, error } = await supabase.rpc('get_listener_count', { p_session_id: sessionId });
+  if (error) throw error;
+  return data ?? 0;
+};
+
 // Closes anything past its cap. Called opportunistically when the events screen
 // loads, so a forgotten session can't sit "live" forever without a cron.
 export const sweepLiveSessions = async () => {
