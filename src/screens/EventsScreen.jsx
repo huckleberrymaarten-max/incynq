@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser } from '../lib/db';
 import ImageCropModal from '../components/ImageCropModal';
 
-export default function EventsScreen() {
+export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId }) {
   const { currentUser, toast } = useApp();
+
+  // Acting as a DJ / live performer? Only a performer identity can flag a live
+  // set or go live, and the gig is attributed to that identity.
+  const activePerformer = currentUser?.performerMode
+    ? (currentUser.ownedBrands || []).find(b => b.id === currentUser.activePerformerId)
+    : null;
   const { eventBoostTiers } = useContent();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +30,14 @@ export default function EventsScreen() {
   const [timeSlt, setTimeSlt] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isLiveSet, setIsLiveSet] = useState(false);
+  const [streamUrl, setStreamUrl] = useState('');
+  const [goingLive, setGoingLive] = useState(null);   // event id mid-request
+  // Everyone on air, followed first. Events is the DISCOVERY surface: anyone can
+  // find a live gig here and follow the DJ, which is what graduates them into
+  // that resident's feed strip.
+  const [liveNow, setLiveNow] = useState([]);
+  const [followBusy, setFollowBusy] = useState(null);
   const [eventImageUrl, setEventImageUrl] = useState('');
   const [eventImageFile, setEventImageFile] = useState(null);
   const [eventCropFile, setEventCropFile] = useState(null);
@@ -34,7 +48,7 @@ export default function EventsScreen() {
     const load = async () => {
       try {
         const [evData, rsvpData] = await Promise.all([
-          getEvents(),
+          sweepLiveSessions().then(getEvents),
           currentUser?.id ? getEventRsvps(currentUser.id) : Promise.resolve([]),
         ]);
         setEvents(evData || []);
@@ -111,8 +125,66 @@ export default function EventsScreen() {
     setDescription(ev.description || '');
     setEventImageUrl(ev.image_url || '');
     setEventImageFile(null);
+    setIsLiveSet(!!ev.is_live_set);
+    setStreamUrl(ev.stream_url || '');
     setEditingEvent(ev);
     setShowCreate(true);
+  };
+
+  // Live list refresh — cheap, and keeps the pinned section honest.
+  const refreshLive = async () => {
+    try { setLiveNow(await getLiveAll()); } catch (e) { console.warn('Live list failed:', e.message); }
+  };
+
+  useEffect(() => {
+    refreshLive();
+    const t = setInterval(refreshLive, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const toggleFollow = async (performerId) => {
+    if (!currentUser?.id || followBusy) return;
+    setFollowBusy(performerId);
+    const row = liveNow.find(l => l.performer_id === performerId);
+    try {
+      if (row?.is_following) await unfollowUser(currentUser.id, performerId);
+      else                   await followUser(currentUser.id, performerId);
+      await refreshLive();
+    } catch (e) { toast(e.message || 'Could not update follow', 'error'); }
+    finally { setFollowBusy(null); }
+  };
+
+  // ── Go live / end set ─────────────────────────────────────
+  // Airtime is a balance, not a booking: the clock starts now and only the
+  // minutes actually broadcast are charged, settled when the set ends. The
+  // session is capped at the hours held, so nobody broadcasts past their
+  // balance — the cap is a safety limit, not a purchase.
+  const handleGoLive = async (ev) => {
+    setGoingLive(ev.id);
+    try {
+      const res = await goLive(ev.id);
+      const ends = new Date(res.auto_end_at);
+      toast(`You're live! Airtime is running — set ends by ${ends.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      setEvents(await getEvents());
+      await refreshLive();
+      if (onPlayLive) onPlayLive(ev);
+    } catch (e) {
+      toast(e.message || 'Could not go live', 'error');
+    } finally { setGoingLive(null); }
+  };
+
+  const handleEndSet = async (ev) => {
+    if (!confirm('End your set? Airtime stops being charged now.')) return;
+    setGoingLive(ev.id);
+    try {
+      const res = await endSet(ev.live_session_id);
+      toast(`Set ended — ${res.minutes_consumed} min of airtime used`);
+      setEvents(await getEvents());
+      await refreshLive();
+      if (onStopLive) onStopLive();
+    } catch (e) {
+      toast(e.message || 'Could not end the set', 'error');
+    } finally { setGoingLive(null); }
   };
 
   // ── Delete event ──────────────────────────────────────────
@@ -149,8 +221,18 @@ export default function EventsScreen() {
         catch (e) { uploadedImageUrl = eventImageUrl; }
       }
 
+      // A live set must carry a stream — the DB enforces this too.
+      if (isLiveSet && !streamUrl.trim()) {
+        toast('Add your stream URL for a live set', 'error');
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         userId: currentUser.id,
+        performerId: activePerformer?.id || null,
+        isLiveSet:   !!activePerformer && isLiveSet,
+        streamUrl:   streamUrl.trim(),
         title: title.trim(),
         locationName: locationName.trim(),
         slurl: slurl.trim(),
@@ -177,6 +259,7 @@ export default function EventsScreen() {
       setTitle(''); setLocationName(''); setSlurl('');
       setDate(''); setTimeSlt(''); setDescription('');
       setEventImageUrl(''); setEventImageFile(null);
+      setIsLiveSet(false); setStreamUrl('');
     } catch (e) {
       toast('Could not save event — please try again', 'error');
       console.warn('Save event failed:', e.message);
@@ -201,6 +284,53 @@ export default function EventsScreen() {
           <div style={{ textAlign: 'center', padding: '60px 20px', color: C.muted }}>
             <div style={{ fontSize: 28, marginBottom: 10, animation: 'pulse 1.5s infinite' }}>🎉</div>
             <div style={{ fontSize: 13 }}>Loading events…</div>
+          </div>
+        )}
+
+        {/* ── Live now — pinned above the list ──
+            A gig happening RIGHT NOW is a different proposition from an event
+            next Tuesday, so it doesn't belong sorted by date among them. This
+            is also the discovery surface: anyone can listen, and follow the DJ
+            to get them in their own feed strip next time. */}
+        {liveNow.length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#ff6680', letterSpacing: 1, marginBottom: 10 }}>
+              🔴 LIVE NOW
+            </div>
+            {liveNow.map(l => {
+              const playing = nowPlayingEventId === l.event_id;
+              const mine    = activePerformer && l.performer_id === activePerformer.id;
+              return (
+                <div key={l.session_id} style={{ background: C.card, border: '1px solid #ff446644', borderRadius: 16, padding: 14, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 10 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 13, overflow: 'hidden', background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {l.brand_logo_url
+                        ? <img src={l.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 20 }}>🎧</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: C.text }}>{l.brand_name}</div>
+                      <div style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.title}</div>
+                    </div>
+                    {!mine && currentUser?.id && (
+                      <button onClick={() => toggleFollow(l.performer_id)} disabled={followBusy === l.performer_id}
+                        style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                          background: l.is_following ? 'transparent' : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                          color: l.is_following ? C.sky : '#060d14',
+                          border: l.is_following ? `1px solid ${C.sky}44` : 'none', cursor: 'pointer' }}>
+                        {l.is_following ? 'Following' : 'Follow'}
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => playing ? onStopLive && onStopLive() : onPlayLive && onPlayLive({ id: l.event_id, title: l.title, performer: { brand_name: l.brand_name, brand_handle: l.brand_handle } })}
+                    style={{ width: '100%', padding: '10px', borderRadius: 12, border: 'none',
+                      background: playing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                      color: playing ? C.sky : '#060d14', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                    {playing ? '⏸ Stop listening' : '🎧 Listen live'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -247,6 +377,17 @@ export default function EventsScreen() {
                 {ev.boost_tier && (
                   <div style={{ fontSize: 10, color: boostColor, fontWeight: 700, marginBottom: 6 }}>⚡ FEATURED EVENT</div>
                 )}
+                {ev.live_session_id ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#ff446618', border: '1px solid #ff446644', borderRadius: 8, padding: '3px 9px', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10 }}>🔴</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#ff6680', letterSpacing: 0.5 }}>LIVE NOW</span>
+                  </div>
+                ) : ev.is_live_set && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: `${C.sky}18`, border: `1px solid ${C.sky}44`, borderRadius: 8, padding: '3px 9px', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10 }}>🎧</span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: C.sky, letterSpacing: 0.5 }}>LIVE SET</span>
+                  </div>
+                )}
 
                 {/* Title row with action button */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -292,6 +433,42 @@ export default function EventsScreen() {
                 {ev.slurl && (
                   <div style={{ fontSize: 11, color: C.sky, marginBottom: 12, fontWeight: 600 }}>🔗 {ev.slurl}</div>
                 )}
+
+                {/* Live-set controls. The performer who owns the gig sees Go Live
+                    / End set; everyone else sees Listen while it's running. */}
+                {ev.is_live_set && (() => {
+                  const mine   = activePerformer && ev.performer_id === activePerformer.id;
+                  const isLive = !!ev.live_session_id;
+                  const busy   = goingLive === ev.id;
+                  if (mine && !isLive) return (
+                    <button onClick={() => handleGoLive(ev)} disabled={busy}
+                      style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', marginBottom: 12,
+                        background: busy ? C.border : `linear-gradient(135deg, #ff4466, ${C.peach})`,
+                        color: busy ? C.muted : '#fff', fontWeight: 800, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
+                      {busy ? 'Starting…' : '🔴 Go Live'}
+                    </button>
+                  );
+                  if (mine && isLive) return (
+                    <button onClick={() => handleEndSet(ev)} disabled={busy}
+                      style={{ width: '100%', padding: '11px', borderRadius: 12, marginBottom: 12,
+                        background: 'transparent', border: `1px solid #ff446666`,
+                        color: '#ff6680', fontWeight: 800, fontSize: 13, cursor: busy ? 'default' : 'pointer' }}>
+                      {busy ? 'Ending…' : '⏹ End set'}
+                    </button>
+                  );
+                  if (isLive) {
+                    const playing = nowPlayingEventId === ev.id;
+                    return (
+                      <button onClick={() => playing ? onStopLive && onStopLive() : onPlayLive && onPlayLive(ev)}
+                        style={{ width: '100%', padding: '11px', borderRadius: 12, border: 'none', marginBottom: 12,
+                          background: playing ? C.card2 : `linear-gradient(135deg,${C.sky},${C.peach})`,
+                          color: playing ? C.sky : '#060d14', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                        {playing ? '⏸ Stop listening' : '🎧 Listen live'}
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => handleRsvp(ev.id)}
@@ -351,6 +528,33 @@ export default function EventsScreen() {
                   </label>
                 )}
               </div>
+
+              {/* Live set — performer identities only. The gig is posted AS the
+                  performer and carries their stream. */}
+              {activePerformer && (
+                <div style={{ background: C.card2, border: `1px solid ${isLiveSet ? C.sky + '66' : C.border}`, borderRadius: 12, padding: '12px 14px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={isLiveSet} onChange={e => setIsLiveSet(e.target.checked)}
+                      style={{ width: 17, height: 17, accentColor: C.sky, cursor: 'pointer' }} />
+                    <span style={{ flex: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>🔴 This is a live set</span>
+                      <span style={{ display: 'block', fontSize: 11, color: C.muted, marginTop: 2 }}>
+                        Posted as {activePerformer.brand_name}. You'll get a Go Live button on the event.
+                      </span>
+                    </span>
+                  </label>
+                  {isLiveSet && (
+                    <div style={{ marginTop: 12 }}>
+                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>STREAM URL *</label>
+                      <input value={streamUrl} onChange={e => setStreamUrl(e.target.value)}
+                        placeholder="http://your-stream-host:8000/live" className="inp" />
+                      <div style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                        Only shown to signed-in listeners while you're actually broadcasting.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, letterSpacing: .5 }}>EVENT TITLE *</label>

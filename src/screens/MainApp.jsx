@@ -4,6 +4,7 @@ import logo from '../assets/Q_Logo_.png';
 import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
+import { getLiveStream } from '../lib/db';
 import FeedScreen        from './FeedScreen';
 import SearchScreen      from './SearchScreen';
 import EventsScreen      from './EventsScreen';
@@ -395,11 +396,40 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
       {showHelp          && <HelpScreen onClose={() => setShowHelp(false)} />}
 
       {/* ── Screens ─────────────────────────────────────────── */}
-      {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} />}
+      {tab === 'feed'      && <FeedScreen      onGoToProfile={() => setTab('profile')} onOpenUserProfile={handleOpenUserProfile} onPlayLive={playLive} nowPlayingEventId={nowPlaying?.eventId} />}
       {tab === 'search'    && <SearchScreen    onOpenUserProfile={handleOpenUserProfile} />}
-      {tab === 'events'    && <EventsScreen    />}
+      {tab === 'events'    && <EventsScreen    onPlayLive={playLive} onStopLive={stopLive} nowPlayingEventId={nowPlaying?.eventId} />}
       {tab === 'advertise' && <AdvertiseScreen />}
       {tab === 'profile'   && <ProfileScreen   onOpenUserProfile={handleOpenUserProfile} />}
+
+      {/* ── Live audio ──────────────────────────────────────── */}
+      {/* Mounted unconditionally: if this element were rendered only while
+          something is playing, every tab change would tear it down and stop
+          the audio, which is the whole thing we're avoiding. */}
+      <audio ref={audioRef} style={{ display: 'none' }} onError={() => setNowPlaying(null)} />
+
+      {nowPlaying && (
+        <div style={{
+          position: 'fixed', bottom: 'calc(58px + env(safe-area-inset-bottom))',
+          left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480,
+          background: C.card, borderTop: `1px solid ${C.border}`,
+          display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', zIndex: 99,
+        }}>
+          <span style={{ fontSize: 14 }}>🔴</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nowPlaying.who}
+            </div>
+            <div style={{ fontSize: 10, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nowPlaying.title}
+            </div>
+          </div>
+          <button onClick={stopLive}
+            style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.sky, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+            Stop
+          </button>
+        </div>
+      )}
 
       {/* ── Bottom nav ──────────────────────────────────────── */}
       <div style={{

@@ -443,15 +443,36 @@ function PostCard({ post, onLike, onSave, liked, saved, currentUser, onReport, o
   );
 }
 
-export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCompose, onOpenNotifications, onOpenHelp }) {
+export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCompose, onOpenNotifications, onOpenHelp, onPlayLive, nowPlayingEventId }) {
   const [showHelp, setShowHelp] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
+  // Performers this resident FOLLOWS who are on air. Deliberately followers-only:
+  // the feed is the resident's own, so it surfaces the DJs they chose. Everyone
+  // else discovers live gigs in Events and can follow from there.
+  const [liveFollowing, setLiveFollowing] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
   const { posts, setPosts, ads, liked, setLiked, toggleLike, saved, toggleSave, myGroups, mySubs, currentUser, setReportQueue, notifications } = useApp();
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
+
+  // Refreshed on mount and every 60s — a set starting or ending shouldn't need
+  // a manual reload to show up.
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const { getLiveFollowing } = await import('../lib/db');
+        const rows = await getLiveFollowing();
+        if (alive) setLiveFollowing(rows || []);
+      } catch (e) { console.warn('Live strip failed:', e.message); }
+    };
+    load();
+    const t = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -590,6 +611,42 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
           <div style={{ textAlign: 'center', padding: '60px 20px', color: C.muted }}>
             <div style={{ fontSize: 28, marginBottom: 10, animation: 'pulse 1.5s infinite' }}>⚡</div>
             <div style={{ fontSize: 13 }}>Loading your feed…</div>
+          </div>
+        )}
+
+        {/* ── Live now, from the DJs you follow ── */}
+        {liveFollowing.length > 0 && (
+          <div style={{ padding: '10px 14px 4px' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#ff6680', letterSpacing: 1, marginBottom: 8 }}>
+              🔴 LIVE NOW
+            </div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6 }}>
+              {liveFollowing.map(l => (
+                <button key={l.session_id}
+                  onClick={() => onPlayLive && onPlayLive({
+                    id: l.event_id, title: l.title,
+                    performer: { brand_name: l.brand_name, brand_handle: l.brand_handle },
+                  })}
+                  style={{
+                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9,
+                    background: nowPlayingEventId === l.event_id ? `${C.sky}18` : C.card,
+                    border: `1px solid ${nowPlayingEventId === l.event_id ? C.sky : '#ff446644'}`,
+                    borderRadius: 14, padding: '8px 14px 8px 8px', cursor: 'pointer', textAlign: 'left',
+                  }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 11, overflow: 'hidden', background: `${C.sky}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {l.brand_logo_url
+                      ? <img src={l.brand_logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 17 }}>🎧</span>}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.text, whiteSpace: 'nowrap' }}>{l.brand_name}</div>
+                    <div style={{ fontSize: 10, color: nowPlayingEventId === l.event_id ? C.sky : C.muted, whiteSpace: 'nowrap' }}>
+                      {nowPlayingEventId === l.event_id ? 'Listening' : 'Tap to listen'}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

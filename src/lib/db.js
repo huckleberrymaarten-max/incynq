@@ -464,20 +464,91 @@ export const unsavePost = async (userId, postId) => {
 };
 
 // ── Events ───────────────────────────────────────────────
+// Goes through list_events() rather than selecting from the table directly.
+//
+// A DJ's stream URL is permanent — the same Shoutcast/Icecast address for every
+// gig, for years. A plain `select *` handed it to anyone who asked, so one
+// request harvested every performer's address at once. list_events() returns
+// everything this screen needs EXCEPT stream_url, plus live_session_id so the
+// LIVE badge works. The address comes only from getLiveStream() below, during
+// an actual broadcast, to a signed-in listener.
 export const getEvents = async () => {
-  const { data, error } = await supabase
-    .from('events')
-    .select('*, profiles(username, display_name, avatar_url)')
-    .order('date', { ascending: true });
+  const { data, error } = await supabase.rpc('list_events');
   if (error) throw error;
+  return data || [];
+};
+
+// ── DJ / performer live sessions ─────────────────────────────
+
+// Opens a session, capped at the airtime the performer currently holds.
+// Airtime is a BALANCE, not a booking: the clock starts now and only the
+// minutes actually broadcast are charged, settled when the set ends.
+export const goLive = async (eventId) => {
+  const { data, error } = await supabase.rpc('go_live', { p_event_id: eventId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Could not go live');
   return data;
 };
 
-export const createEvent = async ({ userId, title, locationName, slurl, date, timeSlt, description, imageUrl }) => {
+// Settles the elapsed time (rounded up to whole minutes) against hours_balance.
+export const endSet = async (sessionId) => {
+  const { data, error } = await supabase.rpc('end_set', { p_session_id: sessionId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Could not end the set');
+  return data;
+};
+
+// Performers this resident FOLLOWS who are on air. Powers the feed strip.
+// Followers-only on purpose: the feed belongs to the resident, so it surfaces
+// the DJs they chose. Discovery happens in Events instead.
+export const getLiveFollowing = async () => {
+  const { data, error } = await supabase.rpc('get_live_following');
+  if (error) throw error;
+  return data || [];
+};
+
+// Everyone broadcasting right now, followed first. Powers the pinned Live
+// section in Events — the discovery surface.
+export const getLiveAll = async () => {
+  const { data, error } = await supabase.rpc('get_live_all');
+  if (error) throw error;
+  return data || [];
+};
+
+// Everyone broadcasting right now. No stream URLs here either.
+export const getLiveNow = async () => {
+  const { data, error } = await supabase.rpc('get_live_now');
+  if (error) throw error;
+  return data || [];
+};
+
+// The ONLY way to get a stream URL. Answers only while a session is genuinely
+// live, and only to a signed-in listener.
+export const getLiveStream = async (eventId) => {
+  const { data, error } = await supabase.rpc('get_live_stream', { p_event_id: eventId });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Not broadcasting right now');
+  return data.stream_url;
+};
+
+// Closes anything past its cap. Called opportunistically when the events screen
+// loads, so a forgotten session can't sit "live" forever without a cron.
+export const sweepLiveSessions = async () => {
+  try { await supabase.rpc('sweep_live_sessions'); } catch (e) { console.warn('sweep failed:', e.message); }
+};
+
+// performerId / isLiveSet / streamUrl are for DJ + live performer gigs.
+// user_id stays the human who created it; performer_id is the identity it
+// appears AS. A live set needs both a performer and a stream — the DB enforces
+// that with a check constraint too.
+export const createEvent = async ({ userId, title, locationName, slurl, date, timeSlt, description, imageUrl, performerId, isLiveSet, streamUrl }) => {
   const { data, error } = await supabase
     .from('events')
     .insert({
       user_id:       userId,
+      performer_id:  performerId || null,
+      is_live_set:   !!isLiveSet,
+      stream_url:    isLiveSet ? (streamUrl || null) : null,
       title,
       location_name: locationName || null,
       slurl:         slurl        || null,
@@ -492,18 +563,25 @@ export const createEvent = async ({ userId, title, locationName, slurl, date, ti
   return data;
 };
 
-export const updateEvent = async (eventId, { title, locationName, slurl, date, timeSlt, description, imageUrl }) => {
+export const updateEvent = async (eventId, { title, locationName, slurl, date, timeSlt, description, imageUrl, isLiveSet, streamUrl }) => {
+  const patch = {
+    title,
+    location_name: locationName || null,
+    slurl:         slurl        || null,
+    date:          date         || null,
+    time_slt:      timeSlt      || null,
+    description:   description  || null,
+    image_url:     imageUrl     || null,
+  };
+  // Only touch the live-set fields when the caller passed them, so editing a
+  // normal event can't accidentally clear a gig's stream.
+  if (isLiveSet !== undefined) {
+    patch.is_live_set = !!isLiveSet;
+    patch.stream_url  = isLiveSet ? (streamUrl || null) : null;
+  }
   const { data, error } = await supabase
     .from('events')
-    .update({
-      title,
-      location_name: locationName || null,
-      slurl:         slurl        || null,
-      date:          date         || null,
-      time_slt:      timeSlt      || null,
-      description:   description  || null,
-      image_url:     imageUrl     || null,
-    })
+    .update(patch)
     .eq('id', eventId)
     .select()
     .single();
