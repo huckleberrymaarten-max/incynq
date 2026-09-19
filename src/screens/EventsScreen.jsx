@@ -437,6 +437,16 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                       color: playing ? C.sky : '#060d14', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
                     {playing ? '⏸ Stop listening' : '🎧 Listen live'}
                   </button>
+
+                  {/* The DJ tuning in to their own set counts as a listener, so
+                      "1 listening" would be them. Say so, rather than leaving
+                      them to wonder whether anyone turned up. */}
+                  {mine && (
+                    <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5, marginTop: 8 }}>
+                      Listening to your own set is handy for checking your stream — just
+                      remember you'll count as one of the listeners above.
+                    </div>
+                  )}
                 </div>
               );
             })}
