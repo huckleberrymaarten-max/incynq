@@ -573,6 +573,56 @@ export const getPerformerStats = async (performerId) => {
   return data || { gigs: 0, total_minutes: 0, total_listeners: 0, best_crowd: 0 };
 };
 
+// ── Tips ─────────────────────────────────────────────────────
+// A tip moves credit that is ALREADY in the treasury — the tipper topped up at
+// an ATM and those L$ have been sitting as float since. Nothing leaves InCynq
+// until the 7-day payout, and the money for that is already there.
+//
+// Promotional credit (welcome, referral) can't be tipped: nobody paid it in, so
+// tipping it would mean InCynq funding the tips — and it would be farmable with
+// alts. submit_tip returns `promo_only` when that's why it refused, so the
+// message can say what's actually wrong.
+export const submitTip = async (sessionId, amount, message = null) => {
+  const { data, error } = await supabase.rpc('submit_tip', {
+    p_session_id: sessionId, p_amount: amount, p_message: message,
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    const e = new Error(data?.error || 'Could not send that tip');
+    e.promoOnly = !!data?.promo_only;
+    e.tippable  = data?.tippable ?? 0;
+    throw e;
+  }
+  return data;
+};
+
+// What this member can actually tip with — wallet minus promotional credit.
+export const getTippableBalance = async (userId) => {
+  const { data, error } = await supabase.rpc('tippable_balance', { p_user_id: userId });
+  if (error) throw error;
+  return data ?? 0;
+};
+
+export const getTipLadder = async () => {
+  const { data, error } = await supabase.rpc('get_tip_ladder');
+  if (error) throw error;
+  return Array.isArray(data) ? data : [10, 25, 50, 75, 100];
+};
+
+// Pending and paid, computed from the tips themselves rather than a running
+// total — one source of truth, no second set of books to drift.
+export const getPerformerEarnings = async (performerId) => {
+  const { data, error } = await supabase.rpc('get_performer_earnings', { p_performer_id: performerId });
+  if (error) throw error;
+  return data || { cut_pct: 5, held_gross: 0, held_net: 0, paid_gross: 0, paid_net: 0, tip_count: 0 };
+};
+
+export const getSessionTips = async (sessionId) => {
+  const { data, error } = await supabase.rpc('get_session_tips', { p_session_id: sessionId });
+  if (error) throw error;
+  return data || [];
+};
+
 // ── Live listener presence ───────────────────────────────────
 // The audio comes straight from the DJ's own Shoutcast server, so InCynq never
 // sees the connection — presence has to be counted here instead. The player

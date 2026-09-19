@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import C from '../theme';
+import TipSheet from '../components/TipSheet';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
 import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings } from '../lib/db';
@@ -37,6 +38,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   // find a live gig here and follow the DJ, which is what graduates them into
   // that resident's feed strip.
   const [liveNow, setLiveNow] = useState([]);
+  const [tipTarget, setTipTarget] = useState(null);
   const [followBusy, setFollowBusy] = useState(null);
   // Listener counts, keyed by session id. Only fetched for the performer's own
   // live set — a DJ needs to know who's in the room; other people don't.
@@ -438,6 +440,16 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                     {playing ? '⏸ Stop listening' : '🎧 Listen live'}
                   </button>
 
+                  {!mine && currentUser?.id && (
+                    <button onClick={() => setTipTarget({
+                      sessionId: l.session_id, title: l.title, who: l.brand_name,
+                    })}
+                      style={{ width: '100%', padding: '10px', borderRadius: 12, border: `1px solid ${C.gold}44`, marginTop: 8,
+                        background: `${C.gold}14`, color: C.gold, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                      💰 Tip {l.brand_name}
+                    </button>
+                  )}
+
                   {/* The DJ tuning in to their own set counts as a listener, so
                       "1 listening" would be them. Say so, rather than leaving
                       them to wonder whether anyone turned up. */}
@@ -673,6 +685,8 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
           );
         })}
       </div>
+
+      {tipTarget && <TipSheet session={tipTarget} onClose={() => setTipTarget(null)} />}
 
       {/* Create event modal */}
       {showCreate && (

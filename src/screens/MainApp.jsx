@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
 import { getLiveStream, listenerPing, listenerLeave } from '../lib/db';
+import TipSheet from '../components/TipSheet';
 import FeedScreen        from './FeedScreen';
 import SearchScreen      from './SearchScreen';
 import EventsScreen      from './EventsScreen';
@@ -248,7 +249,8 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
   // continues while the resident browses the feed, search or their profile.
   // One <audio> element, mounted once, never unmounted by navigation.
   const audioRef = useRef(null);
-  const [nowPlaying, setNowPlaying] = useState(null);  // { eventId, title, who }
+  const [nowPlaying, setNowPlaying] = useState(null);  // { eventId, sessionId, title, who }
+  const [tipping,    setTipping]    = useState(false);
 
   const playLive = async (ev) => {
     try {
@@ -498,11 +500,23 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
               {nowPlaying.title}
             </div>
           </div>
+          {/* Tip from here too: someone listening while they browse the feed
+              shouldn't have to navigate back to Events to tip. */}
+          {nowPlaying.sessionId && (
+            <button onClick={() => setTipping(true)}
+              style={{ padding: '6px 13px', borderRadius: 20, border: 'none', background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+              💰 Tip
+            </button>
+          )}
           <button onClick={stopLive}
             style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.sky, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
             Stop
           </button>
         </div>
+      )}
+
+      {tipping && nowPlaying && (
+        <TipSheet session={nowPlaying} onClose={() => setTipping(false)} />
       )}
 
       {/* ── Bottom nav ──────────────────────────────────────── */}

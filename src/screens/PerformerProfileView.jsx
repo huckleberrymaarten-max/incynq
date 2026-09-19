@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
 import { useContent } from '../context/ContentContext';
-import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo, getPerformerGigs, getPerformerStats } from '../lib/db';
+import { getProfileStats, formatMemberSince, getPerformerHours, buyBroadcastHours, uploadBrandLogo, getPerformerGigs, getPerformerStats, getPerformerEarnings } from '../lib/db';
 import { supabase } from '../lib/supabase';
 import EditPerformerScreen from './EditPerformerScreen';
 
@@ -55,6 +55,7 @@ export default function PerformerProfileView() {
   // this is where they live now, and where earnings will sit alongside them.
   const [gigs,       setGigs]       = useState([]);
   const [gigStats,   setGigStats]   = useState(null);
+  const [earnings,   setEarnings]   = useState(null);
   const fileRef = useRef(null);
 
   const onPickPhoto = async (e) => {
@@ -99,6 +100,7 @@ export default function PerformerProfileView() {
     loadHours();
     getPerformerGigs(performerId).then(setGigs).catch(e => console.warn('Gigs failed:', e.message));
     getPerformerStats(performerId).then(setGigStats).catch(() => {});
+    getPerformerEarnings(performerId).then(setEarnings).catch(() => {});
     // Founding number + cynqified status (badges, like brands)
     supabase.from('profiles').select('founding_performer_number, cynqified').eq('id', performerId).single()
       .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified); } })
@@ -264,6 +266,39 @@ export default function PerformerProfileView() {
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Non-refundable credit. Buys airtime and promotion. Your tip earnings are kept separate.</div>
         </div>
 
+
+
+        {/* Tip earnings — kept apart from the spend wallet on purpose. This is
+            the only money that leaves InCynq, and it can only ever be funded by
+            real tips, never by credit someone topped up or was given. */}
+        {earnings && (earnings.held_gross > 0 || earnings.paid_gross > 0) && (
+          <div style={{ background: C.card2, borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 1, marginBottom: 10 }}>TIP EARNINGS</div>
+
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <div style={{ flex: 1, background: C.card, borderRadius: 10, padding: '12px' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#F4B942' }}>
+                  L$ {(earnings.held_net || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>On the way to you</div>
+              </div>
+              <div style={{ flex: 1, background: C.card, borderRadius: 10, padding: '12px' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: C.green }}>
+                  L$ {(earnings.paid_net || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Already paid out</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+              {earnings.tip_count > 0 && (
+                <>{earnings.tip_count} tip{earnings.tip_count === 1 ? '' : 's'} waiting · </>
+              )}
+              Paid to your avatar a week after each gig, minus a {earnings.cut_pct}% handling fee.
+              Nothing is taken from your airtime or anything you top up.
+            </div>
+          </div>
+        )}
 
         {/* Past sets */}
         {gigs.length > 0 && (
