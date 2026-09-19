@@ -613,9 +613,27 @@ export const getTippableBalance = async (userId) => {
   return data ?? 0;
 };
 
-// Where to top up, for when the wallet is too empty to tip. Prefers an ATM
-// that's actually checking in — pointing someone at a dead one is worse than
-// not pointing them anywhere.
+// Where to send someone who needs an ATM or a Terminal.
+//
+// Deliberately ONE landing point rather than a specific device: they arrive
+// where everything is, instead of at one wall unit that might be the far end of
+// the row. Admin-editable, so moving the installation doesn't need a deploy.
+//
+// Falls back to a live ATM's own position if the setting is missing, so this
+// can never end up pointing nowhere.
+export const getIncynqLocation = async () => {
+  try {
+    const { data } = await supabase
+      .from('app_content').select('value').eq('key', 'incynq_hq_slurl').maybeSingle();
+    if (data?.value) return { map_url: data.value, region: 'Redlion' };
+  } catch (e) { /* fall through */ }
+  try {
+    const { data } = await supabase.rpc('get_atm_slurl');
+    return data && data.slurl ? data : null;
+  } catch { return null; }
+};
+
+// Kept for anything that specifically wants a real ATM's own position.
 export const getAtmSlurl = async () => {
   const { data, error } = await supabase.rpc('get_atm_slurl');
   if (error) throw error;

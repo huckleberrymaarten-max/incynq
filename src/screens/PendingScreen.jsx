@@ -7,6 +7,7 @@ import {
   subscribeToProfile,
   refreshProfile,
   processReferralReward,
+  getIncynqLocation,
 } from '../lib/db';
 import { subscribeToPush, getPushStatus } from '../lib/pushNotifications';
 
@@ -49,6 +50,10 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
   const [welcome, setWelcome]       = useState(null);
   const [pushBusy, setPushBusy]     = useState(false);
   const [canAskPush, setCanAskPush] = useState(false);
+  // Where to actually GO. The screen said "tap an InCynq terminal" and left it
+  // at that — which is the very first thing a new member has to do, with no
+  // idea where to find one.
+  const [hq, setHq] = useState(null);
   const [code, setCode] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -122,6 +127,8 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
     catch (e) { console.warn('Push subscribe failed:', e.message); }
     finally { setPushBusy(false); finish(); }
   };
+
+  useEffect(() => { getIncynqLocation().then(setHq).catch(() => {}); }, []);
 
   // ── Mount: load code + subscribe to profile changes ──
   useEffect(() => {
@@ -232,6 +239,15 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
           One last step. Pop inworld and tap an <strong style={{ color: C.sky }}>InCynq terminal</strong> to confirm it is really you.
         </div>
 
+        {hq?.map_url && (
+          <a href={hq.map_url} target="_blank" rel="noreferrer"
+            style={{ display: 'block', width: '100%', padding: '12px', borderRadius: 12, marginBottom: 22,
+              border: `1px solid ${C.sky}44`, background: `${C.sky}14`, color: C.sky,
+              fontWeight: 800, fontSize: 13, textAlign: 'center', boxSizing: 'border-box' }}>
+            📍 Take me to an InCynq terminal
+          </a>
+        )}
+
         {/* ─── ACTIVATION CODE ─── */}
         <div style={{ background: C.card, borderRadius: 18, padding: 20, marginBottom: 20, border: `1px solid ${C.border}`, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>YOUR ACTIVATION CODE</div>
@@ -290,7 +306,7 @@ export default function PendingScreen({ currentUser, onActivate, onSignOut }) {
         <div style={{ background: C.card, borderRadius: 18, padding: 20, marginBottom: 20, textAlign: 'left', border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>HOW TO ACTIVATE</div>
           {[
-            { n: '1', icon: '🔍', text: 'Find an InCynq terminal inworld in Second Life.' },
+            { n: '1', icon: '🔍', text: 'Find an InCynq terminal inworld — use the button above to get there.' },
             { n: '2', icon: '👆', text: 'Tap the terminal. A box will pop up — paste your code there.' },
             { n: '3', icon: '✅', text: 'Come back here. Your account will activate automatically.' },
           ].map(s => (

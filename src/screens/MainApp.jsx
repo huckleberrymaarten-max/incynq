@@ -4,7 +4,7 @@ import logo from '../assets/Q_Logo_.png';
 import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
-import { getLiveStream, listenerPing, listenerLeave, getTippableBalance, getTipLadder, getAtmSlurl } from '../lib/db';
+import { getLiveStream, listenerPing, listenerLeave, getTippableBalance, getTipLadder, getIncynqLocation } from '../lib/db';
 import { subscribeToPush, getPushStatus } from '../lib/pushNotifications';
 import TipSheet from '../components/TipSheet';
 import FeedScreen        from './FeedScreen';
@@ -381,7 +381,7 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
     if (!nowPlaying?.sessionId) return;
     if (currentUser?.id) getTippableBalance(currentUser.id).then(setTippable).catch(() => setTippable(0));
     getTipLadder().then(l => setMinTip(Math.min(...l))).catch(() => {});
-    getAtmSlurl().then(setAtm).catch(() => {});
+    getIncynqLocation().then(setAtm).catch(() => {});
   }, [nowPlaying?.sessionId, tipping]);
 
   const unread   = notifications.filter(n => !n.read).length;

@@ -3,7 +3,7 @@ import C from '../theme';
 import TipSheet from '../components/TipSheet';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings, getTippableBalance, getTipLadder, getAtmSlurl, getFollowerIds } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings, getTippableBalance, getTipLadder, getIncynqLocation, getFollowerIds } from '../lib/db';
 import { sendPushToUsers } from '../lib/pushNotifications';
 import ImageCropModal from '../components/ImageCropModal';
 
@@ -209,7 +209,7 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   useEffect(() => {
     if (currentUser?.id) getTippableBalance(currentUser.id).then(setTippable).catch(() => setTippable(0));
     getTipLadder().then(l => setMinTip(Math.min(...l))).catch(() => {});
-    getAtmSlurl().then(setAtm).catch(() => {});
+    getIncynqLocation().then(setAtm).catch(() => {});
   }, [currentUser?.id, tipTarget]);
 
   // Admin-set: how long the browser may go quiet before the session is ended.
