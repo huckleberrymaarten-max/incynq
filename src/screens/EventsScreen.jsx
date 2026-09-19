@@ -3,7 +3,7 @@ import C from '../theme';
 import TipSheet from '../components/TipSheet';
 import { useContent } from '../context/ContentContext';
 import { useApp } from '../context/AppContext';
-import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings } from '../lib/db';
+import { getEvents, createEvent, updateEvent, deleteEvent, getEventRsvps, upsertRsvp, removeRsvp, uploadPostImage, createReport, goLive, endSet, sweepLiveSessions, getLiveAll, followUser, unfollowUser, performerHeartbeat, getLiveSettings, getTippableBalance, getTipLadder, getAtmSlurl } from '../lib/db';
 import ImageCropModal from '../components/ImageCropModal';
 
 export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId }) {
@@ -39,6 +39,11 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
   // that resident's feed strip.
   const [liveNow, setLiveNow] = useState([]);
   const [tipTarget, setTipTarget] = useState(null);
+  // Enough to tip with? If not, the button points at an ATM instead of sitting
+  // there doing nothing.
+  const [tippable, setTippable] = useState(null);
+  const [minTip,   setMinTip]   = useState(10);
+  const [atm,      setAtm]      = useState(null);
   const [followBusy, setFollowBusy] = useState(null);
   // Listener counts, keyed by session id. Only fetched for the performer's own
   // live set — a DJ needs to know who's in the room; other people don't.
@@ -199,6 +204,12 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [myLiveSessionId]);
+
+  useEffect(() => {
+    if (currentUser?.id) getTippableBalance(currentUser.id).then(setTippable).catch(() => setTippable(0));
+    getTipLadder().then(l => setMinTip(Math.min(...l))).catch(() => {});
+    getAtmSlurl().then(setAtm).catch(() => {});
+  }, [currentUser?.id, tipTarget]);
 
   // Admin-set: how long the browser may go quiet before the session is ended.
   const [graceMins, setGraceMins] = useState(10);
@@ -441,13 +452,25 @@ export default function EventsScreen({ onPlayLive, onStopLive, nowPlayingEventId
                   </button>
 
                   {!mine && currentUser?.id && (
-                    <button onClick={() => setTipTarget({
-                      sessionId: l.session_id, title: l.title, who: l.brand_name,
-                    })}
-                      style={{ width: '100%', padding: '10px', borderRadius: 12, border: `1px solid ${C.gold}44`, marginTop: 8,
-                        background: `${C.gold}14`, color: C.gold, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
-                      💰 Tip {l.brand_name}
-                    </button>
+                    tippable !== null && tippable < minTip ? (
+                      /* Nothing to tip with. Say where to fix it rather than
+                         offering a button that can't do anything. */
+                      <a href={atm?.slurl || '#'} target="_blank" rel="noreferrer"
+                        style={{ display: 'block', width: '100%', padding: '10px', borderRadius: 12, marginTop: 8,
+                          border: `1px solid ${C.border}`, background: C.card2, color: C.sub,
+                          fontWeight: 700, fontSize: 12, textAlign: 'center', boxSizing: 'border-box' }}>
+                        📍 Top up at an InCynq ATM to tip {l.brand_name}
+                        {atm?.region && <span style={{ display: 'block', fontSize: 10, color: C.muted, marginTop: 2 }}>{atm.region}</span>}
+                      </a>
+                    ) : (
+                      <button onClick={() => setTipTarget({
+                        sessionId: l.session_id, title: l.title, who: l.brand_name,
+                      })}
+                        style={{ width: '100%', padding: '10px', borderRadius: 12, border: `1px solid ${C.gold}44`, marginTop: 8,
+                          background: `${C.gold}14`, color: C.gold, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                        💰 Tip {l.brand_name}
+                      </button>
+                    )
                   )}
 
                   {/* The DJ tuning in to their own set counts as a listener, so

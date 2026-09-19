@@ -4,7 +4,7 @@ import logo from '../assets/Q_Logo_.png';
 import { useApp } from '../context/AppContext';
 import Av from '../components/Av';
 
-import { getLiveStream, listenerPing, listenerLeave } from '../lib/db';
+import { getLiveStream, listenerPing, listenerLeave, getTippableBalance, getTipLadder, getAtmSlurl } from '../lib/db';
 import TipSheet from '../components/TipSheet';
 import FeedScreen        from './FeedScreen';
 import SearchScreen      from './SearchScreen';
@@ -251,6 +251,9 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
   const audioRef = useRef(null);
   const [nowPlaying, setNowPlaying] = useState(null);  // { eventId, sessionId, title, who }
   const [tipping,    setTipping]    = useState(false);
+  const [tippable,   setTippable]   = useState(null);
+  const [minTip,     setMinTip]     = useState(10);
+  const [atm,        setAtm]        = useState(null);
 
   const playLive = async (ev) => {
     try {
@@ -318,6 +321,14 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
       window.removeEventListener('beforeunload', bye);
     };
   }, [nowPlaying?.sessionId]);
+
+  // Enough to tip with? Decides whether the bar offers a tip or a route to an ATM.
+  useEffect(() => {
+    if (!nowPlaying?.sessionId) return;
+    if (currentUser?.id) getTippableBalance(currentUser.id).then(setTippable).catch(() => setTippable(0));
+    getTipLadder().then(l => setMinTip(Math.min(...l))).catch(() => {});
+    getAtmSlurl().then(setAtm).catch(() => {});
+  }, [nowPlaying?.sessionId, tipping]);
 
   const [tab,             setTab]             = useState('feed');
   const [viewingUsername, setViewingUsername] = useState(null);
@@ -503,10 +514,17 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
           {/* Tip from here too: someone listening while they browse the feed
               shouldn't have to navigate back to Events to tip. */}
           {nowPlaying.sessionId && (
-            <button onClick={() => setTipping(true)}
-              style={{ padding: '6px 13px', borderRadius: 20, border: 'none', background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
-              💰 Tip
-            </button>
+            tippable !== null && tippable < minTip ? (
+              <a href={atm?.slurl || '#'} target="_blank" rel="noreferrer"
+                style={{ padding: '6px 13px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                📍 Top up to tip
+              </a>
+            ) : (
+              <button onClick={() => setTipping(true)}
+                style={{ padding: '6px 13px', borderRadius: 20, border: 'none', background: `linear-gradient(135deg,${C.sky},${C.peach})`, color: '#060d14', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                💰 Tip
+              </button>
+            )
           )}
           <button onClick={stopLive}
             style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${C.border}`, background: 'transparent', color: C.sky, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>

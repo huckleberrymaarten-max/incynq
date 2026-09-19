@@ -603,6 +603,15 @@ export const getTippableBalance = async (userId) => {
   return data ?? 0;
 };
 
+// Where to top up, for when the wallet is too empty to tip. Prefers an ATM
+// that's actually checking in — pointing someone at a dead one is worse than
+// not pointing them anywhere.
+export const getAtmSlurl = async () => {
+  const { data, error } = await supabase.rpc('get_atm_slurl');
+  if (error) throw error;
+  return data && data.slurl ? data : null;
+};
+
 export const getTipLadder = async () => {
   const { data, error } = await supabase.rpc('get_tip_ladder');
   if (error) throw error;
