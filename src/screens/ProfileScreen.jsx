@@ -67,6 +67,15 @@ const asIdentity = (u) => {
   };
 };
 
+const CynqTick = ({ on }) => on ? (
+  <span style={{
+    display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3,
+    fontSize: 10, fontWeight: 700, color: '#00B4C8',
+    background: 'rgba(0,180,200,0.12)', border: '1px solid rgba(0,180,200,0.35)',
+    borderRadius: 6, padding: '1px 6px',
+  }}>✅ Cynqified</span>
+) : null;
+
 export default function ProfileScreen({ onOpenUserProfile }) {
   const { currentUser, setCurrentUser, setLinkedProfiles, discoverable, setDiscoverable, gridStatus, toast, setLoggedIn, following, setFollowing } = useApp();
   const { interestGroups: INTEREST_GROUPS } = useContent();
@@ -1071,6 +1080,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
+                        <CynqTick on={u.cynqified} />
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
@@ -1115,6 +1125,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
+                        <CynqTick on={u.cynqified} />
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>

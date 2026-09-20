@@ -135,7 +135,7 @@ export const getProfileStats = async (userId) => {
 export const getFollowingProfiles = async (userId) => {
   const { data, error } = await supabase
     .from('follows')
-    .select('following_id, profiles!follows_following_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle)')
+    .select('following_id, profiles!follows_following_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle, cynqified)')
     .eq('follower_id', userId);
   if (error) throw error;
   return data.map(f => f.profiles).filter(Boolean);
@@ -145,7 +145,7 @@ export const getFollowingProfiles = async (userId) => {
 export const getFollowersProfiles = async (userId) => {
   const { data, error } = await supabase
     .from('follows')
-    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle)')
+    .select('follower_id, profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, show_display_name, account_type, grid_status, brand_name, brand_handle, cynqified)')
     .eq('following_id', userId);
   if (error) throw error;
   return data.map(f => f.profiles).filter(Boolean);
