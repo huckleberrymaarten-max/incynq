@@ -295,10 +295,10 @@ function StepReview({ performerData, activationFee, hourRate, onConfirm, onBack,
         borderRadius: 10, padding: '14px 16px', marginBottom: 24,
       }}>
         <div style={{ color: B.gold, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-          💰 Activation: {FEE.toLocaleString()} L$ → your airtime wallet
+          💰 Activation: {FEE.toLocaleString()} L$ → your Performer Wallet
         </div>
         <div style={{ color: B.bright, fontSize: 13, lineHeight: 1.5 }}>
-          Paid inworld via an InCynq ATM. The full amount lands in your wallet as broadcast credit{hours ? ` — about ${hours} hours on air at the current rate` : ''}. Spend it on airtime, top up any time. Non-refundable per our T&C.
+          Paid inworld via an InCynq ATM. The full amount lands in your Performer Wallet{hours ? ` — about ${hours} hours on air at the current rate` : ''}. Spend it on airtime, boosts and ads, and top up any time. Non-refundable per our T&C.
         </div>
       </div>
 

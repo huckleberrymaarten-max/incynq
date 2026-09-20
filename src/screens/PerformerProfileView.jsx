@@ -130,7 +130,7 @@ export default function PerformerProfileView() {
 
   const doBuy = async () => {
     if (!validMinutes) { toast('Pick at least 60 minutes, in 30-minute steps', 'error'); return; }
-    if (!canAfford)    { toast('Not enough spend credit — top up first', 'error'); return; }
+    if (!canAfford)    { toast('Not enough in your Performer Wallet — top up first', 'error'); return; }
     setBuying(true);
     try {
       const res = await buyBroadcastHours(performerId, minutes);
@@ -226,7 +226,7 @@ export default function PerformerProfileView() {
             <span style={{ fontSize: 26 }}>🔴</span>
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 8 }}>BUY MORE (from spend wallet)</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 8 }}>BUY MORE (from your Performer Wallet)</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
             {QUICK_MINUTES.map(m => {
               const active = !custom && selected === m;
@@ -262,16 +262,16 @@ export default function PerformerProfileView() {
           </div>
         </div>
 
-        {/* Spend wallet */}
+        {/* Performer Wallet */}
         <div style={{ background: C.card2, borderRadius: 14, border: `1px solid ${C.border}`, padding: '14px 16px', marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>SPEND WALLET</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>PERFORMER WALLET</div>
           <div style={{ fontSize: 22, fontWeight: 900, color: '#F4B942' }}>L$ {(spendWallet).toLocaleString()}</div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Non-refundable credit. Buys airtime and promotion. Your tip earnings are kept separate.</div>
         </div>
 
 
 
-        {/* Tip earnings — kept apart from the spend wallet on purpose. This is
+        {/* Tip earnings — kept apart from the Performer Wallet on purpose. This is
             the only money that leaves InCynq, and it can only ever be funded by
             real tips, never by credit someone topped up or was given. */}
         {earnings && (earnings.held_gross > 0 || earnings.paid_gross > 0) && (
@@ -298,7 +298,7 @@ export default function PerformerProfileView() {
                 <>{earnings.tip_count} tip{earnings.tip_count === 1 ? '' : 's'} waiting · </>
               )}
               Paid to your avatar a week after each gig, minus a {earnings.cut_pct}% handling fee.
-              Nothing is taken from your airtime or anything you top up.
+              Nothing is taken from your airtime or your Performer Wallet.
             </div>
 
             {/* Individual payments. A single "already paid out" total left no
