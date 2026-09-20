@@ -1165,12 +1165,16 @@ export const deleteAd = async (adId) => {
   if (data?.status === 'error') throw new Error(data.reason);
 };
 
-export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
+export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl, useSlurl, useMarketplace, useWebsite }) => {
   if (!brandId) throw new Error('No brand ID provided');
 
   // Single atomic RPC: wallet deduction + ad insert in one transaction, so a
   // failure can never leave a brand charged with no ad. Also avoids the
   // /rest/v1/ads path, which ad blockers block.
+  //
+  // Links are no longer sent as URLs — we say WHICH of the brand's saved links
+  // to use and the server reads them from the profile. A website can only ever
+  // be one that's been approved, and an ad can't carry a link nobody checked.
   const { data, error } = await supabase.rpc('place_promo', {
     p_brand_id:        brandId,
     p_tier:            tier,
@@ -1185,11 +1189,56 @@ export const placeAd = async ({ brandId, tier, groups, isRandom, adMaturity, pri
     p_marketplace_url: marketplaceUrl || null,
     p_ad_caption:      adCaption || null,
     p_ad_image_url:    adImageUrl || null,
+    p_use_slurl:       !!useSlurl,
+    p_use_marketplace: !!useMarketplace,
+    p_use_website:     !!useWebsite,
   });
 
   if (error) throw error;
   if (data?.status === 'error') throw new Error(data.reason);
   return data;
+};
+
+// ── Pause / resume a running ad ──────────────────────────
+// Pause banks the remaining days rather than refunding them: a pro-rata refund
+// would break the duration discount (buy 4 weeks at 2x the weekly rate, run
+// one, cancel, and that week cost half price). Resume pushes expires_at out by
+// however long it sat paused, capped by app_content.max_pause_days.
+export const pauseAd = async (adId) => {
+  const { data, error } = await supabase.rpc('pause_promo', { p_ad_id: adId });
+  if (error) throw error;
+  if (data?.status === 'error') throw new Error(data.reason);
+  return data;
+};
+
+export const resumeAd = async (adId) => {
+  const { data, error } = await supabase.rpc('resume_promo', { p_ad_id: adId });
+  if (error) throw error;
+  if (data?.status === 'error') throw new Error(data.reason);
+  return data;
+};
+
+// The brand's saved links, for the ad form. Website only comes back when it's
+// approved — a pending one isn't offered.
+export const getBrandLinks = async (brandId) => {
+  if (!brandId) return { slurl: null, marketplaceUrl: null, websiteUrl: null, websiteStatus: 'none' };
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('brand_slurl, brand_marketplace_url, website_url, website_status')
+      .eq('id', brandId)
+      .single();
+    if (error) throw error;
+    return {
+      slurl:          data?.brand_slurl || null,
+      marketplaceUrl: data?.brand_marketplace_url || null,
+      websiteUrl:     data?.website_url || null,
+      websiteStatus:  data?.website_status || 'none',
+    };
+  } catch (err) {
+    console.debug('getBrandLinks failed', err);
+    return { slurl: null, marketplaceUrl: null, websiteUrl: null, websiteStatus: 'none' };
+  }
 };
 
 export const getCurrentAdPrices = async () => {

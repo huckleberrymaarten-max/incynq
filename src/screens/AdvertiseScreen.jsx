@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
-import { getAdStats } from '../lib/db';
+import { getAdStats, getBrandLinks } from '../lib/db';
 import { calcAdPrice, groupMultiplier, getLaunchPromo, LOCS, INTEREST_GROUPS } from '../data';
 import { useContent } from '../context/ContentContext';
 import ImageCropModal from '../components/ImageCropModal';
@@ -85,7 +85,7 @@ const getReach = (tierId, memberCount) => {
 };
 
 export default function AdvertiseScreen() {
-  const { currentUser, brandAds, purchaseAd, removeAd, toast } = useApp();
+  const { currentUser, brandAds, purchaseAd, removeAd, pauseAdById, resumeAdById, toast } = useApp();
   const [step, setStep]                   = useState(0);
   const [selLoc, setSelLoc]               = useState(null);
   const [customLoc, setCustomLoc]         = useState('');
@@ -97,6 +97,13 @@ export default function AdvertiseScreen() {
   const [showModal, setShowModal]         = useState(false);
   const [slurl, setSlurl]                 = useState('');
   const [marketplaceUrl, setMarketplaceUrl] = useState('');
+
+  // The brand's saved links. Loaded once — the ad form picks from these rather
+  // than asking for URLs, so nothing unreviewed can end up on an ad.
+  const [brandLinks, setBrandLinks] = useState({ slurl: null, marketplaceUrl: null, websiteUrl: null, websiteStatus: 'none' });
+  const [useSlurl, setUseSlurl]             = useState(false);
+  const [useMarketplace, setUseMarketplace] = useState(false);
+  const [useWebsite, setUseWebsite]         = useState(false);
   const [adCaption, setAdCaption]         = useState('');
   const [adImageUrl, setAdImageUrl]       = useState('');
   const [uploadingAdImage, setUploadingAdImage] = useState(false);
@@ -122,13 +129,27 @@ export default function AdvertiseScreen() {
     ? currentUser.maturity.includes('adult')
     : currentUser.maturity === 'adult';
   const activeAds = (brandAds || []).filter(a => a.status === 'active' && a.expiresAt > Date.now());
-  const pastAds   = (brandAds || []).filter(a => !(a.status === 'active' && a.expiresAt > Date.now()));
+  const pausedAds = (brandAds || []).filter(a => a.status === 'paused');
+  const pastAds   = (brandAds || []).filter(a =>
+    a.status !== 'paused' && !(a.status === 'active' && a.expiresAt > Date.now()));
 
   // Delivery figures, keyed by ad id. Loaded separately from the ads
   // themselves so a failed stats call never stops the ads rendering — and
   // an ad with no figures shows nothing rather than a confident zero.
   const [adStats, setAdStats] = useState({});
   const statsBrandId = currentUser.managingBrandId || currentUser.id;
+
+  useEffect(() => {
+    if (!statsBrandId) return;
+    let alive = true;
+    getBrandLinks(statsBrandId)
+      .then(l => { if (alive) setBrandLinks(l); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [statsBrandId]);
+
+  const hasAnyLink = !!(brandLinks.slurl || brandLinks.marketplaceUrl || brandLinks.websiteUrl);
+  const selectedLinkCount = [useSlurl, useMarketplace, useWebsite].filter(Boolean).length;
 
   useEffect(() => {
     if (!statsBrandId || !(brandAds || []).length) return;
@@ -159,6 +180,7 @@ export default function AdvertiseScreen() {
     setSelTier(null); setSelDuration(1); setSelGroups([]); setIsRandom(false);
     setAdMaturity('general'); setShowModal(false);
     setSlurl(''); setMarketplaceUrl(''); setAdCaption(''); setAdImageUrl('');
+    setUseSlurl(false); setUseMarketplace(false); setUseWebsite(false);
   };
 
   const handleLaunch = () => {
@@ -167,7 +189,7 @@ export default function AdvertiseScreen() {
       tier: selTier, groups: selGroups, isRandom, adMaturity, price,
       durationWeeks: selDuration,
       locationId: selLoc?.id || null, locationName: locName || null,
-      slurl: slurl.trim() || null, marketplaceUrl: marketplaceUrl.trim() || null,
+      useSlurl, useMarketplace, useWebsite,
       adCaption: adCaption.trim() || null, adImageUrl: adImageUrl || null,
     });
     reset();
@@ -243,6 +265,68 @@ export default function AdvertiseScreen() {
                   )}
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Groups: {(ad.groups || []).join(', ')}</div>
                   <AdDelivery stats={adStats[ad.id]} />
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button
+                      onClick={() => pauseAdById(ad.id)}
+                      style={{ flex: 1, padding: '8px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.sub, fontSize: 12, fontWeight: 700 }}>
+                      ⏸ Pause
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Spelled out because it can't be undone and nothing
+                        // comes back. Pause is offered here on purpose —
+                        // most people reaching for delete actually want pause.
+                        if (window.confirm(
+                          `⚠️ ATTENTION\n\nDeleting this ad ends it NOW and there is NO REFUND — the ${daysLeft} day${daysLeft === 1 ? '' : 's'} you've paid for are lost.\n\nIf you only want to stop it for a while, cancel and use Pause instead — that keeps your remaining days.\n\nDelete it anyway?`
+                        )) removeAd(ad.id);
+                      }}
+                      style={{ flex: 1, padding: '8px', borderRadius: 10, background: '#ff446611', border: '1px solid #ff446633', color: '#ff6644', fontSize: 12, fontWeight: 700 }}>
+                      🗑 Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {/* Paused — delivery stopped, days banked */}
+        {pausedAds.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, margin: '18px 0 10px' }}>PAUSED</div>
+            {pausedAds.map(ad => {
+              const t = adTiers.find(t => t.id === ad.tier);
+              const daysLeft = Math.max(0, Math.ceil((ad.expiresAt - Date.now()) / 86400000));
+              return (
+                <div key={ad.id} style={{ background: C.card, borderRadius: 14, padding: 14, marginBottom: 10, border: `1px dashed ${C.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: C.muted }}>{t?.icon} {t?.name}</span>
+                    <span style={{ fontSize: 11, color: C.gold, fontWeight: 700 }}>⏸ {daysLeft}d saved</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted }}>📍 {ad.locationName || 'Custom location'}</div>
+                  {ad.adCaption && (
+                    <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5, marginTop: 8 }}>{ad.adCaption}</div>
+                  )}
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>
+                    Nobody's seeing this right now. Your {daysLeft} remaining day{daysLeft === 1 ? '' : 's'} are held until you start it again.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button
+                      onClick={() => resumeAdById(ad.id)}
+                      style={{ flex: 1, padding: '8px', borderRadius: 10, background: `${C.sky}22`, border: `1px solid ${C.sky}44`, color: C.sky, fontSize: 12, fontWeight: 700 }}>
+                      ▶ Start again
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(
+                          `⚠️ ATTENTION\n\nDeleting this ad is permanent and there is NO REFUND — the ${daysLeft} day${daysLeft === 1 ? '' : 's'} you've paid for are lost.\n\nIt costs nothing to leave it paused.\n\nDelete it anyway?`
+                        )) removeAd(ad.id);
+                      }}
+                      style={{ flex: 1, padding: '8px', borderRadius: 10, background: '#ff446611', border: '1px solid #ff446633', color: '#ff6644', fontSize: 12, fontWeight: 700 }}>
+                      🗑 Delete
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -372,18 +456,55 @@ export default function AdvertiseScreen() {
                       placeholder="e.g. The Neon Lounge — Main Store" className="inp" />
                   </div>
 
-                  {/* SLURL */}
-                  <div style={{ marginBottom: 14 }}>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>SLURL (optional)</label>
-                    <input value={slurl} onChange={e => setSlurl(e.target.value)}
-                      placeholder="secondlife://Region/128/128/22" className="inp" />
-                  </div>
-
-                  {/* Marketplace */}
+                  {/* Links — picked from the brand's saved ones, never typed.
+                      A website only appears once it's been approved, so an ad
+                      can't carry a link nobody checked. */}
                   <div style={{ marginBottom: 4 }}>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>MARKETPLACE LINK (optional)</label>
-                    <input value={marketplaceUrl} onChange={e => setMarketplaceUrl(e.target.value)}
-                      placeholder="https://marketplace.secondlife.com/..." className="inp" />
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: .5 }}>
+                      WHERE THE BUTTON GOES (pick up to 2)
+                    </label>
+
+                    {!hasAnyLink ? (
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, background: C.card2, borderRadius: 10, padding: '12px 14px' }}>
+                        You haven't saved any links yet. Add them in <strong style={{ color: C.text }}>Profile → Edit Brand Profile</strong> and
+                        they'll be here for every ad you run.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {[
+                            { key: 'slurl',       label: '📍 Inworld',    on: useSlurl,       set: setUseSlurl,       val: brandLinks.slurl },
+                            { key: 'marketplace', label: '🛒 Marketplace', on: useMarketplace, set: setUseMarketplace, val: brandLinks.marketplaceUrl },
+                            { key: 'website',     label: '🌐 Website',     on: useWebsite,     set: setUseWebsite,     val: brandLinks.websiteUrl },
+                          ].map(c => {
+                            const available = !!c.val;
+                            const atLimit   = selectedLinkCount >= 2 && !c.on;
+                            return (
+                              <button
+                                key={c.key}
+                                disabled={!available || atLimit}
+                                onClick={() => c.set(v => !v)}
+                                style={{
+                                  padding: '9px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                                  background: c.on ? `${C.sky}22` : C.card2,
+                                  border: `1px solid ${c.on ? C.sky + '66' : C.border}`,
+                                  color: c.on ? C.sky : (available && !atLimit ? C.sub : C.muted),
+                                  cursor: available && !atLimit ? 'pointer' : 'default',
+                                  opacity: available ? (atLimit ? 0.45 : 1) : 0.4,
+                                }}>
+                                {c.on ? '✓ ' : ''}{c.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>
+                          {!brandLinks.websiteUrl && brandLinks.websiteStatus === 'pending'
+                            ? 'Your website is still being checked — it\u2019ll appear here once it\u2019s approved.'
+                            : 'One clear destination usually works better than two.'}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -571,8 +692,9 @@ export default function AdvertiseScreen() {
                     ['Ad Plan',  `${tier.icon} ${tier.name}`],
                     ['Duration', `${selDuration} week${selDuration > 1 ? 's' : ''}${durationOpt.discount ? ` (${durationOpt.discount})` : ''}`],
                     ...(locName ? [['Location', locName]] : []),
-                    ...(slurl.trim() ? [['SLURL', slurl.trim()]] : []),
-                    ...(marketplaceUrl.trim() ? [['Marketplace', marketplaceUrl.trim()]] : []),
+                    ...(useSlurl && brandLinks.slurl ? [['Inworld', brandLinks.slurl]] : []),
+                    ...(useMarketplace && brandLinks.marketplaceUrl ? [['Marketplace', brandLinks.marketplaceUrl]] : []),
+                    ...(useWebsite && brandLinks.websiteUrl ? [['Website', brandLinks.websiteUrl]] : []),
                     ['Groups',   selGroups.join(', ')],
                     ['Rotation', isRandom ? 'Random' : 'All groups'],
                     ['Maturity', adMaturity === 'adult' ? '🔴 Adult' : adMaturity === 'moderate' ? '🟡 Moderate' : '🟢 General'],

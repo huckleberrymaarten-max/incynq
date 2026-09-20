@@ -115,8 +115,42 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Pause a running ad — stops delivery, banks the remaining days.
+  // Not a refund: pro-rata refunding would break the duration discount, since
+  // a 4-week buy costs 2x the weekly rate. You get the time back, not the L$.
+  const pauseAdById = async (adId) => {
+    try {
+      const { pauseAd } = await import('../lib/db');
+      await pauseAd(adId);
+      await loadBrandAds();
+      toast('Ad paused — your remaining days are safe');
+    } catch (e) {
+      console.error('pauseAd failed:', e);
+      toast(e.message || 'Could not pause the ad', 'error');
+    }
+  };
+
+  const resumeAdById = async (adId) => {
+    try {
+      const { resumeAd } = await import('../lib/db');
+      const res = await resumeAd(adId);
+      await loadBrandAds();
+      toast(res?.cap_reached
+        ? 'Ad running again — you\u2019ve used all your pause time'
+        : 'Ad running again');
+    } catch (e) {
+      console.error('resumeAd failed:', e);
+      toast(e.message || 'Could not resume the ad', 'error');
+    }
+  };
+
   // Purchase ad — deducts from correct wallet and saves to Supabase
-  const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl }) => {
+  //
+  // NOTE: this destructures an explicit list, so ANY field the screen passes
+  // that isn't named here is silently dropped. That's how durationWeeks was
+  // lost — brands paid for 4 weeks and got 7 days. useSlurl / useMarketplace /
+  // useWebsite must stay in both the signature and the placeAd call below.
+  const purchaseAd = async ({ tier, groups, isRandom, adMaturity, price, durationWeeks, locationId, locationName, slurl, marketplaceUrl, adCaption, adImageUrl, useSlurl, useMarketplace, useWebsite }) => {
     try {
       const { placeAd } = await import('../lib/db');
 
@@ -137,6 +171,9 @@ export function AppProvider({ children }) {
         marketplaceUrl: marketplaceUrl || null,
         adCaption: adCaption || null,
         adImageUrl: adImageUrl || null,
+        useSlurl:       !!useSlurl,
+        useMarketplace: !!useMarketplace,
+        useWebsite:     !!useWebsite,
       });
 
       // Update local wallet state
@@ -191,7 +228,7 @@ export function AppProvider({ children }) {
       linkedProfiles, setLinkedProfiles,
       posts, setPosts,
       ads, setAds,
-      brandAds, loadBrandAds, removeAd,
+      brandAds, loadBrandAds, removeAd, pauseAdById, resumeAdById,
       liked, setLiked, toggleLike,
       saved, setSaved, toggleSave,
       following, setFollowing,
