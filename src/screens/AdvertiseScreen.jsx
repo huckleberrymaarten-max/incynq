@@ -1,11 +1,50 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import C from '../theme';
 import { useApp } from '../context/AppContext';
+import { getAdStats } from '../lib/db';
 import { calcAdPrice, groupMultiplier, getLaunchPromo, LOCS, INTEREST_GROUPS } from '../data';
 import { useContent } from '../context/ContentContext';
 import ImageCropModal from '../components/ImageCropModal';
 
 const STEPS = ['Creative', 'Ad Plan', 'Audience', 'Confirm'];
+
+// ── Delivery figures under an ad card ────────────────────────
+// Impressions only start from 20 Sep 2026, when tracking went in. An ad that
+// ran before that shows nothing rather than a zero — a confident zero on an ad
+// that genuinely ran would be worse than an honest gap.
+function AdDelivery({ stats, ended }) {
+  if (!stats) return null;
+  const impressions = Number(stats.impressions || 0);
+  const unique      = Number(stats.unique_viewers || 0);
+  const recent      = Number(stats.impressions_7d || 0);
+
+  if (impressions === 0) {
+    return (
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.muted }}>
+        {ended ? 'No delivery figures for this run.' : 'No views recorded yet.'}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: ended ? C.muted : C.sky }}>{impressions.toLocaleString()}</div>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 0.5 }}>TIMES SEEN</div>
+      </div>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: ended ? C.muted : C.text }}>{unique.toLocaleString()}</div>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 0.5 }}>PEOPLE</div>
+      </div>
+      {!ended && (
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{recent.toLocaleString()}</div>
+          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 0.5 }}>LAST 7 DAYS</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Duration options — 3 and 4 week discounts reward longer commitments
 const DURATION_OPTIONS = [
@@ -84,6 +123,26 @@ export default function AdvertiseScreen() {
     : currentUser.maturity === 'adult';
   const activeAds = (brandAds || []).filter(a => a.status === 'active' && a.expiresAt > Date.now());
   const pastAds   = (brandAds || []).filter(a => !(a.status === 'active' && a.expiresAt > Date.now()));
+
+  // Delivery figures, keyed by ad id. Loaded separately from the ads
+  // themselves so a failed stats call never stops the ads rendering — and
+  // an ad with no figures shows nothing rather than a confident zero.
+  const [adStats, setAdStats] = useState({});
+  const statsBrandId = currentUser.managingBrandId || currentUser.id;
+
+  useEffect(() => {
+    if (!statsBrandId || !(brandAds || []).length) return;
+    let alive = true;
+    getAdStats(statsBrandId)
+      .then(rows => {
+        if (!alive) return;
+        const byId = {};
+        (rows || []).forEach(r => { byId[r.ad_id] = r; });
+        setAdStats(byId);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [statsBrandId, (brandAds || []).length]);
 
   const canProceed = () => {
     if (step === 0) return true;
@@ -183,6 +242,7 @@ export default function AdvertiseScreen() {
                     </div>
                   )}
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Groups: {(ad.groups || []).join(', ')}</div>
+                  <AdDelivery stats={adStats[ad.id]} />
                 </div>
               );
             })}
@@ -222,6 +282,7 @@ export default function AdvertiseScreen() {
                       )}
                     </div>
                   )}
+                  <AdDelivery stats={adStats[ad.id]} ended />
                 </div>
               );
             })}
