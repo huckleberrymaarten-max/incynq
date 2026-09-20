@@ -680,7 +680,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                     <div style={{ fontSize: 11, fontWeight: 800, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
                       {asIdentity(u).name}
                     </div>
-                    {u.cynqified && <div style={{ fontSize: 9, color: C.sky, fontWeight: 700, marginBottom: 2 }}>✅ Cynqified</div>}
+                    {(u.cynqified_brand || u.cynqified_resident) && <div style={{ fontSize: 9, color: C.sky, fontWeight: 700, marginBottom: 2 }}>✅ Cynqified</div>}
                     {u.mutual_count > 0 && (
                       <div style={{ fontSize: 10, color: C.sky, marginBottom: 2, fontWeight: 600 }}>👥 {u.mutual_count} mutual{u.mutual_count !== 1 ? 's' : ''}</div>
                     )}
@@ -1080,7 +1080,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
-                        <CynqTick on={u.cynqified} />
+                        <CynqTick on={u.cynqified_brand || u.cynqified_resident} />
                       </div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); toggleFollow(u.id); }}
@@ -1125,7 +1125,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{name}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>@{handle}</div>
-                        <CynqTick on={u.cynqified} />
+                        <CynqTick on={u.cynqified_brand || u.cynqified_resident} />
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>

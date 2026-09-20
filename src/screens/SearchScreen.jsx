@@ -272,7 +272,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
                     name: u.show_display_name !== false && u.display_name ? u.display_name : u.username,
                     handle: u.username,
                     avatar: u.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(u.username)}&backgroundColor=b6e3f4`,
-                    cynqified: u.cynqified,
+                    cynqified: u.cynqified_brand,
                     bio: u.bio,
                     hideFollow: isSelf,
                   });
@@ -286,7 +286,7 @@ export default function SearchScreen({ onOpenUserProfile }) {
                     name: u.brand_name || u.display_name || u.username,
                     handle: u.brand_handle || u.username,
                     avatar: u.brand_logo_url || null,
-                    cynqified: u.cynqified,
+                    cynqified: u.cynqified_resident,
                     bio: null,
                     hideFollow: isSelf || isManaged || isOwned,
                   });

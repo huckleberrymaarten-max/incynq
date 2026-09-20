@@ -105,8 +105,8 @@ export default function PerformerProfileView() {
     getPerformerEarnings(performerId).then(setEarnings).catch(() => {});
     getPayoutHistory(performerId).then(setPayouts).catch(() => {});
     // Founding number + cynqified status (badges, like brands)
-    supabase.from('profiles').select('founding_performer_number, cynqified').eq('id', performerId).single()
-      .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified); } })
+    supabase.from('profiles').select('founding_performer_number, cynqified_brand').eq('id', performerId).single()
+      .then(({ data }) => { if (data) { setFounding(data.founding_performer_number || null); setCynqified(!!data.cynqified_brand); } })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [performerId]);

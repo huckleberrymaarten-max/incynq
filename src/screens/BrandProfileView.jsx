@@ -106,7 +106,7 @@ export default function BrandProfileView({ onOpenUserProfile }) {
             )}
 
             {/* Cynqified Badge */}
-            {currentUser?.cynqified && (
+            {currentUser?.cynqified_brand && (
               <div style={{
                 marginTop: 6,
                 display: 'inline-flex',
