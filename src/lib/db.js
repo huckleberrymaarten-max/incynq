@@ -1372,6 +1372,55 @@ export const trackImpressionsBatch = async (postIds, viewerId, source = 'feed') 
   }
 };
 
+// ── Track ad impressions (when an ad actually renders) ───
+// Ads were the one thing never tracked — so a brand could pay, run, and have
+// no proof of delivery. Goes through an RPC with a neutral name: a call to
+// /rest/v1/ads is blocked by every major ad blocker, and an impression that
+// silently fails to record is worse than not counting at all.
+//
+// viewer_id is taken from auth.uid() server-side, never sent from here.
+export const trackAdImpressions = async (adIds, surface = 'feed') => {
+  if (!adIds || adIds.length === 0) return;
+
+  try {
+    const sessionId = getAnalyticsSessionId();
+    // Same dedupe shape as posts: one scroll-past is one impression. The
+    // server has a unique index too, so a duplicate can't land either way.
+    const fresh = adIds.filter(adId => {
+      if (!adId) return false;
+      const dedupeKey = `av_${adId}_${surface}_${sessionId}`;
+      if (sessionStorage.getItem(dedupeKey)) return false;
+      sessionStorage.setItem(dedupeKey, '1');
+      return true;
+    });
+
+    if (fresh.length === 0) return;
+    await supabase.rpc('record_promo_views', {
+      p_ad_ids:     fresh,
+      p_surface:    surface,
+      p_session_id: sessionId,
+    });
+  } catch (err) {
+    // Silent fail — analytics must never break the app
+    console.debug('Analytics: trackAdImpressions failed', err);
+  }
+};
+
+// ── Delivery figures for a brand's own ads ───────────────
+// Impressions, unique viewers and a 7-day count per ad, for the Advertise
+// screen. Ownership is checked inside the function.
+export const getAdStats = async (brandId) => {
+  if (!brandId) return [];
+  try {
+    const { data, error } = await supabase.rpc('promo_stats', { p_brand_id: brandId });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.debug('Analytics: getAdStats failed', err);
+    return [];
+  }
+};
+
 // ══════════════════════════════════════════════════════════════
 // ANALYTICS QUERIES (for Phase 2 dashboard — ready but unused yet)
 // ══════════════════════════════════════════════════════════════

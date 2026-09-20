@@ -11,7 +11,7 @@ import { matchAdsForUser, shuffleAds } from '../lib/adMatch';
 import Av from '../components/Av';
 import HelpScreen from './HelpScreen';
 import NotificationsScreen from './NotificationsScreen';
-import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView, getActiveAds, getBlockedByMe } from '../lib/db';
+import { getPosts, getLikes, likePost, unlikePost, getComments, addComment, deleteComment, updatePostLikeCount, createNotification, trackImpressionsBatch, trackPostView, getActiveAds, getBlockedByMe, trackAdImpressions } from '../lib/db';
 import ComposeScreen from '../components/ComposeScreen';
 import logo from '../assets/Q_Logo_.png';
 
@@ -594,16 +594,49 @@ export default function FeedScreen({ onGoToProfile, onOpenUserProfile, onOpenCom
     const premiumAds  = shuffleAds(matchedAds.filter(a => a.tier === 'premium'));
     const featuredAds = shuffleAds(matchedAds.filter(a => a.tier === 'featured'));
     const allInjectable = [...premiumAds, ...featuredAds];
-    let qi = 0;
     const feedPosts = posts.filter(p => !p.isWelcome && !blockedIds.has(p.userId) && !blockedIds.has(p._profile?.id));
+
+    // Spread the ads across whatever feed actually exists, rather than the old
+    // fixed 2, 5, 8. On a quiet day that cadence meant the feed ran out before
+    // the later ads were reached, so they never rendered at all — a brand
+    // paying for placement got nothing on exactly the days it mattered.
+    //
+    // Density is still capped at one ad per two posts, so a thin feed doesn't
+    // turn into a wall of sponsored cards. Anything that still doesn't fit is
+    // left out rather than dumped at the end, and the shuffle above means a
+    // different set gets the slots next load. The real answer is
+    // impression-based delivery; this makes the rotation fair in the meantime.
+    const adSlots = new Map();
+    if (allInjectable.length > 0 && feedPosts.length > 1) {
+      const step = Math.max(2, Math.floor(feedPosts.length / (allInjectable.length + 1)));
+      let slot = 1;
+      for (const ad of allInjectable) {
+        if (slot > feedPosts.length - 1) break;   // no room left in this feed
+        adSlots.set(slot, ad);
+        slot += step;
+      }
+    }
+
     feedPosts.forEach((p, i) => {
       result.push({ type: 'post', data: p });
-      if ((i === 1 || (i > 1 && (i + 1) % 3 === 0)) && qi < allInjectable.length) {
-        result.push({ type: 'sponsored', data: allInjectable[qi++] });
+      if (adSlots.has(i)) {
+        result.push({ type: 'sponsored', data: adSlots.get(i) });
       }
     });
     return result;
   })();
+
+  // Record which ads actually rendered. Joined into a string so the effect
+  // fires when the set changes rather than on every re-render.
+  const renderedAdIds = feed
+    .filter(x => x.type === 'sponsored' && x.data?.id)
+    .map(x => x.data.id)
+    .join(',');
+
+  useEffect(() => {
+    if (!renderedAdIds) return;
+    trackAdImpressions(renderedAdIds.split(','), 'feed');
+  }, [renderedAdIds]);
 
   return (
     <div style={{ position: 'relative' }}>
