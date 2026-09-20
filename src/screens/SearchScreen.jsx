@@ -1,8 +1,8 @@
 import C from '../theme';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { visibleName } from '../data';
 import { useContent } from '../context/ContentContext';
-import { searchProfiles, followUser, unfollowUser, createNotification, getActiveAds } from '../lib/db';
+import { searchProfiles, followUser, unfollowUser, createNotification, getActiveAds, trackAdImpressions } from '../lib/db';
 import { useApp } from '../context/AppContext';
 import { matchAdsForUser, shuffleAds } from '../lib/adMatch';
 
@@ -100,9 +100,18 @@ export default function SearchScreen({ onOpenUserProfile }) {
     groups: myGroups, subs: mySubs,
     maturity: currentUser?.maturity, adultVerified: currentUser?.adultVerified,
   };
-  const matchedAds  = matchAdsForUser(liveAds, adUser);
-  const premiumAd   = shuffleAds(matchedAds.filter(a => a.tier === 'premium'))[0] || null;
-  const basicAds    = shuffleAds(matchedAds.filter(a => a.tier === 'basic')).slice(0, 3);
+
+  // Memoised: shuffleAds used to run on EVERY render, so the sponsored rows
+  // reshuffled on each keystroke while you typed. Now they're picked once per
+  // ad load and stay put while you search.
+  const { premiumAd, basicAds } = useMemo(() => {
+    const matched = matchAdsForUser(liveAds, adUser);
+    return {
+      premiumAd: shuffleAds(matched.filter(a => a.tier === 'premium'))[0] || null,
+      basicAds:  shuffleAds(matched.filter(a => a.tier === 'basic')).slice(0, 3),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveAds, myGroups, mySubs, currentUser?.maturity, currentUser?.adultVerified]);
 
   // Search Supabase profiles
   useEffect(() => {
@@ -121,6 +130,20 @@ export default function SearchScreen({ onOpenUserProfile }) {
   const groups  = q ? INTEREST_GROUPS.filter(g => g.label.toLowerCase().includes(q)) : [];
   const tags    = q ? INTEREST_GROUPS.flatMap(g => (g.tags || []).filter(t => t.includes(q))).slice(0, 10) : [];
   const hasResults = people.length || groups.length || tags.length;
+
+  // Record only what genuinely renders. The Premium banner shows in every
+  // state; Basic rows show on the empty state and above real results, but not
+  // while searching or on "no results" — so they aren't counted there.
+  const basicShowing = basicAds.length > 0 && (!q || (q && hasResults && !searching));
+  const shownAdIds = [
+    ...(premiumAd ? [premiumAd.id] : []),
+    ...(basicShowing ? basicAds.map(a => a.id) : []),
+  ].filter(Boolean).join(',');
+
+  useEffect(() => {
+    if (!shownAdIds) return;
+    trackAdImpressions(shownAdIds.split(','), 'search');
+  }, [shownAdIds]);
 
   const handleFollow = async (u) => {
     const isFollowing = following.has(u.id);
