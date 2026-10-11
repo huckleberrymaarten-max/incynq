@@ -2171,9 +2171,20 @@ export const getBrandWallet = async (userId) => {
 };
 
 // ── Upload brand logo to Supabase storage ─────────────────────
-export const uploadBrandLogo = async (userId, file) => {
-  const ext  = file.name.split('.').pop();
-  const path = `brand-logos/${userId}/logo.${ext}`;
+// Every upload gets its own filename. This used to be a fixed
+// brand-logos/<ownerId>/logo.<ext> with upsert, which meant one file per
+// RESIDENT rather than one per brand: activating a second brand — or a
+// performer — overwrote the first one's image in place. Same URL, different
+// picture, and the original gone from storage with no way back.
+//
+// The folder stays keyed on the owner so any path-based storage policy still
+// applies; only the filename changed. brandId is optional and cosmetic: it
+// makes a file say which identity it belongs to. A brand being created doesn't
+// have an id yet, and doesn't need one — the stamp is already unique.
+export const uploadBrandLogo = async (userId, file, brandId = null) => {
+  const ext   = (file.name.split('.').pop() || 'png').toLowerCase();
+  const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const path  = `brand-logos/${userId}/${brandId || 'brand'}-${stamp}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from('avatars')

@@ -30,12 +30,25 @@ function AccountSwitcher({ currentUser, onSwitch }) {
   const [open, setOpen] = useState(false);
   const ref             = useRef(null);
   const isBrand         = currentUser.accountType === 'brand' || currentUser.accountType === 'founding_brand';
-  const managedBrands   = currentUser.managedBrands || [];
   const inBrandMode     = currentUser.brandMode === true;
+  // Extra brands this resident owns. A second brand isn't a field on this
+  // profile — it's a whole profiles row of its own with brand_owner_id pointing
+  // back here, which is why it has to come out of ownedBrands rather than off
+  // currentUser like the primary brand does.
+  const subBrands       = (currentUser.ownedBrands || []).filter(b => b.account_type !== 'performer' && b.brand_activated_at);
+  const ownedIds        = new Set(subBrands.map(b => b.id));
+  // Switching into a sub-brand parks it in managedBrands so the rest of the app
+  // can find it by id — so drop it from the managed list here, or it lists twice
+  // and the second one says "Manager" for a brand you own outright.
+  const managedBrands   = (currentUser.managedBrands || []).filter(b => !ownedIds.has(b.id));
   // Activated performer/DJ identities this resident owns (post-as-DJ)
   const performers      = (currentUser.ownedBrands || []).filter(b => b.account_type === 'performer' && b.brand_activated_at);
   const inPerformerMode = currentUser.performerMode === true && !!currentUser.activePerformerId;
   const activePerformer = inPerformerMode ? performers.find(p => p.id === currentUser.activePerformerId) : null;
+  // Whichever brand is currently being acted as — managed or owned.
+  const activeBrand     = currentUser.managingBrandId
+    ? [...(currentUser.managedBrands || []), ...subBrands].find(b => b.id === currentUser.managingBrandId)
+    : null;
 
   // Close on outside click
   useEffect(() => {
@@ -44,8 +57,8 @@ function AccountSwitcher({ currentUser, onSwitch }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // If no brand, no managed brands and no performers, just show name — no dropdown
-  if (!isBrand && managedBrands.length === 0 && performers.length === 0) {
+  // If no brand, no managed brands, no owned brands and no performers, just show name — no dropdown
+  if (!isBrand && managedBrands.length === 0 && subBrands.length === 0 && performers.length === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Av user={currentUser} size={28} />
@@ -80,9 +93,6 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               ? <img src={activePerformer.brand_logo_url} alt="performer" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
               : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🎧</div>;
           }
-          const activeBrand = currentUser.managingBrandId
-            ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
-            : null;
           const logo = activeBrand?.brand_logo_url || (inBrandMode ? currentUser.brandLogoUrl : null);
           return logo
             ? <img src={logo} alt="brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} />
@@ -91,9 +101,6 @@ function AccountSwitcher({ currentUser, onSwitch }) {
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {(() => {
             if (activePerformer) return activePerformer.brand_name || activePerformer.username;
-            const activeBrand = currentUser.managingBrandId
-              ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
-              : null;
             return activeBrand?.brand_name || (inBrandMode ? currentUser.brandName : null) || currentUser.displayName || currentUser.username;
           })()}
         </span>
@@ -171,6 +178,36 @@ function AccountSwitcher({ currentUser, onSwitch }) {
               {(inBrandMode && !currentUser.managingBrandId) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
             </button>
           )}
+
+          {/* Other brands this resident owns (second brand onwards) */}
+          {subBrands.map(brand => (
+            <button
+              key={brand.id}
+              onClick={() => { onSwitch('owned', brand.id); setOpen(false); }}
+              style={{
+                width:      '100%',
+                padding:    '10px 14px',
+                display:    'flex',
+                alignItems: 'center',
+                gap:        10,
+                background: (inBrandMode && currentUser.managingBrandId === brand.id) ? 'rgba(0,180,200,0.08)' : 'transparent',
+                border:     'none',
+                cursor:     'pointer',
+                textAlign:  'left',
+                borderTop:  '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {brand.brand_logo_url
+                ? <img src={brand.brand_logo_url} alt="brand" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                : <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,180,200,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏷️</div>
+              }
+              <div>
+                <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{brand.brand_name || brand.username}</div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Your brand</div>
+              </div>
+              {(inBrandMode && currentUser.managingBrandId === brand.id) && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: '#00B4C8' }} />}
+            </button>
+          ))}
 
           {/* Managed brands */}
           {managedBrands.map(brand => (
@@ -421,9 +458,32 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
     } else if (mode === 'performer' && managingBrandId) {
       // Switch into a DJ / performer identity (post-as-DJ). managingBrandId carries the performer id.
       setCurrentUser(u => ({ ...u, brandMode: false, managingBrandId: null, performerMode: true, activePerformerId: managingBrandId }));
-    } else if (mode === 'managed' && managingBrandId) {
-      // Switch to managing mode immediately, then refresh wallet in background
-      setCurrentUser(u => ({ ...u, brandMode: true, managingBrandId, performerMode: false, activePerformerId: null }));
+    } else if ((mode === 'managed' || mode === 'owned') && managingBrandId) {
+      // 'managed' is a brand belonging to someone else that this resident has
+      // been given the keys to. 'owned' is their own second brand — a separate
+      // profiles row, so it can't ride on currentUser's own brand fields the way
+      // the primary one does.
+      //
+      // Both act the same once you're inside them, so an owned brand is dropped
+      // into managedBrands on the way in. That's what lets Advertise, Compose
+      // and everything else keep finding the acting brand by id, instead of
+      // every screen having to learn that a third kind of brand exists. It's
+      // session state only — nothing is written to the database.
+      const owned = mode === 'owned'
+        ? (currentUser.ownedBrands || []).find(b => b.id === managingBrandId)
+        : null;
+
+      setCurrentUser(u => ({
+        ...u,
+        brandMode:         true,
+        managingBrandId,
+        performerMode:     false,
+        activePerformerId: null,
+        managedBrands: (!owned || (u.managedBrands || []).some(b => b.id === managingBrandId))
+          ? (u.managedBrands || [])
+          : [...(u.managedBrands || []), owned],
+      }));
+
       try {
         const { supabase } = await import('../lib/supabase');
         const { data } = await supabase.from('profiles').select('brand_wallet').eq('id', managingBrandId).single();
@@ -436,7 +496,7 @@ export default function MainApp({ pendingDeepLink, onDeepLinkConsumed }) {
           }));
         }
       } catch (e) {
-        console.warn('Could not refresh managed brand wallet:', e.message);
+        console.warn('Could not refresh brand wallet:', e.message);
       }
     } else {
       // Own brand mode — switch immediately, refresh own brand wallet in background

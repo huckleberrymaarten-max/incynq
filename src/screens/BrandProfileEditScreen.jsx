@@ -130,7 +130,11 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
       let logoUrl = currentUser.brandLogoUrl;
 
       if (logoFile) {
-        logoUrl = await uploadBrandLogo(currentUser.id, logoFile);
+        // Third argument names the brand the file belongs to. Logos used to
+        // share one filename per resident, so a second brand's upload replaced
+        // the first one's image in place — this screen is where you'd put the
+        // original back, and it needs to land on a path of its own.
+        logoUrl = await uploadBrandLogo(currentUser.id, logoFile, currentUser.id);
       }
 
       const updates = {
