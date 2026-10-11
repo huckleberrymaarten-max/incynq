@@ -20,7 +20,7 @@ import BrandProfileView from './BrandProfileView';
 import PerformerProfileView from './PerformerProfileView';
 import { useContent } from '../context/ContentContext';
 import { supabase } from '../lib/supabase';
-import { updateProfile, followUser, unfollowUser, blockUser, unblockUser, getBlockedUsers, getBlockedByMe, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion } from '../lib/db';
+import { updateProfile, followUser, unfollowUser, blockUser, unblockUser, getBlockedUsers, getBlockedByMe, createNotification, getProfileStats, getFollowingProfiles, getFollowersProfiles, getSuggestedUsersByGroup, formatMemberSince, getFoundingBrandBadge, getReferralStats, deactivateAccount, requestAccountDeletion, getUserBrandCount } from '../lib/db';
 import { fetchSLProfile } from '../lib/slProfile';
 import logo from '../assets/Q_Logo_.png';
 
@@ -109,6 +109,12 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const [showDelete, setShowDelete] = useState(false);
   const [showRemoveBrand, setShowRemoveBrand] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
+  // A second brand is a SEPARATE profiles row (brand_owner_id → this account),
+  // not a second set of fields on this one. getUserBrandCount counts the
+  // primary plus any sub-brands and returns the account's max_brands, which is
+  // admin-granted on request — so the screen asks rather than assuming one.
+  const [brandSlots, setBrandSlots] = useState(null);
+  const [addingAnotherBrand, setAddingAnotherBrand] = useState(false);
   const [showAddPerformer, setShowAddPerformer] = useState(false);
   const [showBrandTeam, setShowBrandTeam] = useState(false);
   const [showBrandEdit, setShowBrandEdit] = useState(false);
@@ -148,6 +154,19 @@ export default function ProfileScreen({ onOpenUserProfile }) {
   const isOfficialAccount = currentUser?.accountType === 'official';
   const canAccessDashboard = (isBrand && currentUser.brandMode === true) || isOfficialAccount;
 
+
+  // How many brand-type identities this account may own, and how many it has.
+  // Reloaded after an activation so the button disappears once the slot is used.
+  const loadBrandSlots = async () => {
+    if (!currentUser?.id) return;
+    try {
+      setBrandSlots(await getUserBrandCount(currentUser.id));
+    } catch (e) {
+      console.warn('Brand slot check failed:', e.message);
+    }
+  };
+
+  useEffect(() => { loadBrandSlots(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [currentUser?.id]);
 
   // Load stats on mount
   useEffect(() => {
@@ -582,10 +601,17 @@ export default function ProfileScreen({ onOpenUserProfile }) {
                 </div>
                 <div style={{ fontSize: 11, color: C.muted }}>{(currentUser.brandWallet || 0).toLocaleString()} L$ wallet →</div>
               </button>
-              <a href="mailto:support@incynq.net?subject=Additional brand account request"
-                style={{ fontSize: 10, color: C.muted, textAlign: 'center', textDecoration: 'none', paddingTop: 2 }}>
-                Need another brand? Contact us
-              </a>
+              {brandSlots && brandSlots.total < brandSlots.max ? (
+                <button onClick={() => { setAddingAnotherBrand(true); setShowAddBrand(true); }}
+                  style={{ fontSize: 10, color: '#00B4C8', textAlign: 'center', paddingTop: 2, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                  + Add another brand
+                </button>
+              ) : (
+                <a href="https://incynq.net/contact.html" target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 10, color: C.muted, textAlign: 'center', textDecoration: 'none', paddingTop: 2 }}>
+                  Need another brand? Contact us
+                </a>
+              )}
             </div>
           ) : currentUser.brandPending ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(244,185,66,0.07)', borderRadius: 14, border: '1px solid rgba(244,185,66,0.2)', minHeight: 72 }}>
@@ -1317,8 +1343,18 @@ export default function ProfileScreen({ onOpenUserProfile }) {
 
       {showAddBrand && (
         <AddBrandScreen
-          onClose={() => setShowAddBrand(false)}
+          onClose={() => { setShowAddBrand(false); setAddingAnotherBrand(false); }}
           onActivated={(result) => {
+            // A SECOND brand is its own profiles row, so none of this account's
+            // own brand fields change — rewriting them here would point the
+            // resident at the new brand's wallet and hide the first one.
+            if (addingAnotherBrand) {
+              setAddingAnotherBrand(false);
+              setShowAddBrand(false);
+              loadBrandSlots();
+              toast('🎉 Your new brand is live!');
+              return;
+            }
             setCurrentUser(u => ({
               ...u,
               accountType:      'brand',
@@ -1328,6 +1364,7 @@ export default function ProfileScreen({ onOpenUserProfile }) {
               brandMode:        true,
             }));
             setShowAddBrand(false);
+            loadBrandSlots();
             toast('🎉 Brand account activated! Welcome to brand mode.');
           }}
         />
