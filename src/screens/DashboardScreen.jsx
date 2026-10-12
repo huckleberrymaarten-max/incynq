@@ -30,21 +30,37 @@ export default function DashboardScreen({ onClose }) {
   const [upgrading, setUpgrading] = useState(false);
   const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
 
-  // Brand accounts AND official account can access this screen
-  const isBrand = currentUser?.accountType === 'brand';
+  // Whichever brand is being acted as. Every call below used currentUser.id,
+  // so opening this while acting as a second brand showed the PRIMARY brand's
+  // figures and the primary brand's subscription tier — the second brand's own
+  // numbers were unreachable.
+  const brandId = currentUser?.managingBrandId || currentUser?.id;
+
+  // The acting brand's wallet, for the upgrade charge. Same reason: the
+  // resident's brandWallet is the wrong purse when acting as another brand.
+  const actingBrand = currentUser?.managingBrandId
+    ? [...(currentUser.managedBrands || []), ...(currentUser.ownedBrands || [])]
+        .find(b => b.id === currentUser.managingBrandId)
+    : null;
+  const brandWallet = actingBrand ? (actingBrand.brand_wallet || 0) : (currentUser?.brandWallet || 0);
+
+  // Brand accounts AND official account can access this screen. Acting as a
+  // brand counts too — a resident whose only brand is a second one has
+  // accountType 'resident' on their own row.
+  const isBrand = currentUser?.accountType === 'brand' || currentUser?.accountType === 'founding_brand';
   const isOfficialAccount = currentUser?.accountType === 'official';
-  const canAccess = isBrand || isOfficialAccount;
+  const canAccess = isBrand || isOfficialAccount || !!currentUser?.managingBrandId;
 
   const loadAll = async () => {
-    if (!currentUser?.id || !canAccess) return;
+    if (!brandId || !canAccess) return;
     setLoading(true);
     try {
       const [tierData, basicStats, trendData, topData, subData] = await Promise.all([
-        getDashboardTier(currentUser.id),
-        getBasicBrandStats(currentUser.id),
-        getSimpleViewTrend(currentUser.id),
-        getTopPosts(currentUser.id, 3),
-        getDashboardSubscription(currentUser.id),
+        getDashboardTier(brandId),
+        getBasicBrandStats(brandId),
+        getSimpleViewTrend(brandId),
+        getTopPosts(brandId, 3),
+        getDashboardSubscription(brandId),
       ]);
       setTier(tierData);
       setStats(basicStats);
@@ -54,8 +70,8 @@ export default function DashboardScreen({ onClose }) {
 
       if (tierData?.tier === 'upgraded') {
         const [ext, peak] = await Promise.all([
-          getExtendedBrandStats(currentUser.id, 90),
-          getPeakViewingHours(currentUser.id, 30),
+          getExtendedBrandStats(brandId, 90),
+          getPeakViewingHours(brandId, 30),
         ]);
         setUpgraded(ext);
         setPeakData(peak);
@@ -67,12 +83,12 @@ export default function DashboardScreen({ onClose }) {
     }
   };
 
-  useEffect(() => { loadAll(); }, [currentUser?.id]);
+  useEffect(() => { loadAll(); }, [brandId]);
 
   const handleUpgrade = async () => {
     setUpgrading(true);
     try {
-      const res = await upgradeDashboard(currentUser.id, billingCycle);
+      const res = await upgradeDashboard(brandId, billingCycle);
       if (res.success) {
         toast('✅ Dashboard upgraded! Enjoy deeper insights.', 'sky');
         setShowUpgradeModal(false);
@@ -374,7 +390,7 @@ export default function DashboardScreen({ onClose }) {
                 <div>
                   <div style={{ fontSize: 11, color: C.muted }}>Brand wallet</div>
                   <div style={{ fontSize: 18, fontWeight: 900, color: C.text }}>
-                    {(currentUser.brandWallet || 0).toLocaleString()} L$
+                    {brandWallet.toLocaleString()} L$
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -382,9 +398,9 @@ export default function DashboardScreen({ onClose }) {
                   <div style={{ fontSize: 18, fontWeight: 900, color: C.gold }}>{chargeAmount} L$</div>
                 </div>
               </div>
-              {(currentUser.brandWallet || 0) < chargeAmount && (
+              {brandWallet < chargeAmount && (
                 <div style={{ marginTop: 10, padding: 10, background: '#ff446611', border: '1px solid #ff446633', borderRadius: 8, fontSize: 11, color: '#ff4466' }}>
-                  ⚠️ Not enough L$ — top up {chargeAmount - (currentUser.brandWallet || 0)} more to continue
+                  ⚠️ Not enough L$ — top up {chargeAmount - brandWallet} more to continue
                 </div>
               )}
             </div>
@@ -394,11 +410,11 @@ export default function DashboardScreen({ onClose }) {
                 style={{ flex: 1, padding: 12, borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13 }}>
                 Cancel
               </button>
-              <button onClick={handleUpgrade} disabled={upgrading || (currentUser.brandWallet || 0) < chargeAmount}
+              <button onClick={handleUpgrade} disabled={upgrading || brandWallet < chargeAmount}
                 style={{
                   flex: 1, padding: 12, borderRadius: 12,
-                  background: (currentUser.brandWallet || 0) < chargeAmount ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
-                  color: (currentUser.brandWallet || 0) < chargeAmount ? C.muted : '#060d14',
+                  background: brandWallet < chargeAmount ? C.card2 : `linear-gradient(135deg, ${C.gold}, ${C.peach})`,
+                  color: brandWallet < chargeAmount ? C.muted : '#060d14',
                   fontWeight: 800, fontSize: 13, border: 'none',
                   opacity: upgrading ? 0.6 : 1,
                 }}>
