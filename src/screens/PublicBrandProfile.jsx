@@ -15,14 +15,36 @@ export default function PublicBrandProfile({ username }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase
+        // The shareable link is incynq.app/brand/<brand_handle>, so the handle
+        // is what has to be looked up FIRST. This only ever matched `username`,
+        // which happens to work for a resident's own brand — their row is
+        // named after them — and never for a second brand, whose username is a
+        // generated string like nexysrent_mv4gtdvk. The miss then bounced the
+        // visitor to the resident profile, where the brand rendered as a person.
+        //
+        // account_type also has to allow founding_brand, or the earliest and
+        // most prominent brands are the ones that don't resolve.
+        const lower = String(username || '').toLowerCase();
+        const COLUMNS = 'username, display_name, brand_name, brand_handle, brand_description, brand_logo_url, brand_activated_at, founding_brand_number, avatar_url, bio';
+        const TYPES   = ['brand', 'founding_brand'];
+
+        let { data } = await supabase
           .from('profiles')
-          .select('username, display_name, brand_name, brand_description, brand_logo_url, brand_activated_at, founding_brand_number, avatar_url, bio')
-          .eq('username', username)
-          .eq('account_type', 'brand')
+          .select(COLUMNS)
+          .eq('brand_handle', lower)
+          .in('account_type', TYPES)
           .maybeSingle();
 
-        if (error || !data) {
+        if (!data) {
+          ({ data } = await supabase
+            .from('profiles')
+            .select(COLUMNS)
+            .eq('username', lower)
+            .in('account_type', TYPES)
+            .maybeSingle());
+        }
+
+        if (!data) {
           // No brand found — redirect to resident profile
           window.location.replace('https://incynq.app/profile/' + username);
           return;
@@ -84,7 +106,9 @@ export default function PublicBrandProfile({ username }) {
           </div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 900 }}>{brandName}</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>@{profile.username}</div>
+            {/* The handle, not the row name — nobody should ever be shown
+                nexysrent_mv4gtdvk on a page the brand hands out. */}
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>@{profile.brand_handle || profile.username}</div>
             {isFounder && (
               <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: `${GOLD}18`, border: `1px solid ${GOLD}44`, borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: GOLD }}>
                 ⭐ Founding Brand #{profile.founding_brand_number}
