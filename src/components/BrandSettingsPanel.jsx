@@ -5,11 +5,30 @@ import { RemoveBrandModal } from './AccountLifecycleModals';
 import BrandTeamScreen from '../screens/BrandTeamScreen';
 import BrandProfileEditScreen from '../screens/BrandProfileEditScreen';
 
-export default function BrandSettingsPanel({ onClose }) {
+export default function BrandSettingsPanel({ onClose, brandId }) {
   const { currentUser, setCurrentUser, setLoggedIn, toast } = useApp();
   const [showBrandEdit,   setShowBrandEdit]   = useState(false);
   const [showBrandTeam,   setShowBrandTeam]   = useState(false);
   const [showRemoveBrand, setShowRemoveBrand] = useState(false);
+
+  // Which brand this panel is for. Everything here used to assume the
+  // resident's own brand, which is fine until they own a second one — then
+  // "Remove Brand Account" would have scheduled the WRONG brand for deletion.
+  const targetId   = brandId || currentUser.id;
+  const isSubBrand = targetId !== currentUser.id;
+  const subBrand   = isSubBrand
+    ? (currentUser.ownedBrands || []).find(b => b.id === targetId)
+    : null;
+
+  const panelBrandName = isSubBrand
+    ? (subBrand?.brand_name || subBrand?.username || 'this brand')
+    : currentUser.brandName;
+  const panelWallet = isSubBrand
+    ? (subBrand?.brand_wallet || 0)
+    : (currentUser.brandWallet || 0);
+  const removalRequestedAt = isSubBrand
+    ? (subBrand?.brand_removal_requested_at || null)
+    : currentUser.brandRemovalRequestedAt;
 
   const handleCancelRemoval = async () => {
     try {
@@ -38,16 +57,16 @@ export default function BrandSettingsPanel({ onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: C.card, position: 'sticky', top: 0 }}>
           <button onClick={onClose} style={{ color: C.text, fontSize: 22, fontWeight: 300, background: 'none', border: 'none', cursor: 'pointer' }}>←</button>
           <span className="sg" style={{ fontWeight: 700, fontSize: 17, color: C.text }}>Settings</span>
-          <span style={{ fontSize: 13, color: '#00B4C8', fontWeight: 600 }}>· {currentUser.brandName}</span>
+          <span style={{ fontSize: 13, color: '#00B4C8', fontWeight: 600 }}>· {panelBrandName}</span>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 40 }}>
 
-          {currentUser.brandRemovalRequestedAt && (
+          {removalRequestedAt && !isSubBrand && (
             <div style={{ background: '#7B1818', padding: '12px 20px', borderBottom: '1px solid #a82222' }}>
               <div style={{ color: '#fff', fontSize: 13, lineHeight: 1.5, marginBottom: 8 }}>
-                ⚠️ <strong>{currentUser.brandName}</strong> is scheduled for removal in{' '}
-                <strong>{Math.max(0, Math.ceil((new Date(currentUser.brandRemovalRequestedAt).getTime() + 30 * 24 * 60 * 60 * 1000 - Date.now()) / (1000 * 60 * 60 * 24)))} days</strong>.
+                ⚠️ <strong>{panelBrandName}</strong> is scheduled for removal in{' '}
+                <strong>{Math.max(0, Math.ceil((new Date(removalRequestedAt).getTime() + 30 * 24 * 60 * 60 * 1000 - Date.now()) / (1000 * 60 * 60 * 24)))} days</strong>.
               </div>
               <button onClick={handleCancelRemoval} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 6, color: '#fff', fontSize: 12, padding: '4px 12px', cursor: 'pointer' }}>
                 Cancel removal
@@ -66,14 +85,19 @@ export default function BrandSettingsPanel({ onClose }) {
             <span style={{ color: C.muted }}>→</span>
           </button>
 
-          <button onClick={() => setShowBrandTeam(true)}
-            style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div>👥 Brand Team</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Invite or manage your brand manager</div>
-            </div>
-            <span style={{ color: C.muted }}>→</span>
-          </button>
+          {/* Brand Team and Remove Brand still work off the resident's own row,
+              so they'd act on the wrong brand here. Hidden rather than
+              half-wired until each gets its own brand id. */}
+          {!isSubBrand && (
+            <button onClick={() => setShowBrandTeam(true)}
+              style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: C.text, borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div>👥 Brand Team</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Invite or manage your brand manager</div>
+              </div>
+              <span style={{ color: C.muted }}>→</span>
+            </button>
+          )}
 
           <div style={{ padding: '16px 20px 4px', marginTop: 8, fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1 }}>BRAND WALLET</div>
 
@@ -81,7 +105,7 @@ export default function BrandSettingsPanel({ onClose }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Current balance</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#F4B942' }}>{(currentUser.brandWallet || 0).toLocaleString()} L$</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#F4B942' }}>{panelWallet.toLocaleString()} L$</div>
               </div>
 
             </div>
@@ -95,16 +119,26 @@ export default function BrandSettingsPanel({ onClose }) {
             🚪 Sign Out
           </button>
 
-          <div style={{ padding: '16px 20px 6px', marginTop: 8, fontSize: 13, color: '#ff3333', fontWeight: 800, letterSpacing: 1 }}>⚠️ DANGER ZONE !</div>
+          {!isSubBrand && (
+            <>
+              <div style={{ padding: '16px 20px 6px', marginTop: 8, fontSize: 13, color: '#ff3333', fontWeight: 800, letterSpacing: 1 }}>⚠️ DANGER ZONE !</div>
 
-          <button onClick={() => setShowRemoveBrand(true)}
-            style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff6b6b', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div>🗑️ Remove Brand Account</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Remove your brand — resident account stays safe</div>
+              <button onClick={() => setShowRemoveBrand(true)}
+                style={{ width: '100%', padding: '13px 20px', textAlign: 'left', fontSize: 14, fontWeight: 600, color: '#ff6b6b', borderBottom: `1px solid ${C.border}22`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div>🗑️ Remove Brand Account</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>Remove your brand — resident account stays safe</div>
+                </div>
+                <span style={{ color: C.muted }}>→</span>
+              </button>
+            </>
+          )}
+
+          {isSubBrand && (
+            <div style={{ padding: '16px 20px 6px', fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              Managers and removal for this brand aren't available yet — get in touch and we'll sort it.
             </div>
-            <span style={{ color: C.muted }}>→</span>
-          </button>
+          )}
 
           <div style={{ padding: '20px 20px 10px', fontSize: 11, color: C.muted, textAlign: 'center', lineHeight: 1.6 }}>
             InCynq · incynq.app<br />Not affiliated with Linden Lab or Second Life®
@@ -112,9 +146,9 @@ export default function BrandSettingsPanel({ onClose }) {
         </div>
       </div>
 
-      {showBrandEdit   && <BrandProfileEditScreen onClose={() => setShowBrandEdit(false)} />}
+      {showBrandEdit   && <BrandProfileEditScreen brandId={targetId} onClose={() => setShowBrandEdit(false)} />}
       {showBrandTeam   && <BrandTeamScreen        onClose={() => setShowBrandTeam(false)} />}
-      {showRemoveBrand && (
+      {showRemoveBrand && !isSubBrand && (
         <RemoveBrandModal
           userId={currentUser.id}
           brandName={currentUser.brandName || 'your brand'}

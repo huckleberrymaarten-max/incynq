@@ -2560,7 +2560,7 @@ export const revokeAdultVerified = async (userId) => {
 export const getOwnedBrands = async (userId) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, brand_name, brand_logo_url, brand_wallet, brand_activated_at, account_type, brand_pending, brand_removal_requested_at')
+    .select('id, username, brand_name, brand_handle, brand_description, brand_email, brand_logo_url, brand_wallet, brand_activated_at, brand_name_changed_at, account_type, performer_type, brand_pending, brand_removal_requested_at, cynqified, cynqified_brand')
     .eq('brand_owner_id', userId)
     .order('brand_activated_at', { ascending: true });
   if (error) throw error;

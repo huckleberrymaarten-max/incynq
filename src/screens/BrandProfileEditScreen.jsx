@@ -40,14 +40,26 @@ const labelStyle = {
 // Brand name cooldown: 30 days between changes
 const BRAND_NAME_COOLDOWN_DAYS = 30;
 
-export default function BrandProfileEditScreen({ onClose, onSaved }) {
+export default function BrandProfileEditScreen({ onClose, onSaved, brandId }) {
   const { currentUser, setCurrentUser, toast } = useApp();
 
-  const [brandName,        setBrandName]        = useState(currentUser.brandName        || '');
-  const [brandDescription, setBrandDescription] = useState(currentUser.brandDescription || '');
-  const [brandEmail,       setBrandEmail]       = useState(currentUser.brandEmail       || '');
+  // Which brand is being edited. Without this the screen always wrote to the
+  // resident's own row, so a second brand had no way to set its logo,
+  // description or links — and worse, editing it would have overwritten the
+  // first brand.
+  const targetId   = brandId || currentUser.id;
+  const isSubBrand = targetId !== currentUser.id;
+  const subBrand   = isSubBrand
+    ? (currentUser.ownedBrands || []).find(b => b.id === targetId)
+    : null;
+
+  const [brandName,        setBrandName]        = useState((isSubBrand ? subBrand?.brand_name        : currentUser.brandName)        || '');
+  const [brandDescription, setBrandDescription] = useState((isSubBrand ? subBrand?.brand_description : currentUser.brandDescription) || '');
+  const [brandEmail,       setBrandEmail]       = useState((isSubBrand ? subBrand?.brand_email       : currentUser.brandEmail)       || '');
   const [logoFile,         setLogoFile]         = useState(null);
-  const [logoPreview,      setLogoPreview]      = useState(currentUser.brandLogoUrl     || null);
+  const [logoPreview,      setLogoPreview]      = useState((isSubBrand ? subBrand?.brand_logo_url    : currentUser.brandLogoUrl)     || null);
+  const [nameChangedAt,    setNameChangedAt]    = useState((isSubBrand ? subBrand?.brand_name_changed_at : currentUser.brandNameChangedAt) || null);
+  const [activatedAt,      setActivatedAt]      = useState((isSubBrand ? subBrand?.brand_activated_at    : currentUser.brandActivatedAt)    || null);
   const [saving,           setSaving]           = useState(false);
   const [error,            setError]            = useState('');
   const fileRef = useRef(null);
@@ -69,10 +81,19 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('brand_slurl, brand_marketplace_url, website_url, website_pending, website_status, website_reject_reason')
-          .eq('id', currentUser.id)
+          .select('brand_name, brand_description, brand_email, brand_logo_url, brand_name_changed_at, brand_activated_at, brand_slurl, brand_marketplace_url, website_url, website_pending, website_status, website_reject_reason')
+          .eq('id', targetId)
           .single();
         if (!alive || !data) return;
+        // The row is the source of truth, not whatever was cached in state —
+        // which matters most for a second brand, where the cached copy is a
+        // thin summary rather than the whole profile.
+        setBrandName(data.brand_name || '');
+        setBrandDescription(data.brand_description || '');
+        setBrandEmail(data.brand_email || '');
+        setLogoPreview(prev => prev || data.brand_logo_url || null);
+        setNameChangedAt(data.brand_name_changed_at || null);
+        setActivatedAt(data.brand_activated_at || null);
         setSlurl(data.brand_slurl || '');
         setMarketplace(data.brand_marketplace_url || '');
         setWebsite(data.website_pending || data.website_url || '');
@@ -89,13 +110,13 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
       }
     })();
     return () => { alive = false; };
-  }, [currentUser.id]);
+  }, [targetId]);
 
   // Check brand name cooldown
-  const lastNameChange = currentUser.brandNameChangedAt
-    ? new Date(currentUser.brandNameChangedAt)
-    : currentUser.brandActivatedAt
-      ? new Date(currentUser.brandActivatedAt)
+  const lastNameChange = nameChangedAt
+    ? new Date(nameChangedAt)
+    : activatedAt
+      ? new Date(activatedAt)
       : null;
 
   const cooldownEnds = lastNameChange
@@ -107,7 +128,8 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
     ? Math.ceil((cooldownEnds - Date.now()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const nameChanged = brandName.trim() !== (currentUser.brandName || '').trim();
+  const originalName = (isSubBrand ? subBrand?.brand_name : currentUser.brandName) || '';
+  const nameChanged  = brandName.trim() !== originalName.trim();
 
   const handleLogo = (e) => {
     const file = e.target.files[0];
@@ -127,14 +149,14 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
     setError('');
 
     try {
-      let logoUrl = currentUser.brandLogoUrl;
+      let logoUrl = logoPreview && !logoFile ? logoPreview : (isSubBrand ? subBrand?.brand_logo_url : currentUser.brandLogoUrl);
 
       if (logoFile) {
-        // Third argument names the brand the file belongs to. Logos used to
-        // share one filename per resident, so a second brand's upload replaced
-        // the first one's image in place — this screen is where you'd put the
-        // original back, and it needs to land on a path of its own.
-        logoUrl = await uploadBrandLogo(currentUser.id, logoFile, currentUser.id);
+        // First argument stays the OWNER so the storage folder doesn't change
+        // and any path-based policy still applies. The third names the brand,
+        // which is what stops a second brand's logo landing on top of the
+        // first one's — the thing that lost SLCompare's original image.
+        logoUrl = await uploadBrandLogo(currentUser.id, logoFile, targetId);
       }
 
       const updates = {
@@ -152,7 +174,7 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
       const { error: updateError } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', currentUser.id);
+        .eq('id', targetId);
 
       if (updateError) throw updateError;
 
@@ -160,7 +182,7 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
       // decides whether the website needs reviewing. Doing it in SQL means a
       // crafted request can't slip a link past the checks.
       const { data: linkResult, error: linkError } = await supabase.rpc('set_brand_links', {
-        p_brand_id:        currentUser.id,
+        p_brand_id:        targetId,
         p_slurl:           slurl.trim()       || null,
         p_marketplace_url: marketplace.trim() || null,
         p_website:         website.trim()     || null,
@@ -180,15 +202,32 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
         reason:   null,
       });
 
-      // Update local state
-      setCurrentUser(u => ({
-        ...u,
-        brandName:        brandName.trim(),
-        brandDescription: brandDescription.trim(),
-        brandEmail:       brandEmail.trim() || null,
-        brandLogoUrl:     logoUrl,
-        ...(nameChanged ? { brandNameChangedAt: new Date().toISOString() } : {}),
-      }));
+      // Update local state. A second brand lives in ownedBrands — and, once
+      // it's been switched into, also in managedBrands — so both copies have
+      // to move or the switcher and profile keep showing the old values.
+      if (isSubBrand) {
+        const patch = {
+          brand_name:        brandName.trim(),
+          brand_description: brandDescription.trim(),
+          brand_email:       brandEmail.trim() || null,
+          brand_logo_url:    logoUrl,
+          ...(nameChanged ? { brand_name_changed_at: new Date().toISOString() } : {}),
+        };
+        setCurrentUser(u => ({
+          ...u,
+          ownedBrands:   (u.ownedBrands   || []).map(b => b.id === targetId ? { ...b, ...patch } : b),
+          managedBrands: (u.managedBrands || []).map(b => b.id === targetId ? { ...b, ...patch } : b),
+        }));
+      } else {
+        setCurrentUser(u => ({
+          ...u,
+          brandName:        brandName.trim(),
+          brandDescription: brandDescription.trim(),
+          brandEmail:       brandEmail.trim() || null,
+          brandLogoUrl:     logoUrl,
+          ...(nameChanged ? { brandNameChangedAt: new Date().toISOString() } : {}),
+        }));
+      }
 
       toast('Brand profile updated ✓');
       onSaved?.();
@@ -226,7 +265,7 @@ export default function BrandProfileEditScreen({ onClose, onSaved }) {
         }}>
           <div>
             <div style={{ color: B.text, fontWeight: 700, fontSize: 16 }}>Edit Brand Profile</div>
-            <div style={{ color: B.muted, fontSize: 12, marginTop: 2 }}>{currentUser.brandName}</div>
+            <div style={{ color: B.muted, fontSize: 12, marginTop: 2 }}>{brandName || originalName}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: B.muted, fontSize: 20, cursor: 'pointer', padding: '4px 8px' }}>✕</button>
         </div>

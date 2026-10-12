@@ -9,18 +9,30 @@ import BrandSettingsPanel from '../components/BrandSettingsPanel';
 export default function BrandProfileView({ onOpenUserProfile }) {
   const { currentUser, setCurrentUser } = useApp();
 
-  // If managing another brand, show that brand's info
-  const activeBrand = currentUser.managingBrandId
-    ? (currentUser.managedBrands || []).find(b => b.id === currentUser.managingBrandId)
+  // Two different things arrive here wearing the same hat. A brand you OWN
+  // outright — your second brand onwards, which is a profiles row of its own —
+  // and a brand belonging to someone else that you MANAGE. Both ride
+  // managingBrandId because they behave identically once you're inside them,
+  // but only the owner gets to edit, and only a manager can resign.
+  const actingBrandId = currentUser.managingBrandId || null;
+  const activeBrand   = actingBrandId
+    ? [...(currentUser.managedBrands || []), ...(currentUser.ownedBrands || [])].find(b => b.id === actingBrandId)
     : null;
+  const isOwnedBrand  = !!actingBrandId && (currentUser.ownedBrands || []).some(b => b.id === actingBrandId);
+  const isManager     = !!actingBrandId && !isOwnedBrand;
 
-  const brandName        = activeBrand?.brand_name        || currentUser.brandName;
-  const brandHandle      = activeBrand?.brand_handle      || currentUser.brand_handle;
-  const brandLogoUrl     = activeBrand?.brand_logo_url    || currentUser.brandLogoUrl;
-  const brandDescription = activeBrand?.brand_description || currentUser.brandDescription;
-  const brandWallet      = activeBrand?.brand_wallet      ?? currentUser.brandWallet ?? 0;
-  const brandActivatedAt = currentUser.brandActivatedAt;
-  const isManager        = !!currentUser.managingBrandId;
+  // When acting as another brand, read ONLY from that brand. Falling back to
+  // currentUser here is what put SLCompare's description and join date on a
+  // second brand's profile — a missing column read as "use your own".
+  const brandName        = activeBrand ? (activeBrand.brand_name || activeBrand.username) : currentUser.brandName;
+  const brandHandle      = activeBrand ? activeBrand.brand_handle       : currentUser.brand_handle;
+  const brandLogoUrl     = activeBrand ? activeBrand.brand_logo_url     : currentUser.brandLogoUrl;
+  const brandDescription = activeBrand ? activeBrand.brand_description  : currentUser.brandDescription;
+  const brandWallet      = activeBrand ? (activeBrand.brand_wallet ?? 0) : (currentUser.brandWallet ?? 0);
+  const brandActivatedAt = activeBrand ? activeBrand.brand_activated_at : currentUser.brandActivatedAt;
+  const brandCynqified   = activeBrand
+    ? (activeBrand.cynqified_brand ?? activeBrand.cynqified ?? false)
+    : (currentUser.cynqified_brand ?? currentUser.cynqified ?? false);
 
   const [stats,         setStats]         = useState({ posts: 0, followers: 0 });
   const [statsLoading,  setStatsLoading]  = useState(true);
@@ -33,7 +45,8 @@ export default function BrandProfileView({ onOpenUserProfile }) {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const s = await getProfileStats(currentUser.id);
+        // Stats belong to whichever brand is on screen, not to the resident.
+        const s = await getProfileStats(actingBrandId || currentUser.id);
         setStats({ posts: s.posts || 0, followers: s.followers || 0 });
       } catch (e) {
         console.warn('Brand stats failed:', e.message);
@@ -42,9 +55,11 @@ export default function BrandProfileView({ onOpenUserProfile }) {
       }
     };
     loadStats();
-  }, [currentUser.id]);
+  }, [currentUser.id, actingBrandId]);
 
-  const isFoundingBrand = currentUser.accountType === 'brand' && isManager ? null : currentUser.foundingBrandNumber;
+  // The founding-brand number belongs to the resident's own brand. A second
+  // brand or a managed one never inherits it.
+  const isFoundingBrand = activeBrand ? null : currentUser.foundingBrandNumber;
 
   return (
     <div>
@@ -101,12 +116,12 @@ export default function BrandProfileView({ onOpenUserProfile }) {
                 fontWeight: 700,
                 color: C.gold,
               }}>
-                {getFoundingBrandBadge(isManager ? null : currentUser.foundingBrandNumber)}
+                {getFoundingBrandBadge(currentUser.foundingBrandNumber)}
               </div>
             )}
 
             {/* Cynqified Badge */}
-            {(currentUser?.cynqified_brand ?? currentUser?.cynqified) && (
+            {brandCynqified && (
               <div style={{
                 marginTop: 6,
                 display: 'inline-flex',
@@ -243,11 +258,22 @@ export default function BrandProfileView({ onOpenUserProfile }) {
         <TopUpModal
           currentUser={{ ...currentUser, wallet: brandWallet }}
           onClose={() => setShowTopUp(false)}
-          onWalletUpdated={(newBalance) => setCurrentUser(u => ({ ...u, brandWallet: newBalance }))}
+          onWalletUpdated={(newBalance) => setCurrentUser(u => (
+            // A top-up has to land on the brand that's actually on screen.
+            // Writing brandWallet unconditionally credited the resident's own
+            // brand no matter which one they were acting as.
+            actingBrandId
+              ? {
+                  ...u,
+                  managedBrands: (u.managedBrands || []).map(b => b.id === actingBrandId ? { ...b, brand_wallet: newBalance } : b),
+                  ownedBrands:   (u.ownedBrands   || []).map(b => b.id === actingBrandId ? { ...b, brand_wallet: newBalance } : b),
+                }
+              : { ...u, brandWallet: newBalance }
+          ))}
         />
       )}
       {showDashboard && <DashboardScreen onClose={() => setShowDashboard(false)} />}
-      {showSettings  && <BrandSettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings  && <BrandSettingsPanel brandId={actingBrandId || currentUser.id} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
